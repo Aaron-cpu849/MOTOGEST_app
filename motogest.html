@@ -223,7 +223,11 @@ const DB={
   pg:    S.get('mg_pg')||[],
   mhist: S.get('mg_mhist')||[],
 };
-function sv(k){S.set('mg_'+k,DB[k])}
+function sv(k){
+  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist'};
+  const prop=map[k]||k;
+  S.set('mg_'+k,DB[prop]);
+}
 
 // Migração automática de dados do catálogo atualizado (10/03/2026) — roda apenas uma vez
 if(!localStorage.getItem('mg_mig_20260310')){
