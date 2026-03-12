@@ -224,7 +224,8 @@ const DB={
 };
 function sv(k){S.set('mg_'+k,DB[k])}
 
-// Migração automática de dados do catálogo atualizado (10/03/2026)
+// Migração automática de dados do catálogo atualizado (10/03/2026) — roda apenas uma vez
+if(!localStorage.getItem('mg_mig_20260310')){
 (function migrate(){
   const updates = {
     'TGX3C19':{nome:'LEANDRO DAMASCENO MORAIS'},
@@ -264,28 +265,26 @@ function sv(k){S.set('mg_'+k,DB[k])}
   // Pagamentos 28/02/2026: val, dia, odo
   const payUpd={"TGX6A02":{val:467,odo:41226,dia:"SEG"},"TGX3F33":{val:393,odo:27934,dia:"SEG"},"TMP8H67":{val:487,odo:4306,dia:"SEG"},"THD2I06":{val:393,odo:20000,dia:"SEG"},"THE8G47":{val:467,odo:20571,dia:"SEG"},"TMM5A99":{val:487,odo:8610,dia:"SEG"},"TMM4B46":{val:487,odo:2000,dia:"SEG"},"TMM0H72":{val:487,odo:2000,dia:"SEG"},"TMM1J88":{val:487,odo:7080,dia:"SEG"},"TMM5H73":{val:487,odo:6978,dia:"TER"},"TGX6H83":{val:393,odo:42941,dia:"TER"},"TGX9H81":{val:363,odo:38129,dia:"TER"},"TGX7I76":{val:393,odo:32443,dia:"TER"},"TGX3B41":{val:467,odo:31210,dia:"TER"},"TGX5A82":{val:377,odo:27490,dia:"TER"},"TML4J64":{val:377,odo:7375,dia:"TER"},"THE7E32":{val:393,odo:23617,dia:"TER"},"TML8A86":{dia:"TER"},"TMM2H99":{odo:9714,dia:"TER"},"TGX1A75":{val:377,odo:31788,dia:"TER"},"TMM9I91":{val:377,dia:"TER"},"TMM5F42":{val:487,dia:"TER"},"TMP9A31":{val:487,odo:3744,dia:"TER"},"TMP7D19":{val:487,odo:3260,dia:"TER",nome:"ADRIANO DOS SANTOS SILVA"},"TGX7J09":{val:363,odo:27094,dia:"QUA"},"TGX2B17":{val:377,odo:17593,dia:"QUA"},"THD7I10":{val:467,odo:24339,dia:"QUA"},"THD3H74":{val:467,odo:31650,dia:"QUA"},"THF5E73":{val:467,odo:23105,dia:"QUA"},"TMM6E40":{nome:"ALEX SANTOS XAVIER",val:500.38,dia:"SEG"},"TMM9F38":{val:487,odo:20256,dia:"QUA"},"TMM3J66":{val:487,odo:9893,dia:"QUA"},"TMM7A19":{val:487,odo:8472,dia:"QUA"},"TMM6D65":{val:487,odo:9627,dia:"QUA"},"TMM9E48":{val:487,odo:9651,dia:"QUA"},"TMM1G77":{val:487,odo:5295,dia:"QUA"},"TGX2I54":{val:377,odo:29191,dia:"QUA"},"TMP4F88":{val:487,odo:3114,dia:"QUA"},"TMM9F10":{val:487,dia:"QUA"},"TGX1J34":{val:377,odo:38742,dia:"QUI"},"TGX7B27":{val:393,odo:28764,dia:"QUI"},"TGX7C64":{val:467,odo:42708,dia:"QUI"},"TGX9J12":{val:363,dia:"QUI"},"TGX8A08":{val:393,odo:34261,dia:"QUI"},"TGX8F89":{val:393,odo:20555,dia:"QUI"},"TMK2G25":{val:393,odo:12971,dia:"QUI"},"TMM8H70":{val:487,odo:7268,dia:"QUI"},"TMM4A61":{val:487,odo:8262,dia:"QUI"},"TGX7C86":{val:377,odo:24850,dia:"QUI"},"THD6E18":{val:377,odo:23283,dia:"QUI"},"TGX4C94":{val:393,odo:50022,dia:"SEX"},"TGX3D66":{val:363,odo:29420,dia:"SEX"},"TGX6I09":{val:377,odo:21083,dia:"SEX"},"TGX8D81":{val:377,odo:23054,dia:"SEX"},"TGZ2E99":{val:377,odo:21653,dia:"SEX"},"TGX6E61":{val:393,odo:45713,dia:"SEX"},"THG0B42":{val:377,odo:21899,dia:"SEX"},"THH7A33":{val:487,odo:24279,dia:"SEX"},"TGX8A63":{odo:38122,dia:"SAB"},"TGX2H49":{odo:40510,dia:"SAB"},"TGX2G39":{odo:17430,dia:"SAB"},"TGX5H31":{odo:20588,dia:"SAB"},"TMM4J01":{odo:5173,dia:"SAB"},"TGX3C19":{val:377,odo:24435,dia:"SAB",nome:"LEANDRO DAMASCENO MORAIS"},"TGX6B84":{val:377,odo:43316,dia:"SAB",nome:"LUIS FERNANDO BOMFIM DOS SANTOS"},"TMP4F91":{dia:"SAB"},"TGX7J29":{odo:39610,dia:"DOM"},"TGX0J77":{odo:32738,dia:"DOM"},"TMM0A57":{odo:5864,dia:"DOM"},"TMM5G18":{odo:10551,dia:"DOM"}};
   DB.motos.forEach(m=>{const u=payUpd[m.placa];if(!u)return;if(u.nome!==undefined&&m.nome!==u.nome){m.nome=u.nome;changed=true;}if(u.val!==undefined&&m.val!==u.val){m.val=u.val;changed=true;}if(u.dia!==undefined&&m.dia!==u.dia){m.dia=u.dia;changed=true;}if(u.odo!==undefined&&u.odo>m.odo){m.odo=u.odo;changed=true;}});
-  if(changed){ sv('m'); console.log('Migracoes 10/03/2026 aplicadas'); }
+  sv('m');localStorage.setItem('mg_mig_20260310','1');
+  console.log('Migracoes 10/03/2026 aplicadas');
 })();
-// Migração odômetros 11/03/2026
-(()=>{
-  const upd={'TGX0J77':32932, 'TGX1A75':31626, 'TGX1F22':23881, 'TGX1J34':37742, 'TGX2G39':18324, 'TGX3C19':24289, 'TGX3D66':28420, 'TGX3F33':26934, 'TGX4C94':50126, 'TGX5A82':27364, 'TGX6A02':40345, 'TGX6B84':43407, 'TGX6E61':47368, 'TGX6H83':42795, 'TGX7B27':29133, 'TGX7C64':44073, 'TGX7I01':38818, 'TGX7I03':29862, 'TGX7I76':32555, 'TGX7J29':40355, 'TGX8D81':23944, 'TGX8F89':19555, 'TGX9J12':33308, 'TGZ2E99':21776, 'THD6E18':22931, 'THD7I10':23339, 'THE8G47':20463, 'THF5E73':23104, 'THG0B42':22105, 'THG0C35':10000, 'THH7A33':24624, 'TMK2G25':13808, 'TMM0E41':2644, 'TMM0H64':7012, 'TMM1D90':2088, 'TMM1D91':5808, 'TMM2A80':7864, 'TMM2H99':8714, 'TMM4A61':7262, 'TMM5G18':10923, 'TMM5H73':6880, 'TMM6D65':12571, 'TMM7A19':7472, 'TMM8H70':7467, 'TMM9E48':9595, 'TMM9F10':1061, 'TMM9F38':20536, 'TMP7D19':4253, 'TMP8H67':3299};
-  let changed=false;
-  DB.motos.forEach(m=>{
-    const km=upd[m.placa];
-    if(km!==undefined && km>m.odo){m.odo=km;changed=true;}
-  });
-  if(changed){sv('m');console.log('Odometros 11/03/2026 atualizados');}
-})();
-// Migração loilKm (trocas de óleo) 11/03/2026
-(()=>{
-  const upd={'TMM0E41':2644, 'TMM0H64':7012, 'TMM1D90':2088, 'TMM1D91':5808, 'TMM2A80':7864, 'TMM2H99':8714, 'TMM4A61':7262, 'TMM5G18':10923, 'TMM5H73':6880, 'TMM6D65':12571, 'TMM7A19':7472, 'TMM8H70':7467, 'TMM9F10':1061, 'TMM9F38':20536, 'TMM9E48':9595, 'TMK2G25':13808, 'TMP7D19':2260, 'TMP8H67':2306, 'TGX0J77':32932, 'TGX1A75':31626, 'TGX1F22':23881, 'TGX1J34':37742, 'TGX2G39':18324, 'TGX3D66':28420, 'TGX3F33':26146, 'TGX4C94':50126, 'TGX5A82':27364, 'TGX6A02':40345, 'TGX6B84':43407, 'TGX6E61':47368, 'TGX6H83':41941, 'TGX7B27':29133, 'TGX7C64':44073, 'TGX7I01':38818, 'TGX7I03':29862, 'TGX7I76':32555, 'TGX7J29':40355, 'TGX8D81':23944, 'TGX8F89':19555, 'TGX9J12':33308, 'TGZ2E99':21776, 'THD6E18':22931, 'THD7I10':23339, 'THE8G47':20463, 'THF5E73':23104, 'THG0B42':22105, 'THG0C35':10000, 'THH7A33':23279, 'TGX3C19':24289, 'TMM4F31':4775, 'TGX9H81':37129, 'TMM0A57':4864, 'TMP4F88':2114, 'TML4J64':6375, 'TMM1G77':4295, 'TGX7J09':26094};
-  let changed=false;
-  DB.motos.forEach(m=>{
-    const km=upd[m.placa];
-    if(km!==undefined){m.loilKm=km;changed=true;}
-  });
-  if(changed){sv('m');console.log('loilKm 11/03/2026 atualizados');}
-})();
+}
+// Migração odômetros 11/03/2026 — roda apenas uma vez
+if(!localStorage.getItem('mg_mig_odo_20260311')){
+  (()=>{
+    const upd={'TGX0J77':32932, 'TGX1A75':31626, 'TGX1F22':23881, 'TGX1J34':37742, 'TGX2G39':18324, 'TGX3C19':24289, 'TGX3D66':28420, 'TGX3F33':26934, 'TGX4C94':50126, 'TGX5A82':27364, 'TGX6A02':40345, 'TGX6B84':43407, 'TGX6E61':47368, 'TGX6H83':42795, 'TGX7B27':29133, 'TGX7C64':44073, 'TGX7I01':38818, 'TGX7I03':29862, 'TGX7I76':32555, 'TGX7J29':40355, 'TGX8D81':23944, 'TGX8F89':19555, 'TGX9J12':33308, 'TGZ2E99':21776, 'THD6E18':22931, 'THD7I10':23339, 'THE8G47':20463, 'THF5E73':23104, 'THG0B42':22105, 'THG0C35':10000, 'THH7A33':24624, 'TMK2G25':13808, 'TMM0E41':2644, 'TMM0H64':7012, 'TMM1D90':2088, 'TMM1D91':5808, 'TMM2A80':7864, 'TMM2H99':8714, 'TMM4A61':7262, 'TMM5G18':10923, 'TMM5H73':6880, 'TMM6D65':12571, 'TMM7A19':7472, 'TMM8H70':7467, 'TMM9E48':9595, 'TMM9F10':1061, 'TMM9F38':20536, 'TMP7D19':4253, 'TMP8H67':3299};
+    DB.motos.forEach(m=>{const km=upd[m.placa];if(km!==undefined && km>m.odo)m.odo=km;});
+    sv('m');localStorage.setItem('mg_mig_odo_20260311','1');
+  })();
+}
+// Migração loilKm (trocas de óleo) 11/03/2026 — roda apenas uma vez
+if(!localStorage.getItem('mg_mig_oil_20260311')){
+  (()=>{
+    const upd={'TMM0E41':2644, 'TMM0H64':7012, 'TMM1D90':2088, 'TMM1D91':5808, 'TMM2A80':7864, 'TMM2H99':8714, 'TMM4A61':7262, 'TMM5G18':10923, 'TMM5H73':6880, 'TMM6D65':12571, 'TMM7A19':7472, 'TMM8H70':7467, 'TMM9F10':1061, 'TMM9F38':20536, 'TMM9E48':9595, 'TMK2G25':13808, 'TMP7D19':2260, 'TMP8H67':2306, 'TGX0J77':32932, 'TGX1A75':31626, 'TGX1F22':23881, 'TGX1J34':37742, 'TGX2G39':18324, 'TGX3D66':28420, 'TGX3F33':26146, 'TGX4C94':50126, 'TGX5A82':27364, 'TGX6A02':40345, 'TGX6B84':43407, 'TGX6E61':47368, 'TGX6H83':41941, 'TGX7B27':29133, 'TGX7C64':44073, 'TGX7I01':38818, 'TGX7I03':29862, 'TGX7I76':32555, 'TGX7J29':40355, 'TGX8D81':23944, 'TGX8F89':19555, 'TGX9J12':33308, 'TGZ2E99':21776, 'THD6E18':22931, 'THD7I10':23339, 'THE8G47':20463, 'THF5E73':23104, 'THG0B42':22105, 'THG0C35':10000, 'THH7A33':23279, 'TGX3C19':24289, 'TMM4F31':4775, 'TGX9H81':37129, 'TMM0A57':4864, 'TMP4F88':2114, 'TML4J64':6375, 'TMM1G77':4295, 'TGX7J09':26094};
+    DB.motos.forEach(m=>{const km=upd[m.placa];if(km!==undefined)m.loilKm=km;});
+    sv('m');localStorage.setItem('mg_mig_oil_20260311','1');
+  })();
+}
 
 function uid(){return Date.now()+'_'+Math.random().toString(36).slice(2,6)}
 function tod(){return new Date().toISOString().split('T')[0]}
