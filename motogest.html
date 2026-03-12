@@ -67,6 +67,7 @@ label{display:block;font-size:11px;color:var(--sub);margin-bottom:3px;font-weigh
 <div id="topbar">
   <h1>🏍️ MotoGest</h1>
   <button id="pwaBtn" onclick="installPWA()" style="display:none;align-items:center;gap:6px;background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-left:auto;margin-right:12px">⬇️ Instalar App</button>
+  <button id="saveBtn" onclick="saveAll()" style="display:flex;align-items:center;gap:6px;background:#22c55e;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-left:auto;margin-right:8px">💾 Salvar</button>
   <div id="tabs"><button class="tab active" onclick="go(&#39;dash&#39;)">📊 Dashboard</button><button class="tab" onclick="go(&#39;odo&#39;)">📏 Odômetro</button><button class="tab" onclick="go(&#39;mnt&#39;)">🔧 Manutenção</button><button class="tab" onclick="go(&#39;seg&#39;)">🛡️ Seguros</button><button class="tab" onclick="go(&#39;mul&#39;)">🚨 Multas</button><button class="tab" onclick="go(&#39;est&#39;)">📦 Estoque</button><button class="tab" onclick="go(&#39;os&#39;)">🔩 OS</button><button class="tab" onclick="go(&#39;pag&#39;)">💰 Pagamentos</button><button class="tab" onclick="go(&#39;rel&#39;)">📈 Relatórios</button><button class="tab" onclick="go(&#39;mts&#39;)">🏍️ Motos</button><button class="tab" onclick="go(&#39;ind&#39;)">⚠️ Inadimplência</button></div>
 </div>
 <div id="content"><div class="g4" style="margin-bottom:12px">
@@ -1453,6 +1454,15 @@ function gpsC(e){return e==='Conectado'?'var(--grn)':e==='Desconectado'?'var(--r
 function gpsI(e){return e==='Conectado'?'🟢':e==='Desconectado'?'🔴':'🟡'}
 
 // ── Start ────────────────────────────────────────────────────────────────────
+function saveAll(){
+  ['m','l','s','mu','e','mv','os','pg','mhist'].forEach(k=>sv(k));
+  const btn=document.getElementById('saveBtn');
+  if(btn){
+    btn.textContent='✅ Salvo!';
+    btn.style.background='#16a34a';
+    setTimeout(()=>{btn.textContent='💾 Salvar';btn.style.background='#22c55e';},2000);
+  }
+}
 render();
 
 // ── PWA Install ──────────────────────────────────────────────────────────────
