@@ -61,13 +61,35 @@ label{display:block;font-size:11px;color:var(--sub);margin-bottom:3px;font-weigh
 .bx{background:var(--sur);color:var(--sub);border:1px solid var(--bor)}
 .bs{padding:5px 10px;font-size:12px}
 .bxs{padding:3px 7px;font-size:11px;border-radius:5px}
+/* ── Login Screen ── */
+#loginScreen{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center}
+#loginBox{background:var(--card);border:1px solid var(--bor);border-radius:16px;padding:36px 32px;width:100%;max-width:360px;text-align:center}
+#loginBox h2{color:var(--acc);font-size:22px;margin-bottom:6px}
+#loginBox p{color:var(--sub);font-size:13px;margin-bottom:24px}
+#loginBox input{margin-bottom:14px;font-size:15px;text-align:center;letter-spacing:2px}
+#loginBox input.error{border-color:var(--red)!important}
+#loginError{color:var(--red);font-size:12px;margin-bottom:10px;min-height:16px}
+#loginBtn{width:100%;background:var(--acc);color:#000;font-size:14px;font-weight:700;padding:11px;border-radius:8px;border:none;cursor:pointer}
 </style>
 </head>
 <body>
+<!-- ── Tela de Login ── -->
+<div id="loginScreen">
+  <div id="loginBox">
+    <div style="font-size:48px;margin-bottom:8px">🏍️</div>
+    <h2>MotoGest</h2>
+    <p>AMS Motos — Acesso restrito</p>
+    <input type="password" id="loginInput" placeholder="Digite a senha" onkeydown="if(event.key==='Enter')doLogin()">
+    <div id="loginError"></div>
+    <button id="loginBtn" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
 <div id="topbar">
   <h1>🏍️ MotoGest</h1>
   <button id="pwaBtn" onclick="installPWA()" style="display:none;align-items:center;gap:6px;background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-left:auto;margin-right:12px">⬇️ Instalar App</button>
   <button id="saveBtn" onclick="saveAll()" style="display:flex;align-items:center;gap:6px;background:#22c55e;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-left:auto;margin-right:8px">💾 Salvar</button>
+  <button onclick="exportBackup()" title="Exportar backup JSON" style="display:flex;align-items:center;gap:5px;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">📥 Backup</button>
+  <label title="Importar backup JSON" style="display:flex;align-items:center;gap:5px;background:#7c3aed;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:8px">📤 Restaurar<input type="file" accept=".json" onchange="importBackup(event)" style="display:none"></label>
   <div id="tabs"><button class="tab active" onclick="go(&#39;dash&#39;)">📊 Dashboard</button><button class="tab" onclick="go(&#39;odo&#39;)">📏 Odômetro</button><button class="tab" onclick="go(&#39;mnt&#39;)">🔧 Manutenção</button><button class="tab" onclick="go(&#39;seg&#39;)">🛡️ Seguros</button><button class="tab" onclick="go(&#39;mul&#39;)">🚨 Multas</button><button class="tab" onclick="go(&#39;est&#39;)">📦 Estoque</button><button class="tab" onclick="go(&#39;os&#39;)">🔩 OS</button><button class="tab" onclick="go(&#39;pag&#39;)">💰 Pagamentos</button><button class="tab" onclick="go(&#39;rel&#39;)">📈 Relatórios</button><button class="tab" onclick="go(&#39;mts&#39;)">🏍️ Motos</button><button class="tab" onclick="go(&#39;ind&#39;)">⚠️ Inadimplência</button></div>
 </div>
 <div id="content"><div class="g4" style="margin-bottom:12px">
@@ -1457,9 +1479,34 @@ const GPS={
 function gpsC(e){return e==='Conectado'?'var(--grn)':e==='Desconectado'?'var(--red)':'var(--yel)'}
 function gpsI(e){return e==='Conectado'?'🟢':e==='Desconectado'?'🔴':'🟡'}
 
+// ── Login ─────────────────────────────────────────────────────────────────────
+const PWD_HASH='41726931373039303040'; // mude aqui para alterar a senha
+function strToHex(s){return Array.from(s).map(c=>c.charCodeAt(0).toString(16).padStart(2,'0')).join('')}
+function doLogin(){
+  const v=document.getElementById('loginInput').value;
+  const inp=document.getElementById('loginInput');
+  const err=document.getElementById('loginError');
+  if(strToHex(v)===PWD_HASH){
+    document.getElementById('loginScreen').style.display='none';
+    inp.classList.remove('error');
+    err.textContent='';
+    sessionStorage.setItem('mg_auth','1');
+  } else {
+    inp.classList.add('error');
+    err.textContent='❌ Senha incorreta. Tente novamente.';
+    inp.value='';
+    inp.focus();
+  }
+}
+// Verifica se já estava autenticado nesta sessão
+if(sessionStorage.getItem('mg_auth')==='1'){
+  document.getElementById('loginScreen').style.display='none';
+}
+
 // ── Start ────────────────────────────────────────────────────────────────────
 function saveAll(){
   ['m','l','s','mu','e','mv','os','pg','mhist'].forEach(k=>sv(k));
+  exportBackup();
   const btn=document.getElementById('saveBtn');
   if(btn){
     btn.textContent='✅ Salvo!';
@@ -1467,6 +1514,62 @@ function saveAll(){
     setTimeout(()=>{btn.textContent='💾 Salvar';btn.style.background='#22c55e';},2000);
   }
 }
+
+// ── Backup para Disco ────────────────────────────────────────────────────────
+function exportBackup(){
+  const data={
+    version:1,
+    date:new Date().toLocaleString('pt-BR'),
+    motos:DB.motos,
+    leit:DB.leit,
+    seg:DB.seg,
+    multas:DB.multas,
+    est:DB.est,
+    mov:DB.mov,
+    os:DB.os,
+    pg:DB.pg,
+    mhist:DB.mhist,
+  };
+  const json=JSON.stringify(data,null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const d=new Date();
+  const stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  a.href=url;
+  a.download='motogest_backup_'+stamp+'.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importBackup(evt){
+  const file=evt.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=JSON.parse(e.target.result);
+      if(!data.motos){alert('❌ Arquivo inválido. Selecione um backup gerado pelo MotoGest.');return;}
+      if(!confirm('⚠️ Isso vai substituir TODOS os dados atuais pelo backup.\n\nData do backup: '+data.date+'\n\nDeseja continuar?'))return;
+      if(data.motos)  {DB.motos=data.motos;  sv('m');}
+      if(data.leit)   {DB.leit=data.leit;    sv('l');}
+      if(data.seg)    {DB.seg=data.seg;      sv('s');}
+      if(data.multas) {DB.multas=data.multas;sv('mu');}
+      if(data.est)    {DB.est=data.est;      sv('e');}
+      if(data.mov)    {DB.mov=data.mov;      sv('mv');}
+      if(data.os)     {DB.os=data.os;        sv('os');}
+      if(data.pg)     {DB.pg=data.pg;        sv('pg');}
+      if(data.mhist)  {DB.mhist=data.mhist;  sv('mhist');}
+      alert('✅ Backup restaurado com sucesso!\nData: '+data.date);
+      render();
+    }catch(err){
+      alert('❌ Erro ao ler o arquivo: '+err.message);
+    }
+  };
+  reader.readAsText(file);
+  evt.target.value='';
+}
+
 render();
 
 // ── PWA Install ──────────────────────────────────────────────────────────────
