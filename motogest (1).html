@@ -313,7 +313,105 @@ if(!localStorage.getItem('mg_mig_oil_20260311')){
   })();
 }
 
-function uid(){return Date.now()+'_'+Math.random().toString(36).slice(2,6)}
+// Migração multas 07/02/2026 — roda apenas uma vez
+if(!localStorage.getItem('mg_mig_mul_20260207')){
+  (()=>{
+    const moto=DB.motos.find(m=>m.placa==='TGX8G60');
+    if(moto && !DB.multas.find(m=>m.auto==='RD00112630')){
+      DB.multas.push({
+        id:'mul_RD00112630',
+        mId:moto.id,
+        data:'2026-02-07',
+        val:195.23,
+        loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 20% ATE 50%',
+        auto:'RD00112630',
+        prazo:'',
+        st:'p'
+      });
+      sv('mu');
+    }
+    localStorage.setItem('mg_mig_mul_20260207','1');
+  })();
+}
+
+// Migração multas lote 15/03/2026 — roda apenas uma vez
+if(!localStorage.getItem('mg_mig_mul_20260315')){
+  (()=>{
+    const novas=[
+      {auto:'R007266341',placa:'TGX8G60',data:'2026-01-28',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'R007192590',placa:'TGX8G60',data:'2025-11-27',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'R007122082',placa:'TGX8G60',data:'2025-10-03',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'R007164984',placa:'TGX9J12',data:'2025-11-05',val:130.16,loc:'TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE'},
+      {auto:'R007100607',placa:'TGX9J12',data:'2025-09-16',val:130.16,loc:'TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE'},
+      {auto:'AT00031622',placa:'TGZ2E99',data:'2026-01-03',val:130.16,loc:'ESTACIONAR EM GUIA DE CALCADA REBAIXADA DESTINADA A ENTRADA/SAIDA DE VEICULOS'},
+      {auto:'F001543762',placa:'TGX7J09',data:'2026-02-13',val:130.16,loc:'TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE'},
+      {auto:'R007251198',placa:'TGX7J09',data:'2026-01-12',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'M000274061',placa:'TGX7J09',data:'2025-12-30',val:130.16,loc:'DIRIGIR O VEIC USANDO CALCADO QUE N SE FIRME NOS PES/COMPROMETA UTILIZ PEDAIS'},
+      {auto:'R007191368',placa:'TGX7J09',data:'2025-11-25',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'T482502067',placa:'TGX0J77',data:'2026-01-24',val:293.47,loc:'CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR TRANSPORTANDO PASSAGEIRO S/ CAPACETE'},
+      {auto:'R007233967',placa:'TGX0J77',data:'2025-12-28',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'R003878897',placa:'TGX0J77',data:'2025-12-05',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'R003878859',placa:'TGX0J77',data:'2025-12-04',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'R003872344',placa:'TGX0J77',data:'2025-11-30',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'DR00062654',placa:'TGX0J77',data:'2025-11-07',val:293.47,loc:'CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR TRANSPORTANDO PASSAGEIRO S/ CAPACETE'},
+      {auto:'RT00023125',placa:'TGX9B34',data:'2025-11-05',val:195.23,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 20% ATE 50%'},
+      {auto:'DR00065249',placa:'TGX2H49',data:'2025-11-05',val:130.16,loc:'CONDUZIR MOTOC/MOTON/CICLOM C/ UTIL CAPACETE DE SEG C/ VISEIRA/OCULOS PROT EM DES C/ REGUL CONTRAN'},
+      {auto:'RT00020834',placa:'TGX7C64',data:'2025-09-16',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'DR00076009',placa:'TGX5H31',data:'2026-02-28',val:130.16,loc:'CONDUZIR MOTOC/MOTON/CICLOM TRANSP PASS C/ CAPACETE DE SEGURANCA S/ VISEIRA/OCULOS DE PROTECAO'},
+      {auto:'RT00020357',placa:'TGX5H31',data:'2025-08-16',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'R007081359',placa:'TGX5H31',data:'2025-09-02',val:130.16,loc:'TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE'},
+      {auto:'R007189271',placa:'TGX6I43',data:'2025-11-26',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'E543002733',placa:'TGX8F89',data:'2026-01-21',val:1467.35,loc:'ULTRAPASSAR PELA CONTRAMAO LINHA DE DIVISAO DE FLUXOS OPOSTOS, CONTINUA AMARELA'},
+      {auto:'R003787988',placa:'TGX8F89',data:'2025-08-31',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'R007195048',placa:'TGX7D93',data:'2025-11-29',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'R007191984',placa:'TGX6E61',data:'2025-11-25',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'R007133706',placa:'TGX6E61',data:'2025-10-13',val:130.16,loc:'TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE'},
+      {auto:'DR00071196',placa:'TGX4C94',data:'2026-01-09',val:293.47,loc:'AVANCAR O SINAL VERMELHO DO SEMAFORO'},
+      {auto:'G029800421',placa:'TGX4C94',data:'2026-01-03',val:293.47,loc:'CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR TRANSPORTANDO PASSAGEIRO S/ CAPACETE'},
+      {auto:'R007233515',placa:'TGX4C94',data:'2025-12-28',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'R007227110',placa:'TGX4C94',data:'2025-12-24',val:195.23,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 20% ATE 50%'},
+      {auto:'M000284649',placa:'TGX7J29',data:'2026-02-26',val:195.23,loc:'EXECUTAR OPERACAO DE CONVERSAO A ESQUERDA EM LOCAL PROIBIDO PELA SINALIZACAO'},
+      {auto:'F001547146',placa:'TGX7J29',data:'2026-02-14',val:130.16,loc:'TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE'},
+      {auto:'F001541054',placa:'TGX7J29',data:'2026-02-12',val:293.47,loc:'TRANSITAR NA FAIXA OU VIA EXCLUSIVA REGULAM. P/ TRANSP. PUBL. COLETIVO PASSAG.'},
+      {auto:'F001542282',placa:'TGX7J29',data:'2026-02-12',val:293.47,loc:'TRANSITAR NA FAIXA OU VIA EXCLUSIVA REGULAM. P/ TRANSP. PUBL. COLETIVO PASSAG.'},
+      {auto:'T139433554',placa:'TGX7J29',data:'2026-01-14',val:195.23,loc:'ESTACIONAR EM DESACORDO COM A REGULAMENTACAO - ESTACIONAMENTO ROTATIVO'},
+      {auto:'R007247265',placa:'TGX7J29',data:'2026-01-09',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'R007224536',placa:'TGX7J29',data:'2025-12-23',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'R003902935',placa:'TGX7J29',data:'2025-12-19',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'M000270960',placa:'TGX7J29',data:'2025-12-05',val:130.16,loc:'DIRIGIR O VEIC USANDO CALCADO QUE N SE FIRME NOS PES/COMPROMETA UTILIZ PEDAIS'},
+      {auto:'M000270373',placa:'TGX7J29',data:'2025-12-02',val:880.41,loc:'TRANSITAR COM O VEICULO EM MARCAS DE CANALIZACAO'},
+      {auto:'RT00024467',placa:'TGX7J29',data:'2025-12-01',val:195.23,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 20% ATE 50%'},
+      {auto:'R007198654',placa:'TGX7J29',data:'2025-12-02',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'R007148726',placa:'TGX7J29',data:'2025-10-24',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'R007148717',placa:'TGX7J29',data:'2025-10-24',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'T396001305',placa:'TGX6A02',data:'2026-01-20',val:130.16,loc:'DIRIGIR O VEIC USANDO CALCADO QUE N SE FIRME NOS PES/COMPROMETA UTILIZ PEDAIS'},
+      {auto:'T501200425',placa:'TGX6A02',data:'2026-01-17',val:130.16,loc:'DIRIGIR O VEIC USANDO CALCADO QUE N SE FIRME NOS PES/COMPROMETA UTILIZ PEDAIS'},
+      {auto:'R007250146',placa:'TGX6A02',data:'2026-01-11',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'DR00071691',placa:'TGX6A02',data:'2026-01-10',val:130.16,loc:'CONDUZIR MOTOC/MOTON/CICLOM C/ UTIL CAPACETE DE SEG C/ VISEIRA/OCULOS PROT EM DES C/ REGUL CONTRAN'},
+      {auto:'T493703957',placa:'TGX6A02',data:'2025-11-23',val:293.47,loc:'TRANSITAR PELA CONTRAMAO DE DIRECAO EM VIA C/ SINALIZACAO DE REGUL SENTIDO UNICO'},
+      {auto:'T421512047',placa:'TGX6A02',data:'2025-09-21',val:130.16,loc:'DIRIGIR O VEIC USANDO CALCADO QUE N SE FIRME NOS PES/COMPROMETA UTILIZ PEDAIS'},
+      {auto:'M000265416',placa:'TGX7I01',data:'2025-10-30',val:130.16,loc:'ESTACIONAR EM LOCAL/HORARIO PROIBIDO ESPECIFICAMENTE PELA SINALIZACAO'},
+      {auto:'M000282227',placa:'TGX8A08',data:'2026-02-15',val:130.16,loc:'PARAR EM LOCAL/HORARIO PROIBIDOS ESPECIFICAMENTE PELA SINALIZACAO'},
+      {auto:'R007257662',placa:'TGX8A08',data:'2026-01-19',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'R007201795',placa:'TGX8A08',data:'2025-12-04',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+      {auto:'F001547106',placa:'TGX3D66',data:'2026-02-13',val:293.47,loc:'TRANSITAR NA FAIXA OU VIA EXCLUSIVA REGULAM. P/ TRANSP. PUBL. COLETIVO PASSAG.'},
+      {auto:'EZ00001566',placa:'TGX1A75',data:'2025-11-28',val:2934.70,loc:'UTILIZ VEIC DEMONST/EXIBIR MANOBRA PERIGOSA MEDIANTE ARRACADA BRUSCA'},
+      {auto:'DR00061594',placa:'TGX7A44',data:'2025-11-01',val:880.41,loc:'DIRIGIR VEICULO SEM POSSUIR CNH/PPD/ACC'},
+      {auto:'T139215805',placa:'TGX7A44',data:'2025-11-04',val:195.23,loc:'ESTACIONAR EM DESACORDO COM A REGULAMENTACAO - ESTACIONAMENTO ROTATIVO'},
+      {auto:'DR00061595',placa:'TGX7A44',data:'2025-11-01',val:880.41,loc:'PERMITIR POSSE/CONDUCAO DO VEICULO A PESSOA SEM CNH/PPD/AAC'},
+      {auto:'R007229024',placa:'TGX1F22',data:'2025-12-25',val:195.23,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 20% ATE 50%'},
+      {auto:'R007210727',placa:'TGX1F22',data:'2025-12-10',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
+    ];
+    novas.forEach(n=>{
+      if(DB.multas.find(m=>m.auto===n.auto)) return; // evita duplicata
+      const moto=DB.motos.find(m=>m.placa===n.placa);
+      DB.multas.push({id:uid(),mId:moto?moto.id:'',data:n.data,val:n.val,auto:n.auto,loc:n.loc,prazo:'',st:'p'});
+    });
+    sv('mu');
+    localStorage.setItem('mg_mig_mul_20260315','1');
+  })();
+}
+
 function tod(){return new Date().toISOString().split('T')[0]}
 function fD(d){return d?new Date(d+'T12:00').toLocaleDateString('pt-BR'):'—'}
 function fN(n){return Number(n||0).toLocaleString('pt-BR')}
@@ -755,7 +853,9 @@ function vMul(){
     const mo=DB.motos.find(x=>x.id===m.mId);
     const d=dTo(m.prazo);
     return`<tr>
-      <td>${fD(m.data)}</td><td><b>${mo?mo.placa:'?'}</b></td><td>${m.loc||'—'}</td>
+      <td>${fD(m.data)}</td><td><b>${mo?mo.placa:'?'}</b></td>
+      <td style="font-size:11px;max-width:180px">${m.loc||'—'}</td>
+      <td style="font-size:11px;color:var(--sub)">${m.auto||'—'}</td>
       <td>${fR(m.val)}</td>
       <td>${fD(m.prazo)}${d!==null&&d<=5&&m.st==='p'?' <span style="color:var(--red)">⚠️</span>':''}</td>
       <td><span class="badge" style="background:${m.st==='pg'?'var(--grnbg)':'var(--redbg)'};color:${m.st==='pg'?'var(--grn)':'var(--red)'}">${m.st==='pg'?'PAGO':'PENDENTE'}</span></td>
@@ -768,8 +868,8 @@ function vMul(){
   return`<div class="card"><div class="ch"><span class="ct">Multas</span>
     <button class="btn ba" onclick="showAMul()">+ Nova Multa</button></div>
     <div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>Data</th><th>Placa</th><th>Locatário</th><th>Valor</th><th>Prazo</th><th>Status</th><th>Ação</th></tr></thead>
-      <tbody>${rows||'<tr><td colspan="7" class="empty">Nenhuma multa registrada</td></tr>'}</tbody>
+      <thead><tr><th>Data</th><th>Placa</th><th>Descrição</th><th>Auto</th><th>Valor</th><th>Prazo</th><th>Status</th><th>Ação</th></tr></thead>
+      <tbody>${rows||'<tr><td colspan="8" class="empty">Nenhuma multa registrada</td></tr>'}</tbody>
     </table></div></div>`;
 }
 function showAMul(){
@@ -778,15 +878,16 @@ function showAMul(){
     <div class="fg"><label>Moto</label><select id="muM">${opts}</select></div>
     <div class="fr"><div class="fg"><label>Data</label><input type="date" id="muD" value="${tod()}"></div>
     <div class="fg"><label>Valor (R$)</label><input type="number" id="muV"></div></div>
-    <div class="fr"><div class="fg"><label>Locatário Responsável</label><input id="muL" placeholder="Nome"></div>
+    <div class="fr"><div class="fg"><label>Auto de Infração</label><input id="muA" placeholder="Ex: RD00112630"></div>
     <div class="fg"><label>Prazo Pagamento</label><input type="date" id="muP"></div></div>
+    <div class="fg"><label>Descrição</label><input id="muL" placeholder="Ex: Excesso de velocidade"></div>
     <div class="mact"><button class="btn bx" onclick="closeM('mMu')">Cancelar</button>
     <button class="btn ba" onclick="aMul()">Salvar</button></div>
   </div>`));
 }
 function aMul(){
   const mo=DB.motos.find(x=>x.id===document.getElementById('muM').value);
-  DB.multas.push({id:uid(),mId:document.getElementById('muM').value,data:document.getElementById('muD').value,val:Number(document.getElementById('muV').value),loc:document.getElementById('muL').value||(mo?mo.nome:''),prazo:document.getElementById('muP').value,st:'p'});
+  DB.multas.push({id:uid(),mId:document.getElementById('muM').value,data:document.getElementById('muD').value,val:Number(document.getElementById('muV').value),auto:document.getElementById('muA').value,loc:document.getElementById('muL').value||(mo?mo.nome:''),prazo:document.getElementById('muP').value,st:'p'});
   sv('multas');closeM('mMu');render();
 }
 function pMul(id){DB.multas.find(m=>m.id===id).st='pg';sv('multas');render()}
