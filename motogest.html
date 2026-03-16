@@ -313,6 +313,8 @@ if(!localStorage.getItem('mg_mig_oil_20260311')){
   })();
 }
 
+function uid(){return Date.now()+'_'+Math.random().toString(36).slice(2,6)}
+
 // Migração multas 07/02/2026 — roda apenas uma vez
 if(!localStorage.getItem('mg_mig_mul_20260207')){
   (()=>{
@@ -335,7 +337,7 @@ if(!localStorage.getItem('mg_mig_mul_20260207')){
 }
 
 // Migração multas lote 15/03/2026 — roda apenas uma vez
-if(!localStorage.getItem('mg_mig_mul_20260315')){
+if(!localStorage.getItem('mg_mig_mul_20260315b')){
   (()=>{
     const novas=[
       {auto:'R007266341',placa:'TGX8G60',data:'2026-01-28',val:130.16,loc:'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%'},
@@ -408,7 +410,7 @@ if(!localStorage.getItem('mg_mig_mul_20260315')){
       DB.multas.push({id:uid(),mId:moto?moto.id:'',data:n.data,val:n.val,auto:n.auto,loc:n.loc,prazo:'',st:'p'});
     });
     sv('mu');
-    localStorage.setItem('mg_mig_mul_20260315','1');
+    localStorage.setItem('mg_mig_mul_20260315b','1');
   })();
 }
 
