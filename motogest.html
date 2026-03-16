@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="MotoGest">
 <link rel="manifest" id="pwaManifest">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#09090f;--sur:#111118;--card:#17171f;--bor:#23232e;--acc:#f97316;--accbg:#2a1506;--grn:#22c55e;--grnbg:#052010;--red:#ef4444;--redbg:#200505;--yel:#eab308;--yelbg:#1a1500;--blu:#3b82f6;--blubg:#05102a;--txt:#f1f5f9;--sub:#94a3b8;--mut:#4b5563}
@@ -480,13 +481,14 @@ const TABS=[
   {id:'pag',label:'💰 Pagamentos'},
   {id:'rel',label:'📈 Relatórios'},
   {id:'mts',label:'🏍️ Motos'},
+  {id:'loc',label:'👥 Locatários'},
   {id:'ind',label:'⚠️ Inadimplência'},
 ];
 let TAB='dash';
 function go(t){TAB=t;render()}
 function render(){
   document.getElementById('tabs').innerHTML=TABS.map(t=>`<button class="tab${TAB===t.id?' active':''}" onclick="go('${t.id}')">${t.label}</button>`).join('');
-  const fn={dash:vDash,odo:vOdo,mnt:vMnt,seg:vSeg,mul:vMul,est:vEst,os:vOs,pag:vPag,rel:vRel,mts:vMts,ind:vInd};
+  const fn={dash:vDash,odo:vOdo,mnt:vMnt,seg:vSeg,mul:vMul,est:vEst,os:vOs,pag:vPag,rel:vRel,mts:vMts,loc:vLoc,ind:vInd};
   document.getElementById('content').innerHTML=fn[TAB]();
 }
 function closeM(id){const e=document.getElementById(id);if(e)e.remove()}
@@ -1026,7 +1028,7 @@ function vPag(){
   const ps=DB.pg.filter(p=>p.sem===ws);
   const ativ=DB.motos.filter(m=>m.on&&m.val>0);
   const tot=ativ.reduce((a,m)=>a+Number(m.val||0),0);
-  const receb=ps.reduce((a,p)=>a+(p.valor||(DB.motos.find(m=>m.id===p.mId)||{val:0}).val||0),0);
+  const receb=ps.reduce((a,p)=>a+(p.valor!==undefined&&p.valor!==null?Number(p.valor):(DB.motos.find(m=>m.id===p.mId)||{val:0}).val||0),0);
   const DIAS=['SEG','TER','QUA','QUI','SEX','SAB','DOM'];
   const DIAS_LABEL={'SEG':'Segunda-feira','TER':'Terça-feira','QUA':'Quarta-feira','QUI':'Quinta-feira','SEX':'Sexta-feira','SAB':'Sábado','DOM':'Domingo'};
   // motos sem dia definido
@@ -1143,9 +1145,16 @@ function savePg(mId,sem){
 function calcSaldo(mId){
   const m=DB.motos.find(x=>x.id===mId);if(!m||!m.val)return 0;
   const pgs=DB.pg.filter(p=>p.mId===mId);
-  const totalPago=pgs.reduce((a,p)=>a+(p.valor||m.val),0);
-  const semanas=pgs.length;
-  return Math.max(0,(semanas*m.val)-totalPago);
+  if(!pgs.length)return 0;
+  // Conta semanas desde o primeiro pagamento registrado até hoje
+  const primeiraData=pgs.map(p=>p.sem||p.data).sort()[0];
+  if(!primeiraData)return 0;
+  const inicio=new Date(primeiraData+'T12:00');
+  const agora=new Date();
+  const semanasDecorridas=Math.ceil((agora-inicio)/(7*24*3600*1000));
+  const totalDevido=Math.max(pgs.length,semanasDecorridas)*m.val;
+  const totalPago=pgs.reduce((a,p)=>a+(p.valor!==undefined&&p.valor!==null?Number(p.valor):m.val),0);
+  return Math.max(0,totalDevido-totalPago);
 }
 
 // ── Importar Extrato ──────────────────────────────────────────────────────────
@@ -1467,15 +1476,19 @@ function vMts(){
     const g=GPS[m.placa];
     const gc=g?gpsC(g.e):'var(--mut)';
     const gi=g?gpsI(g.e):'⚫';
+    const temCrlv=m.chassi||m.renavam||m.modelo;
     return`<tr style="${!m.on?'opacity:.5':''}">
-    <td><b>${m.placa}</b></td>
-    <td>${m.nome||'<span style="color:var(--mut)">—</span>'}</td>
-    <td>${m.dia||'—'}</td><td>${m.val?fR(m.val):'—'}</td>
+    <td><b>${m.placa}</b>${temCrlv?'<br><span style="font-size:10px;color:var(--grn)">✓ CRLV</span>':''}</td>
+    <td>${m.nome||'<span style="color:var(--mut)">Disponível</span>'}</td>
+    <td style="font-size:11px;color:var(--sub)">${m.modelo||'—'}<br>${m.anoFab?m.anoFab+'/'+m.anoMod:''}</td>
+    <td style="font-size:11px">${m.chassi||'—'}</td>
+    <td style="font-size:11px">${m.renavam||'—'}</td>
+    <td style="font-size:11px">${m.validLic?`<span style="color:${new Date(m.validLic.split('/').reverse().join('-'))>new Date()?'var(--grn)':'var(--red)'}">${m.validLic}</span>`:'—'}</td>
     <td>${fN(m.odo)} km</td>
     <td><span class="badge" style="background:${m.on?'var(--grnbg)':'var(--redbg)'};color:${m.on?'var(--grn)':'var(--red)'}">${m.on?'ATIVO':'INATIVO'}</span></td>
-    <td><span style="color:${gc};font-size:12px" title="${g?g.e+' – '+g.u+(g.end?' – '+g.end:''): 'Sem dados'}">${gi} ${g?g.e:'—'}</span>${g&&g.end?`<br><span style="font-size:10px;color:var(--mut)">${g.end.split(',').slice(0,2).join(',')}</span>`:''}</td>
     <td class="row" style="gap:4px">
       <button class="btn bx bxs" onclick="editM('${m.id}')">✏️</button>
+      <label class="btn bx bxs" title="Importar CRLV-e (PDF)" style="cursor:pointer">📄 CRLV<input type="file" accept=".pdf" style="display:none" onchange="parseCrlv(this.files[0],'${m.id}');this.value=''"></label>
       <button class="btn bx bxs" onclick="togM('${m.id}')">${m.on?'Inativar':'Ativar'}</button>
     </td>
   </tr>`;
@@ -1487,7 +1500,7 @@ function vMts(){
       <button class="btn ba" onclick="showAM()">+ Nova Moto</button>
     </div></div>
     <div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>Placa</th><th>Locatário</th><th>Dia Pag.</th><th>Valor Plano</th><th>Odômetro</th><th>Status</th><th>GPS / Localização</th><th>Ações</th></tr></thead>
+      <thead><tr><th>Placa</th><th>Locatário</th><th>Modelo/Ano</th><th>Chassi</th><th>Renavam</th><th>Val. Licenc.</th><th>Odômetro</th><th>Status</th><th>Ações</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div></div>`;
 }
@@ -1535,6 +1548,97 @@ function svM(id){
   sv('m');closeM('mEM');render();
 }
 function togM(id){const m=DB.motos.find(x=>x.id===id);m.on=!m.on;sv('m');render()}
+
+// ── Locatários ────────────────────────────────────────────────────────────────
+let locBusca='';
+function vLoc(){
+  const ativos=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim()!=='');
+  const hoje=wS(tod());
+  const lista=locBusca?ativos.filter(m=>m.nome.toUpperCase().includes(locBusca.toUpperCase())||m.placa.includes(locBusca.toUpperCase())):ativos;
+  const rows=lista.map(m=>{
+    const pgs=DB.pg.filter(p=>p.mId===m.id);
+    const pgHoje=pgs.find(p=>p.sem===hoje);
+    const totalPago=pgs.reduce((a,p)=>a+(p.valor!==undefined&&p.valor!==null?Number(p.valor):m.val),0);
+    const saldo=calcSaldo(m.id);
+    const status=saldo>0?'DEVEDOR':pgHoje?'EM DIA':'PENDENTE';
+    const statusColor=saldo>0?'var(--red)':pgHoje?'var(--grn)':'var(--acc)';
+    const statusBg=saldo>0?'var(--redbg)':pgHoje?'var(--grnbg)':'var(--accbg)';
+    // últimos 4 pagamentos
+    const ultPgs=pgs.sort((a,b)=>(b.sem||b.data||'').localeCompare(a.sem||a.data||'')).slice(0,4);
+    const hist=ultPgs.map(p=>`<span title="Sem. ${fD(p.sem)}: ${fR(p.valor||m.val)}" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${Number(p.valor||m.val)>=m.val?'var(--grn)':'var(--acc)'};margin:1px"></span>`).join('');
+    return`<tr>
+      <td style="font-weight:700">${m.nome}</td>
+      <td><b>${m.placa}</b></td>
+      <td>${m.dia||'—'}</td>
+      <td style="font-weight:700;color:var(--acc)">${fR(m.val)}</td>
+      <td style="color:var(--grn)">${fR(totalPago)}</td>
+      <td>${saldo>0?`<span style="color:var(--red);font-weight:700">${fR(saldo)}</span>`:'<span style="color:var(--grn)">—</span>'}</td>
+      <td><div style="display:flex;align-items:center;gap:4px">${hist||'<span style="color:var(--mut);font-size:11px">sem registros</span>'}</div></td>
+      <td><span class="badge" style="background:${statusBg};color:${statusColor}">${status}</span></td>
+      <td><button class="btn bx bxs" onclick="go('pag')">💰</button></td>
+    </tr>`;
+  }).join('');
+  const totalReceber=ativos.reduce((a,m)=>a+Number(m.val||0),0);
+  const totalSaldo=ativos.reduce((a,m)=>a+calcSaldo(m.id),0);
+  return`<div class="g3" style="margin-bottom:12px">
+    <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">Locatários Ativos</div><div class="num" style="color:var(--acc)">${ativos.length}</div></div>
+    <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">Receita Semanal</div><div class="num" style="color:var(--grn)">${fR(totalReceber)}</div></div>
+    <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">Saldo Devedor Total</div><div class="num" style="color:${totalSaldo>0?'var(--red)':'var(--grn)'}">${fR(totalSaldo)}</div></div>
+  </div>
+  <div class="card"><div class="ch">
+    <span class="ct">👥 Locatários (${ativos.length})</span>
+    <input placeholder="🔍 Buscar" style="width:200px" value="${locBusca}" oninput="locBusca=this.value;render()">
+  </div>
+  <div style="overflow-x:auto"><table class="tbl">
+    <thead><tr><th>Locatário</th><th>Placa</th><th>Dia Pag.</th><th>Plano/Sem.</th><th>Total Pago</th><th>Saldo Dev.</th><th>Últimos 4 Pag.</th><th>Status</th><th></th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="9" class="empty">Nenhum locatário ativo</td></tr>'}</tbody>
+  </table></div></div>`;
+}
+
+// ── CRLV-e Parser ─────────────────────────────────────────────────────────────
+async function parseCrlv(file,mId){
+  try{
+    if(typeof pdfjsLib==='undefined'){
+      alert('Biblioteca PDF não carregada. Verifique sua conexão.');return;
+    }
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const buf=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    let txt='';
+    for(let i=1;i<=pdf.numPages;i++){
+      const pg=await pdf.getPage(i);
+      const tc=await pg.getTextContent();
+      txt+=tc.items.map(x=>x.str).join(' ')+'\n';
+    }
+    // Extrai campos do CRLV-e
+    const get=(rgx)=>{const m=txt.match(rgx);return m?m[1].trim():''};
+    const placa=get(/PLACA[\s:]+([A-Z]{3}[\d][A-Z\d][\d]{2})/i)||get(/([A-Z]{3}[\d][A-Z\d][\d]{2})/);
+    const renavam=get(/RENAVAM[\s:]+(\d{9,11})/i);
+    const chassi=get(/CHASSI[\s:]+([A-Z0-9]{17})/i)||get(/([A-Z0-9]{17})/);
+    const modelo=get(/MARCA[\/\s]MODELO[\s:]+([^\n]+?)(?=ANO|COR|\s{3})/i)||get(/MODELO[\s:]+([^\n]+?)(?=ANO|COR|\s{3})/i);
+    const anoMatch=txt.match(/ANO[\s\w.]*?FABRICA[\w.]*?[\s:]+(\d{4})[\/\s]+(\d{4})/i);
+    const anoFab=anoMatch?anoMatch[1]:'';
+    const anoMod=anoMatch?anoMatch[2]:'';
+    const cor=get(/COR[\s:]+([^\n]+?)(?=CATEG|POT|COMB|\s{3})/i);
+    const categoria=get(/CATEGORIA[\s:]+([^\n]+?)(?=\n|\s{3})/i);
+    const proprietario=get(/PROPRIETÁRIO[\s:]+([^\n]+?)(?=CPF|CNPJ|END|\s{3})/i)||get(/PROP[\w.]*[\s:]+([^\n]+?)(?=CPF|CNPJ|END|\s{3})/i);
+    const validLic=get(/VALID[\w.]*[\s:]+(\d{2}\/\d{2}\/\d{4})/i)||get(/VALIDADE[\s:]+(\d{2}\/\d{2}\/\d{4})/i);
+    const m=DB.motos.find(x=>x.id===mId);
+    if(!m){alert('Moto não encontrada!');return;}
+    if(placa&&placa!==m.placa&&!confirm(`Placa no CRLV (${placa}) é diferente da cadastrada (${m.placa}). Continuar mesmo assim?`))return;
+    if(renavam)m.renavam=renavam;
+    if(chassi)m.chassi=chassi;
+    if(modelo)m.modelo=modelo.trim();
+    if(anoFab)m.anoFab=anoFab;
+    if(anoMod)m.anoMod=anoMod;
+    if(cor)m.cor=cor.trim();
+    if(categoria)m.categoria=categoria.trim();
+    if(proprietario)m.proprietario=proprietario.trim();
+    if(validLic)m.validLic=validLic;
+    sv('m');render();
+    alert(`✅ CRLV-e importado!\n\nPlaca: ${placa||m.placa}\nModelo: ${m.modelo||'—'}\nChassi: ${m.chassi||'—'}\nRenavam: ${m.renavam||'—'}\nValidade: ${m.validLic||'—'}`);
+  }catch(e){alert('Erro ao ler PDF: '+e.message);}
+}
 
 // ── GPS Status (atualizado 10/03/2026) ───────────────────────────────────────
 const GPS={
