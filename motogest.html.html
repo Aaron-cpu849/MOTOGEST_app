@@ -965,6 +965,38 @@ function dOs(id){if(confirm('Remover OS?')){DB.os=DB.os.filter(o=>o.id!==id);sv(
 let pSem=tod();
 function wS(d){const dt=new Date(d+'T12:00');const day=dt.getDay();dt.setDate(dt.getDate()-day);return dt.toISOString().split('T')[0]}
 function wE(d){const dt=new Date(d+'T12:00');const day=dt.getDay();dt.setDate(dt.getDate()+(6-day));return dt.toISOString().split('T')[0]}
+function shW(d,n){const dt=new Date(d+'T12:00');dt.setDate(dt.getDate()+(n*7));return dt.toISOString().split('T')[0]}
+
+// ── Exportar Histórico de Pagamentos ─────────────────────────────────────────
+function exportHistorico(){
+  // Agrupa pagamentos por semana
+  const semanas=[...new Set(DB.pg.map(p=>p.sem))].sort().reverse();
+  if(!semanas.length){alert('Nenhum pagamento registrado.');return;}
+
+  let csv='Semana (Início);Semana (Fim);Placa;Locatário;Dia Pag.;Plano (R$);Valor Pago (R$);Pago Por;Data Registro;Observação\n';
+  semanas.forEach(sem=>{
+    const ps=DB.pg.filter(p=>p.sem===sem);
+    ps.forEach(p=>{
+      const m=DB.motos.find(x=>x.id===p.mId)||{placa:'—',nome:'—',dia:'—',val:0};
+      const linha=[
+        fD(sem), fD(wE(sem)),
+        m.placa, m.nome||'—', m.dia||'—',
+        Number(m.val||0).toFixed(2).replace('.',','),
+        Number(p.valor||m.val||0).toFixed(2).replace('.',','),
+        p.pagoPor||m.nome||'—',
+        p.data?fD(p.data):'—',
+        p.obs||'—'
+      ].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(';');
+      csv+=linha+'\n';
+    });
+  });
+
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`AMS_Pagamentos_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+}
 function vPag(){
   const ws=wS(pSem),we=wE(pSem);
   const lbl=`${fD(ws)} (Dom) – ${fD(we)} (Sáb)`;
@@ -1039,6 +1071,7 @@ function vPag(){
     <span class="ct">💰 Pagamentos${!isCurrentWeek?` <span style="font-size:11px;color:var(--acc);font-weight:400">(semana anterior)</span>`:''}</span>
     <div class="row" style="gap:6px;flex-wrap:wrap">
       <button class="btn bg bs" onclick="openImport()">📥 Importar Extrato</button>
+      <button class="btn bx bs" onclick="exportHistorico()">⬇️ Histórico CSV</button>
       <button class="btn bx bs" onclick="pSem=shW(pSem,-1);render()">◀ Anterior</button>
       <span style="font-size:12px;font-weight:600;color:var(--sub);white-space:nowrap">${lbl}</span>
       <button class="btn bx bs" onclick="pSem=shW(pSem,1);render()">Próxima ▶</button>
