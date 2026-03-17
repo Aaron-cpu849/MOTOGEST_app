@@ -963,37 +963,36 @@ function dOs(id){if(confirm('Remover OS?')){DB.os=DB.os.filter(o=>o.id!==id);sv(
 
 // ── Pagamentos ───────────────────────────────────────────────────────────────
 let pSem=tod();
-function wS(d){const dt=new Date(d+'T12:00');const day=dt.getDay();const diff=(day===0?6:day-1);dt.setDate(dt.getDate()-diff);return dt.toISOString().split('T')[0]}
-function wE(d){const dt=new Date(d+'T12:00');const day=dt.getDay();const diff=(day===0?0:7-day);dt.setDate(dt.getDate()+diff);return dt.toISOString().split('T')[0]}
-function shW(d,n){const dt=new Date(d+'T12:00');dt.setDate(dt.getDate()+n*7);return dt.toISOString().split('T')[0]}
+function wS(d){const dt=new Date(d+'T12:00');const day=dt.getDay();dt.setDate(dt.getDate()-day);return dt.toISOString().split('T')[0]}
+function wE(d){const dt=new Date(d+'T12:00');const day=dt.getDay();dt.setDate(dt.getDate()+(6-day));return dt.toISOString().split('T')[0]}
 function vPag(){
   const ws=wS(pSem),we=wE(pSem);
-  const lbl=`${fD(ws)} – ${fD(we)}`;
+  const lbl=`${fD(ws)} (Dom) – ${fD(we)} (Sáb)`;
   const ps=DB.pg.filter(p=>p.sem===ws);
   const ativ=DB.motos.filter(m=>m.on&&m.val>0);
   const tot=ativ.reduce((a,m)=>a+Number(m.val||0),0);
   const receb=ps.reduce((a,p)=>a+(p.valor!=null?Number(p.valor):(DB.motos.find(m=>m.id===p.mId)||{val:0}).val||0),0);
-  const DIAS=['SEG','TER','QUA','QUI','SEX','SAB','DOM'];
-  const DIAS_LABEL={'SEG':'Segunda-feira','TER':'Terça-feira','QUA':'Quarta-feira','QUI':'Quinta-feira','SEX':'Sexta-feira','SAB':'Sábado','DOM':'Domingo'};
-  // motos sem dia definido
+  const DIAS=['DOM','SEG','TER','QUA','QUI','SEX','SAB'];
+  const DIAS_LABEL={'DOM':'Domingo','SEG':'Segunda-feira','TER':'Terça-feira','QUA':'Quarta-feira','QUI':'Quinta-feira','SEX':'Sexta-feira','SAB':'Sábado'};
   const semDia=ativ.filter(m=>!m.dia||!DIAS.includes(m.dia));
   function mkRows(motos){
     return motos.map(m=>{
       const p=ps.find(x=>x.mId===m.id);
-      const valPago=p?(p.valor||m.val):0;
+      const valPago=p?(p.valor!=null?p.valor:m.val):0;
       const saldo=calcSaldo(m.id);
       const diff=p?(valPago-m.val):0;
       const diffStr=diff>0?`<span style="color:var(--grn);font-size:10px"> +${fR(diff)}</span>`:diff<0?`<span style="color:var(--acc);font-size:10px"> ${fR(diff)}</span>`:'';
+      const pagoPor=p&&p.pagoPor?`<div style="font-size:10px;color:var(--acc);margin-top:2px">↳ pago por: ${p.pagoPor}</div>`:'';
       const statusDot=p?`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--grn);margin-right:5px"></span>PAGO`:`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-right:5px"></span>PEND.`;
       return`<tr>
         <td style="font-weight:700;font-size:12px;letter-spacing:.5px">${m.placa}</td>
-        <td style="font-size:12px">${m.nome||'—'}</td>
+        <td style="font-size:12px"><div>${m.nome||'—'}</div>${pagoPor}</td>
         <td style="font-size:12px">${fR(m.val)}</td>
         <td style="font-size:12px">${p?`${fR(valPago)}${diffStr}`:'—'}</td>
         <td style="font-size:12px">${saldo>0?`<span style="color:var(--red);font-weight:700">${fR(saldo)}</span>`:'<span style="color:var(--grn)">—</span>'}</td>
         <td><span style="font-size:11px;display:flex;align-items:center;color:${p?'var(--grn)':'var(--red)'}">${statusDot}</span></td>
         <td class="row" style="gap:4px">${p
-          ?`<button class="btn bx bxs" title="Editar" onclick="openPgModal('${m.id}','${ws}')">✏️</button><button class="btn br bxs" title="Desfazer" onclick="uPg('${m.id}','${ws}')">✕</button>`
+          ?`<button class="btn bx bxs" title="Editar" onclick="openPgModal('${m.id}','${ws}')">✏️</button><button class="btn bx bxs" title="Alterar pagador" onclick="openPagadorModal('${m.id}','${ws}')">👤</button><button class="btn br bxs" title="Desfazer" onclick="uPg('${m.id}','${ws}')">✕</button>`
           :`<button class="btn bg bxs" onclick="sPg('${m.id}','${ws}')">✓ Pagar</button>`
         }</td>
       </tr>`;
@@ -1007,18 +1006,20 @@ function vPag(){
     const allPaid=pgos===total;
     const pct=Math.round(pgos/total*100);
     const cor=allPaid?'var(--grn)':pgos===0?'var(--red)':'var(--acc)';
+    const recebDia=motos.filter(m=>ps.find(p=>p.mId===m.id)).reduce((a,m)=>{const p=ps.find(x=>x.mId===m.id);return a+(p.valor!=null?Number(p.valor):Number(m.val));},0);
     return`<div class="card" style="margin-bottom:12px">
       <div class="ch" style="padding-bottom:10px;border-bottom:1px solid var(--brd);margin-bottom:10px">
-        <div class="row" style="gap:10px;align-items:center">
+        <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
           <span style="font-size:14px;font-weight:700;color:var(--fg)">${DIAS_LABEL[dia]}</span>
           <span style="font-size:11px;padding:2px 8px;border-radius:20px;background:${allPaid?'var(--grnbg)':pgos===0?'var(--redbg)':'rgba(255,165,0,.15)'};color:${cor};font-weight:600">${pgos}/${total} pagos</span>
           <div style="flex:1;height:4px;background:var(--sur);border-radius:2px;max-width:120px">
             <div style="width:${pct}%;height:100%;background:${cor};border-radius:2px;transition:width .3s"></div>
           </div>
+          <span style="font-size:12px;color:var(--grn);font-weight:600;margin-left:auto">${fR(recebDia)}</span>
         </div>
       </div>
       <div style="overflow-x:auto"><table class="tbl" style="font-size:12px">
-        <thead><tr><th>Placa</th><th>Locatário</th><th>Plano</th><th>Pago</th><th>Saldo Dev.</th><th>Status</th><th>Ação</th></tr></thead>
+        <thead><tr><th>Placa</th><th>Locatário / Pago por</th><th>Plano</th><th>Pago</th><th>Saldo Dev.</th><th>Status</th><th>Ação</th></tr></thead>
         <tbody>${mkRows(motos)}</tbody>
       </table></div>
     </div>`;
@@ -1033,13 +1034,15 @@ function vPag(){
       <tbody>${mkRows(semDia)}</tbody>
     </table></div>
   </div>`:'';
+  const isCurrentWeek=wS(tod())===ws;
   return`<div class="card" style="margin-bottom:12px"><div class="ch">
-    <span class="ct">💰 Pagamentos Semanais</span>
-    <div class="row" style="gap:6px">
+    <span class="ct">💰 Pagamentos${!isCurrentWeek?` <span style="font-size:11px;color:var(--acc);font-weight:400">(semana anterior)</span>`:''}</span>
+    <div class="row" style="gap:6px;flex-wrap:wrap">
       <button class="btn bg bs" onclick="openImport()">📥 Importar Extrato</button>
       <button class="btn bx bs" onclick="pSem=shW(pSem,-1);render()">◀ Anterior</button>
-      <span style="font-size:12px;font-weight:600;color:var(--sub)">${lbl}</span>
+      <span style="font-size:12px;font-weight:600;color:var(--sub);white-space:nowrap">${lbl}</span>
       <button class="btn bx bs" onclick="pSem=shW(pSem,1);render()">Próxima ▶</button>
+      ${!isCurrentWeek?`<button class="btn bg bs" onclick="pSem=tod();render()">↩ Atual</button>`:''}
     </div></div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
       <div style="background:var(--sur);border-radius:8px;padding:12px"><div style="font-size:10px;color:var(--sub);margin-bottom:4px">TOTAL SEMANA</div><div class="num" style="color:var(--acc)">${fR(tot)}</div></div>
@@ -1050,6 +1053,35 @@ function vPag(){
   ${blocos}${blocoSemDia}`;
 }
 function sPg(mId,sem){openPgModal(mId,sem)}
+function uPg(mId,sem){DB.pg=DB.pg.filter(p=>!(p.mId===mId&&p.sem===sem));sv('pg');render()}
+
+// ── Modal: Alterar Pagador ────────────────────────────────────────────────────
+function openPagadorModal(mId,sem){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const p=DB.pg.find(x=>x.mId===mId&&x.sem===sem);if(!p)return;
+  const locOpts=DB.motos.filter(x=>x.on&&x.nome&&x.nome.trim())
+    .sort((a,b)=>a.nome.localeCompare(b.nome))
+    .map(x=>`<option value="${x.nome}" ${p.pagoPor===x.nome?'selected':''}>${x.nome} (${x.placa})</option>`).join('');
+  showM(mWrap('mPagador',`<div class="modal">
+    <div class="mh"><span class="ct">👤 Alterar Pagador — ${m.placa}</span><button class="btn bx" onclick="closeM('mPagador')">✕</button></div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:14px">Locatário original: <b>${m.nome||'—'}</b></div>
+    <label style="font-size:12px;color:var(--sub)">Quem efetuou o pagamento?</label>
+    <select id="pagadorSel" class="inp" style="margin:6px 0 16px">
+      <option value="">— Mesmo locatário (padrão) —</option>
+      ${locOpts}
+    </select>
+    <div style="font-size:11px;color:var(--sub);margin-bottom:16px">O pagamento continua vinculado à moto <b>${m.placa}</b>, mas será exibido como pago por outra pessoa.</div>
+    <div class="row" style="gap:8px;justify-content:flex-end">
+      <button class="btn bx" onclick="closeM('mPagador')">Cancelar</button>
+      <button class="btn bg" onclick="savePagador('${mId}','${sem}')">✓ Salvar</button>
+    </div>
+  </div>`));
+}
+function savePagador(mId,sem){
+  const p=DB.pg.find(x=>x.mId===mId&&x.sem===sem);if(!p)return;
+  p.pagoPor=document.getElementById('pagadorSel').value||null;
+  sv('pg');closeM('mPagador');render();
+}
 function uPg(mId,sem){DB.pg=DB.pg.filter(p=>!(p.mId===mId&&p.sem===sem));sv('pg');render()}
 
 // ── Lançar Pagamento (modal) ──────────────────────────────────────────────────
