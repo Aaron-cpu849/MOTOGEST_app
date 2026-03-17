@@ -967,7 +967,142 @@ function wS(d){const dt=new Date(d+'T12:00');const day=dt.getDay();dt.setDate(dt
 function wE(d){const dt=new Date(d+'T12:00');const day=dt.getDay();dt.setDate(dt.getDate()+(6-day));return dt.toISOString().split('T')[0]}
 function shW(d,n){const dt=new Date(d+'T12:00');dt.setDate(dt.getDate()+(n*7));return dt.toISOString().split('T')[0]}
 
-// ── Exportar Histórico de Pagamentos ─────────────────────────────────────────
+// ── Exportar Semana CSV ───────────────────────────────────────────────────────
+function exportSemanaCSV(ws,we,lbl){
+  const ps=DB.pg.filter(p=>p.sem===ws);
+  const ativ=DB.motos.filter(m=>m.on&&m.val>0);
+  const DIAS=['DOM','SEG','TER','QUA','QUI','SEX','SAB'];
+  const DIAS_LABEL={DOM:'Domingo',SEG:'Segunda-feira',TER:'Terça-feira',QUA:'Quarta-feira',QUI:'Quinta-feira',SEX:'Sexta-feira',SAB:'Sábado'};
+
+  let csv=`"Semana: ${lbl}"\n\n`;
+  csv+='"Dia";"Placa";"Locatário";"Plano (R$)";"Valor Pago (R$)";"Pago Por";"Status";"Observação"\n';
+
+  DIAS.forEach(dia=>{
+    const motos=ativ.filter(m=>m.dia===dia);
+    if(!motos.length)return;
+    motos.forEach(m=>{
+      const p=ps.find(x=>x.mId===m.id);
+      const val=p?(p.valor!=null?p.valor:m.val):0;
+      const status=p?'PAGO':'PENDENTE';
+      const linha=[
+        DIAS_LABEL[dia], m.placa, m.nome||'—',
+        Number(m.val||0).toFixed(2).replace('.',','),
+        p?Number(val).toFixed(2).replace('.',','):'—',
+        p&&p.pagoPor?p.pagoPor:(m.nome||'—'),
+        status, p&&p.obs?p.obs:'—'
+      ].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(';');
+      csv+=linha+'\n';
+    });
+  });
+
+  // Totais
+  const tot=ativ.reduce((a,m)=>a+Number(m.val||0),0);
+  const receb=ps.reduce((a,p)=>a+(p.valor!=null?Number(p.valor):(DB.motos.find(m=>m.id===p.mId)||{val:0}).val||0),0);
+  csv+=`\n"TOTAL SEMANA";"";"";"${Number(tot).toFixed(2).replace('.',',')}";"";"";"";""\n`;
+  csv+=`"RECEBIDO";"";"";"${Number(receb).toFixed(2).replace('.',',')}";"";"";"";""\n`;
+  csv+=`"PENDENTE";"";"";"${Number(tot-receb).toFixed(2).replace('.',',')}";"";"";"";""\n`;
+
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`AMS_Pagamentos_${ws}_${we}.csv`;
+  a.click();
+}
+
+// ── Exportar Semana PDF ───────────────────────────────────────────────────────
+function exportSemanaPDF(ws,we,lbl){
+  const ps=DB.pg.filter(p=>p.sem===ws);
+  const ativ=DB.motos.filter(m=>m.on&&m.val>0);
+  const DIAS=['DOM','SEG','TER','QUA','QUI','SEX','SAB'];
+  const DIAS_LABEL={DOM:'Domingo',SEG:'Segunda-feira',TER:'Terça-feira',QUA:'Quarta-feira',QUI:'Quinta-feira',SEX:'Sexta-feira',SAB:'Sábado'};
+  const tot=ativ.reduce((a,m)=>a+Number(m.val||0),0);
+  const receb=ps.reduce((a,p)=>a+(p.valor!=null?Number(p.valor):(DB.motos.find(m=>m.id===p.mId)||{val:0}).val||0),0);
+
+  let blocos='';
+  DIAS.forEach(dia=>{
+    const motos=ativ.filter(m=>m.dia===dia);
+    if(!motos.length)return;
+    const pgos=motos.filter(m=>ps.find(p=>p.mId===m.id)).length;
+    const recebDia=motos.reduce((a,m)=>{
+      const p=ps.find(x=>x.mId===m.id);
+      return a+(p?(p.valor!=null?Number(p.valor):Number(m.val)):0);
+    },0);
+    const rows=motos.map(m=>{
+      const p=ps.find(x=>x.mId===m.id);
+      const val=p?(p.valor!=null?p.valor:m.val):null;
+      const pagoPor=p&&p.pagoPor?`<div style="font-size:9px;color:#666">↳ ${p.pagoPor}</div>`:'';
+      const bg=p?'#f0fdf4':'#fff5f5';
+      const stColor=p?'#16a34a':'#dc2626';
+      return`<tr style="background:${bg}">
+        <td style="padding:5px 8px;font-weight:700;font-size:11px">${m.placa}</td>
+        <td style="padding:5px 8px;font-size:11px">${m.nome||'—'}${pagoPor}</td>
+        <td style="padding:5px 8px;font-size:11px;text-align:right">${fR(m.val)}</td>
+        <td style="padding:5px 8px;font-size:11px;text-align:right;font-weight:600">${val!==null?fR(val):'—'}</td>
+        <td style="padding:5px 8px;font-size:11px;color:${stColor};font-weight:700;text-align:center">${p?'✓ PAGO':'✕ PEND.'}</td>
+        <td style="padding:5px 8px;font-size:10px;color:#666">${p&&p.obs?p.obs:'—'}</td>
+      </tr>`;
+    }).join('');
+    blocos+=`
+    <div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#1e293b;color:#fff;padding:8px 12px;border-radius:6px 6px 0 0">
+        <span style="font-size:13px;font-weight:700">${DIAS_LABEL[dia]}</span>
+        <span style="font-size:11px">${pgos}/${motos.length} pagos · Recebido: ${fR(recebDia)}</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-top:none">
+        <thead><tr style="background:#f8fafc">
+          <th style="padding:5px 8px;font-size:10px;text-align:left;border-bottom:1px solid #e2e8f0">Placa</th>
+          <th style="padding:5px 8px;font-size:10px;text-align:left;border-bottom:1px solid #e2e8f0">Locatário</th>
+          <th style="padding:5px 8px;font-size:10px;text-align:right;border-bottom:1px solid #e2e8f0">Plano</th>
+          <th style="padding:5px 8px;font-size:10px;text-align:right;border-bottom:1px solid #e2e8f0">Pago</th>
+          <th style="padding:5px 8px;font-size:10px;text-align:center;border-bottom:1px solid #e2e8f0">Status</th>
+          <th style="padding:5px 8px;font-size:10px;text-align:left;border-bottom:1px solid #e2e8f0">Obs.</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  });
+
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Pagamentos ${lbl}</title>
+  <style>
+    body{font-family:'Segoe UI',Arial,sans-serif;max-width:900px;margin:0 auto;padding:24px;color:#111}
+    @media print{.no-print{display:none}body{padding:0}}
+  </style></head><body>
+  <div class="no-print" style="margin-bottom:16px;display:flex;gap:8px">
+    <button onclick="window.print()" style="padding:10px 20px;background:#1e293b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:700">🖨️ Imprimir / Salvar PDF</button>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #1e293b">
+    <div>
+      <h1 style="font-size:22px;font-weight:800;color:#1e293b;margin:0">🏍️ AMS Motos</h1>
+      <div style="font-size:13px;color:#64748b;margin-top:4px">Relatório de Pagamentos Semanais</div>
+      <div style="font-size:15px;font-weight:700;color:#1e293b;margin-top:6px">${lbl}</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:11px;color:#64748b">Gerado em ${new Date().toLocaleString('pt-BR')}</div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px">
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px">
+      <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Total Semana</div>
+      <div style="font-size:22px;font-weight:800;color:#6366f1">${fR(tot)}</div>
+    </div>
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px">
+      <div style="font-size:10px;color:#16a34a;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Recebido</div>
+      <div style="font-size:22px;font-weight:800;color:#16a34a">${fR(receb)}</div>
+    </div>
+    <div style="background:#fff5f5;border:1px solid #fecaca;border-radius:8px;padding:14px">
+      <div style="font-size:10px;color:#dc2626;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Pendente</div>
+      <div style="font-size:22px;font-weight:800;color:#dc2626">${fR(tot-receb)}</div>
+    </div>
+  </div>
+  ${blocos}
+  <div style="margin-top:32px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;text-align:center">
+    AMS Motos · ${lbl} · Documento gerado em ${new Date().toLocaleString('pt-BR')}
+  </div>
+  </body></html>`);
+  w.document.close();
+}
 function exportHistorico(){
   // Agrupa pagamentos por semana
   const semanas=[...new Set(DB.pg.map(p=>p.sem))].sort().reverse();
@@ -1071,7 +1206,9 @@ function vPag(){
     <span class="ct">💰 Pagamentos${!isCurrentWeek?` <span style="font-size:11px;color:var(--acc);font-weight:400">(semana anterior)</span>`:''}</span>
     <div class="row" style="gap:6px;flex-wrap:wrap">
       <button class="btn bg bs" onclick="openImport()">📥 Importar Extrato</button>
-      <button class="btn bx bs" onclick="exportHistorico()">⬇️ Histórico CSV</button>
+      <button class="btn bx bs" onclick="exportSemanaCSV('${ws}','${we}','${lbl}')">📄 CSV</button>
+      <button class="btn bx bs" onclick="exportSemanaPDF('${ws}','${we}','${lbl}')">🖨️ PDF</button>
+      <button class="btn bx bs" onclick="exportHistorico()">⬇️ Histórico</button>
       <button class="btn bx bs" onclick="pSem=shW(pSem,-1);render()">◀ Anterior</button>
       <span style="font-size:12px;font-weight:600;color:var(--sub);white-space:nowrap">${lbl}</span>
       <button class="btn bx bs" onclick="pSem=shW(pSem,1);render()">Próxima ▶</button>
