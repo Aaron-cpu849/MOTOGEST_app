@@ -1420,10 +1420,22 @@ function extrairNome(t){
     .replace(/\b\d{5,}\b/g,'').replace(/[";|]/g,' ').replace(/\s+/g,' ').trim();
 }
 function extrairValor(t){
-  let m=t.match(/R\$\s?([\d.]+,\d{2})/i);
+  // Remove datas para não confundir com valores
+  const sem_data=t.replace(/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/g,'');
+  // Prioriza R$ VALOR (captura o primeiro)
+  let m=sem_data.match(/R\$\s?([\d.]+,\d{2})/i);
   if(m) return parseFloat(m[1].replace(/\./g,'').replace(',','.'));
-  const nums=(t.match(/[\d.,]+/g)||[]).map(v=>parseFloat(v.replace(/\./g,'').replace(',','.'))).filter(n=>n>=1&&n<500000);
-  return nums.length?Math.max(...nums):0;
+  // Pega TODOS os números que parecem valores monetários (termina em ,xx)
+  const monetarios=(sem_data.match(/\d{1,3}(?:\.\d{3})*,\d{2}/g)||[])
+    .map(v=>parseFloat(v.replace(/\./g,'').replace(',','.')))
+    .filter(n=>n>=1&&n<500000);
+  // Retorna o PRIMEIRO (transação), não o maior (que seria o saldo acumulado)
+  if(monetarios.length>0) return monetarios[0];
+  // Fallback: qualquer número razoável, mas agora o MENOR (transação < saldo)
+  const nums=(sem_data.match(/[\d.,]+/g)||[])
+    .map(v=>parseFloat(v.replace(/\./g,'').replace(',','.')))
+    .filter(n=>n>=1&&n<50000);
+  return nums.length?Math.min(...nums):0;
 }
 function parseExtratoCsv(lines){
   const credits=[];
