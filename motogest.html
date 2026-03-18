@@ -251,9 +251,11 @@ const DB={
   contratos: S.get('mg_ct')||[],
   caucoes:   S.get('mg_cau')||[],
   fotos:     S.get('mg_fts')||[],
+  chats:     S.get('mg_chats')||[],
+  solics:    S.get('mg_solics')||[],
 };
 function sv(k){
-  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos'};
+  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos',chats:'chats',solics:'solics'};
   const prop=map[k]||k;
   S.set('mg_'+k,DB[prop]);
 }
@@ -433,12 +435,13 @@ const TABS=[
   {id:'loc',label:'👥 Locatários'},
   {id:'ind',label:'⚠️ Inadimplência'},
   {id:'docs',label:'📋 Documentos'},
+  {id:'portal',label:'📱 Portal Locatário'},
 ];
 let TAB='dash';
 function go(t){TAB=t;render()}
 function render(){
   document.getElementById('tabs').innerHTML=TABS.map(t=>`<button class="tab${TAB===t.id?' active':''}" onclick="go('${t.id}')">${t.label}</button>`).join('');
-  const fn={dash:vDash,fin:vFin,odo:vOdo,mnt:vMnt,seg:vSeg,mul:vMul,est:vEst,os:vOs,pag:vPag,rel:vRel,mts:vMts,loc:vLoc,ind:vInd,docs:vDocs};
+  const fn={dash:vDash,fin:vFin,odo:vOdo,mnt:vMnt,seg:vSeg,mul:vMul,est:vEst,os:vOs,pag:vPag,rel:vRel,mts:vMts,loc:vLoc,ind:vInd,docs:vDocs,portal:vPortal};
   document.getElementById('content').innerHTML=fn[TAB]();
 }
 function closeM(id){const e=document.getElementById(id);if(e)e.remove()}
@@ -1397,24 +1400,54 @@ async function processImpFile(inp){
     }
   }catch(e){document.getElementById('impStatus').textContent='Erro: '+e.message;}
 }
+// ── Extratores unificados ─────────────────────────────────────────────────────
+function extrairData(t){
+  let m=t.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if(m) return `${m[3]}-${m[2]}-${m[1]}`;
+  m=t.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return m[0];
+  m=t.match(/(\d{1,2})\/(\d{1,2})\/(\d{2})(?!\d)/);
+  if(m){const y=2000+parseInt(m[3]);return `${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;}
+  m=t.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  return '';
+}
+function extrairNome(t){
+  return t.replace(/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/g,'')
+    .replace(/pix recebido/gi,'').replace(/pix enviado/gi,'')
+    .replace(/transferência recebida/gi,'').replace(/crédito pix/gi,'')
+    .replace(/r\$\s?[\d.,]+/gi,'').replace(/cp\s?:\s?\d+\s*[-–]/gi,'')
+    .replace(/\b\d{5,}\b/g,'').replace(/[";|]/g,' ').replace(/\s+/g,' ').trim();
+}
+function extrairValor(t){
+  let m=t.match(/R\$\s?([\d.]+,\d{2})/i);
+  if(m) return parseFloat(m[1].replace(/\./g,'').replace(',','.'));
+  const nums=(t.match(/[\d.,]+/g)||[]).map(v=>parseFloat(v.replace(/\./g,'').replace(',','.'))).filter(n=>n>=1&&n<500000);
+  return nums.length?Math.max(...nums):0;
+}
 function parseExtratoCsv(lines){
   const credits=[];
+  const sep=lines[0]?.includes(';')?';':lines[0]?.includes('\t')?'\t':',';
+  let colData=-1,colDesc=-1,colVal=-1;
+  const hdr=(lines[0]||'').toLowerCase();
+  if(hdr.includes(sep)){
+    hdr.split(sep).forEach((c,i)=>{
+      if(/data/.test(c)) colData=i;
+      if(/hist|descri|lan/.test(c)) colDesc=i;
+      if(/valor/.test(c)&&!/saldo/.test(c)) colVal=i;
+    });
+  }
   for(const l of lines){
-    if(!/pix recebido/i.test(l)) continue;
-    // Extrai data DD/MM/AAAA ou AAAA-MM-DD da linha
-    let dataLanc='';
-    const dtBR=l.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-    const dtISO=l.match(/(\d{4})-(\d{2})-(\d{2})/);
-    if(dtBR) dataLanc=`${dtBR[3]}-${dtBR[2]}-${dtBR[1]}`;
-    else if(dtISO) dataLanc=dtISO[0];
-    // Extrai valor
-    const nums=(l.match(/[\d.,]+/g)||[]).map(v=>parseFloat(v.replace(/\./g,'').replace(',','.'))).filter(n=>n>1&&n<100000);
-    const val=nums.length?Math.max(...nums):0;
-    // Extrai nome
-    let nm=l.replace(/\d{2}\/\d{2}\/\d{4}/g,'').replace(/pix recebido/i,'')
-      .replace(/r\$\s?[\d.,]+/gi,'').replace(/cp\s?:\d+-/i,'')
-      .replace(/[";]/g,' ').replace(/\s+/g,' ').trim();
-    if(val>0&&nm) credits.push({nome:nm,val,dataLanc,raw:l});
+    if(!/pix recebido|transferência recebida/i.test(l)) continue;
+    const cols=l.split(sep);
+    let dataLanc='',nome='',val=0;
+    if(colData>=0&&cols[colData]) dataLanc=extrairData(cols[colData]);
+    if(colDesc>=0&&cols[colDesc]) nome=extrairNome(cols[colDesc]);
+    if(colVal>=0&&cols[colVal])   val=extrairValor(cols[colVal]);
+    if(!dataLanc) dataLanc=extrairData(l);
+    if(!nome)     nome=extrairNome(l);
+    if(!val)      val=extrairValor(l);
+    if(val>0&&nome) credits.push({nome,val,dataLanc,raw:l});
   }
   showImportResults(credits);
 }
@@ -1425,56 +1458,120 @@ function parseExtratoXlsx(file){
     const reader=new FileReader();
     reader.onload=e=>{
       try{
-        const wb=XLSX.read(e.target.result,{type:'array'});
+        const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
         const ws=wb.Sheets[wb.SheetNames[0]];
-        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+        let colData=-1,colDesc=-1,colVal=-1;
+        if(rows[0]) rows[0].forEach((c,i)=>{
+          const v=(c||'').toString().toLowerCase();
+          if(/data/.test(v)) colData=i;
+          if(/hist|descri|lan/.test(v)) colDesc=i;
+          if(/valor/.test(v)&&!/saldo/.test(v)) colVal=i;
+        });
         const credits=[];
-        for(const row of rows){
-          const str=row.join(' ');
-          const m=str.match(/pix recebido/i);
-          if(m){
-            const vm=str.match(/[\d.,]+/g);
-            const val=vm?parseFloat(vm[vm.length-1].replace(',','.')):0;
-            const nm=str.replace(/pix recebido/i,'').replace(/r\$[\d.,]+/gi,'').replace(/cp\s?:\d+-/i,'').trim();
-            if(val>0&&nm) credits.push({nome:nm,val,raw:str});
-          }
+        for(let ri=1;ri<rows.length;ri++){
+          const row=rows[ri];
+          const str=row.map(c=>c||'').join(' ');
+          if(!/pix recebido|transferência recebida/i.test(str)) continue;
+          let dataLanc='',nome='',val=0;
+          if(colData>=0&&row[colData]) dataLanc=extrairData(String(row[colData]));
+          if(colDesc>=0&&row[colDesc]) nome=extrairNome(String(row[colDesc]));
+          if(colVal>=0&&row[colVal])   val=extrairValor(String(row[colVal]));
+          if(!dataLanc) dataLanc=extrairData(str);
+          if(!nome)     nome=extrairNome(str);
+          if(!val)      val=extrairValor(str);
+          if(val>0&&nome) credits.push({nome,val,dataLanc,raw:str});
         }
         showImportResults(credits);
-      }catch(e){alert('Erro ao ler Excel: '+e.message);}
+      }catch(err){alert('Erro ao ler Excel: '+err.message);}
     };
     reader.readAsArrayBuffer(file);
   };
-  s.onerror=()=>alert('Erro ao carregar biblioteca XLSX');
+  s.onerror=()=>alert('Erro ao carregar XLSX');
   document.head.appendChild(s);
 }
 function parseExtratoPdf(file){
   const s=document.createElement('script');
   s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
   s.onload=async()=>{
-    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    const buf=await file.arrayBuffer();
-    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
-    let allText='';
-    for(let i=1;i<=pdf.numPages;i++){
-      const page=await pdf.getPage(i);
-      const tc=await page.getTextContent();
-      allText+=tc.items.map(x=>x.str).join(' ')+'\n';
-    }
-    // Parse lines with Pix recebido
-    const credits=[];
-    const pattern=/Pix recebido[:\s]*"([^"]+)"\s*R\$\s*([\d.,]+)/gi;
-    let m;
-    while((m=pattern.exec(allText))!==null){
-      const raw=m[1];
-      const val=parseFloat(m[2].replace('.','').replace(',','.'));
-      // Extract name: remove Cp :XXXXXXXX- prefix
-      const nm=raw.replace(/^Cp\s?:\d+-\s*/i,'').replace(/^\d{5}\s+\d+\s*/,'').trim();
-      if(val>0&&nm) credits.push({nome:nm,val,raw});
-    }
-    if(credits.length===0){
-      document.getElementById('impStatus').textContent='Nenhum crédito encontrado no PDF.';
-    } else {
-      showImportResults(credits);
+    try{
+      pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const buf=await file.arrayBuffer();
+      const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+      // Extrai linhas respeitando posição Y (reconstrói layout real do PDF)
+      const allLines=[];
+      for(let pi=1;pi<=pdf.numPages;pi++){
+        const page=await pdf.getPage(pi);
+        const tc=await page.getTextContent();
+        const byY={};
+        tc.items.forEach(item=>{
+          const y=Math.round(item.transform[5]/2)*2; // agrupa por Y±2px
+          if(!byY[y]) byY[y]=[];
+          byY[y].push({x:item.transform[4],str:item.str});
+        });
+        Object.keys(byY).sort((a,b)=>b-a).forEach(y=>{
+          const linha=byY[y].sort((a,b)=>a.x-b.x).map(i=>i.str).join(' ').trim();
+          if(linha) allLines.push(linha);
+        });
+      }
+      const fullText=allLines.join('\n');
+      const credits=[];
+
+      // Estratégia principal: varre cada linha que menciona Pix/crédito
+      for(let i=0;i<allLines.length;i++){
+        const linha=allLines[i];
+        if(!/pix recebido|transferência recebida|crédito pix|ted recebida/i.test(linha)) continue;
+
+        // Contexto: 4 linhas antes (pode ter data) + linha atual + 2 depois (pode ter valor/nome)
+        const ctx=allLines.slice(Math.max(0,i-4),i+3).join(' | ');
+
+        // Data: busca no contexto todo
+        const dataLanc=extrairData(ctx)||extrairData(linha)||'';
+
+        // Nome: primeiro tenta a própria linha, depois linhas adjacentes
+        let nome=extrairNome(linha)
+          .replace(/^Cp\s?:\s?\d+\s*[-–]\s*/i,'')
+          .replace(/^\d{4,}\s+\d*\s*/,'').trim();
+        if(nome.length<3&&allLines[i+1]) nome=extrairNome(allLines[i+1]);
+        if(nome.length<3&&allLines[i-1]) nome=extrairNome(allLines[i-1]);
+
+        // Valor: contexto amplo
+        const val=extrairValor(ctx)||extrairValor(linha);
+
+        if(val>0&&nome.length>2){
+          const dupl=credits.find(c=>c.nome===nome&&c.val===val&&c.dataLanc===dataLanc);
+          if(!dupl) credits.push({nome,val,dataLanc,raw:ctx.slice(0,200)});
+        }
+      }
+
+      // Fallback regex para bancos com formato diferente
+      if(credits.length===0){
+        const pats=[
+          /Pix recebido[:\s]*[""]([^""]+)[""]\s*R\$\s*([\d.,]+)/gi,
+          /Pix recebido\s+([A-ZÁÉÍÓÚÀÂÊÔÃÕ][A-Za-záéíóúàâêôãõ\s]{4,50})\s+R\$\s*([\d.,]+)/gi,
+          /Crédito Pix\s+([A-ZÁÉÍÓÚÀÂÊÔÃÕ][A-Za-záéíóúàâêôãõ\s]{4,50})\s+([\d.,]+)/gi,
+        ];
+        for(const pat of pats){
+          let m;pat.lastIndex=0;
+          while((m=pat.exec(fullText))!==null){
+            const nome=extrairNome(m[1]).trim();
+            const val=parseFloat(m[2].replace(/\./g,'').replace(',','.'));
+            const dataLanc=extrairData(fullText.substring(Math.max(0,m.index-120),m.index+80));
+            if(val>0&&nome.length>2) credits.push({nome,val,dataLanc,raw:m[0]});
+          }
+          if(credits.length>0) break;
+        }
+      }
+
+      if(credits.length===0){
+        document.getElementById('impStatus').textContent=
+          '⚠️ Nenhum crédito encontrado. O PDF pode estar em formato de imagem (escaneado) — tente o CSV ou XLSX do banco.';
+      } else {
+        showImportResults(credits);
+      }
+    }catch(err){
+      if(document.getElementById('impStatus'))
+        document.getElementById('impStatus').textContent='Erro: '+err.message;
     }
   };
   s.onerror=()=>alert('Erro ao carregar PDF.js');
@@ -1915,26 +2012,301 @@ function vFin(){
 }
 
 // ── DOCUMENTOS (Contratos, Caução, Fotos) ─────────────────────────────────────
+
+// ── PORTAL DO LOCATÁRIO ───────────────────────────────────────────────────────
+let _portalMId=null;
+
+DB.pixAms=localStorage.getItem('mg_pixAms')||'';
+
+function formatCpf(v){v=v.replace(/\D/g,'').slice(0,11);if(v.length>9)return v.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/,'$1.$2.$3-$4');if(v.length>6)return v.replace(/(\d{3})(\d{3})(\d{0,3})/,'$1.$2.$3');if(v.length>3)return v.replace(/(\d{3})(\d{0,3})/,'$1.$2');return v;}
+
+function vPortal(){
+  if(_portalMId){const m=DB.motos.find(x=>x.id===_portalMId);if(m)return vPortalHome(m);_portalMId=null;}
+  return`<div style="display:flex;justify-content:center;align-items:center;min-height:70vh">
+    <div class="card" style="max-width:380px;width:100%;padding:32px;text-align:center">
+      <div style="font-size:48px;margin-bottom:8px">🏍️</div>
+      <h2 style="font-size:20px;font-weight:800;color:var(--acc);margin-bottom:4px">AMS Motos</h2>
+      <p style="font-size:13px;color:var(--sub);margin-bottom:24px">Portal do Locatário</p>
+      <div style="text-align:left;margin-bottom:12px">
+        <label>CPF</label>
+        <input id="portalCpf" class="inp" placeholder="000.000.000-00" style="margin-top:4px"
+          oninput="this.value=formatCpf(this.value)" onkeydown="if(event.key==='Enter')portalLogin()">
+      </div>
+      <div style="text-align:left;margin-bottom:20px">
+        <label>Senha</label>
+        <input id="portalSenha" class="inp" type="password" placeholder="••••••••" style="margin-top:4px"
+          onkeydown="if(event.key==='Enter')portalLogin()">
+      </div>
+      <button class="btn bg" style="width:100%;padding:12px" onclick="portalLogin()">Entrar</button>
+      <div id="portalErr" style="color:var(--red);font-size:12px;margin-top:10px"></div>
+      <p style="font-size:11px;color:var(--sub);margin-top:16px">Não tem acesso? Fale com a AMS Motos</p>
+    </div>
+  </div>`;
+}
+
+function portalLogin(){
+  const cpf=document.getElementById('portalCpf').value.replace(/\D/g,'');
+  const senha=document.getElementById('portalSenha').value.trim();
+  if(!cpf||!senha){document.getElementById('portalErr').textContent='Preencha CPF e senha.';return;}
+  const m=DB.motos.find(x=>x.on&&x.cpfLoc&&x.senhaLoc&&x.cpfLoc.replace(/\D/g,'')=== cpf&&x.senhaLoc===senha);
+  if(!m){document.getElementById('portalErr').textContent='CPF ou senha incorretos.';return;}
+  _portalMId=m.id;render();
+}
+function portalLogout(){_portalMId=null;render();}
+
+function vPortalHome(m){
+  const saldo=calcSaldo(m.id);
+  const pgs=[...DB.pg.filter(p=>p.mId===m.id)].sort((a,b)=>(b.sem||'').localeCompare(a.sem||''));
+  const multas=DB.multas.filter(x=>x.mId===m.id);
+  const ct=DB.contratos.filter(c=>c.mId===m.id).sort((a,b)=>(b.criado||'').localeCompare(a.criado||''))[0];
+  const chats=[...DB.chats.filter(c=>c.mId===m.id)].sort((a,b)=>a.ts-b.ts);
+  const solics=(DB.solics||[]).filter(s=>s.mId===m.id).sort((a,b)=>b.ts-a.ts);
+  const semAtual=wS(tod());
+  const pgSemAtual=pgs.find(p=>p.sem===semAtual);
+  const corSaldo=saldo>0?'var(--red)':'var(--grn)';
+
+  const histRows=pgs.slice(0,6).map(p=>`<tr>
+    <td style="font-size:11px">${fD(p.sem)} – ${fD(wE(p.sem))}</td>
+    <td style="font-weight:700;color:var(--grn)">${fR(p.valor!=null?p.valor:m.val)}</td>
+    <td><span class="badge" style="background:var(--grnbg);color:var(--grn)">✓ Pago</span></td>
+  </tr>`).join('');
+
+  const multaRows=multas.map(mu=>`<tr>
+    <td style="font-size:11px">${fD(mu.data)||'—'}</td>
+    <td>${mu.desc||'Multa'}</td>
+    <td style="font-weight:700;color:var(--red)">${fR(mu.val)}</td>
+    <td><span class="badge" style="background:${mu.st==='p'?'var(--redbg)':'var(--grnbg)'};color:${mu.st==='p'?'var(--red)':'var(--grn)'}">${mu.st==='p'?'Pendente':'Paga'}</span></td>
+  </tr>`).join('');
+
+  const chatMsgs=chats.map(c=>{
+    const isAms=c.de==='ams';
+    return`<div style="display:flex;${isAms?'':'justify-content:flex-end'};margin-bottom:8px">
+      <div style="max-width:80%;background:${isAms?'var(--sur)':'var(--accbg)'};border:1px solid ${isAms?'var(--bor)':'rgba(249,115,22,.3)'};border-radius:12px;padding:8px 12px">
+        <div style="font-size:10px;color:var(--sub);margin-bottom:3px">${isAms?'🏍️ AMS Motos':'Você'} · ${new Date(c.ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+        <div style="font-size:13px">${c.msg}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const solicRows=solics.slice(0,4).map(s=>`<div style="background:var(--sur);border-radius:8px;padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+    <div><div style="font-size:12px;font-weight:600">${s.desc}</div><div style="font-size:10px;color:var(--sub)">${new Date(s.ts).toLocaleDateString('pt-BR')}</div></div>
+    <span class="badge" style="background:${s.status==='pendente'?'var(--yelbg)':s.status==='resolvido'?'var(--grnbg)':'var(--accbg)'};color:${s.status==='pendente'?'var(--yel)':s.status==='resolvido'?'var(--grn)':'var(--acc)'}">
+      ${s.status==='pendente'?'⏳ Pendente':s.status==='resolvido'?'✅ Resolvido':'🔧 Andamento'}
+    </span>
+  </div>`).join('');
+
+  return`
+  <div class="card" style="background:linear-gradient(135deg,#1a1a2e,#16213e);border-color:rgba(249,115,22,.3);margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <div>
+        <div style="font-size:11px;color:var(--sub)">Bem-vindo(a) ao seu portal</div>
+        <div style="font-size:18px;font-weight:800">${m.nome.split(' ').slice(0,2).join(' ')}</div>
+        <div style="font-size:12px;color:var(--acc);margin-top:2px">🏍️ ${m.placa} · Pagamento: ${m.dia||'—'}</div>
+      </div>
+      <button class="btn bx" onclick="portalLogout()">Sair 🚪</button>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;margin-bottom:14px">
+    <div class="card" style="padding:14px;text-align:center;border-color:${saldo>0?'rgba(239,68,68,.3)':'rgba(34,197,94,.2)'}">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:4px">Saldo Devedor</div>
+      <div style="font-size:19px;font-weight:800;color:${corSaldo}">${saldo>0?fR(saldo):'Em dia ✅'}</div>
+    </div>
+    <div class="card" style="padding:14px;text-align:center">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:4px">Plano/Semana</div>
+      <div style="font-size:19px;font-weight:800;color:var(--acc)">${fR(m.val)}</div>
+    </div>
+    <div class="card" style="padding:14px;text-align:center;border-color:${pgSemAtual?'rgba(34,197,94,.2)':'rgba(239,68,68,.2)'}">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:4px">Esta Semana</div>
+      <div style="font-size:16px;font-weight:800;color:${pgSemAtual?'var(--grn)':'var(--red)'}">${pgSemAtual?'✅ Pago':'❌ Pendente'}</div>
+    </div>
+    <div class="card" style="padding:14px;text-align:center">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:4px">Total Pago</div>
+      <div style="font-size:19px;font-weight:800">${pgs.length} sem.</div>
+    </div>
+  </div>
+  ${(saldo>0||!pgSemAtual)?`<div class="card" style="margin-bottom:14px;border-color:rgba(249,115,22,.3);background:var(--accbg)">
+    <div class="ch"><span class="ct" style="color:var(--acc)">💰 Pagar via PIX</span></div>
+    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+      <div>
+        <div style="font-size:26px;font-weight:800;color:var(--acc)">${fR(saldo>0?saldo:m.val)}</div>
+        ${saldo>0?'<div style="font-size:10px;color:var(--sub)">Saldo acumulado</div>':'<div style="font-size:10px;color:var(--sub)">Semana atual</div>'}
+      </div>
+      <div style="flex:1;min-width:180px">
+        ${DB.pixAms?`<div style="background:var(--sur);border-radius:8px;padding:8px 12px;margin-bottom:8px;word-break:break-all;font-size:13px;font-weight:700">${DB.pixAms}</div>
+          <button class="btn bg" onclick="navigator.clipboard.writeText(DB.pixAms).then(()=>alert('Chave PIX copiada!'))">📋 Copiar Chave PIX</button>`:'<div style="font-size:12px;color:var(--sub);padding:10px;background:var(--sur);border-radius:8px">Entre em contato com a AMS para obter a chave PIX.</div>'}
+      </div>
+    </div>
+  </div>`:''}
+  <div class="card" style="margin-bottom:14px">
+    <div class="ch"><span class="ct">💳 Histórico de Pagamentos</span></div>
+    ${histRows?`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Semana</th><th>Valor</th><th>Status</th></tr></thead><tbody>${histRows}</tbody></table></div>`
+    :'<div style="color:var(--sub);font-size:13px;text-align:center;padding:16px">Nenhum pagamento registrado ainda</div>'}
+  </div>
+  ${multas.length?`<div class="card" style="margin-bottom:14px"><div class="ch"><span class="ct">🚨 Minhas Multas</span></div><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Data</th><th>Descrição</th><th>Valor</th><th>Status</th></tr></thead><tbody>${multaRows}</tbody></table></div></div>`:''}
+  <div class="card" style="margin-bottom:14px">
+    <div class="ch"><span class="ct">📋 Contrato e Documentos</span></div>
+    ${ct?`<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <div style="background:var(--sur);border-radius:8px;padding:10px 14px;flex:1;min-width:160px">
+        <div style="font-size:12px">Início: <b>${fD(ct.ini)}</b></div>
+        <div style="font-size:12px">Vencimento: <b>${ct.venc?fD(ct.venc):'Indeterminado'}</b></div>
+        <div style="font-size:12px;margin-top:4px">Valor/semana: <b style="color:var(--acc)">${fR(ct.val||m.val)}</b></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn bg" onclick="gerarPdfContrato('${m.id}')">📄 Ver Contrato</button>
+        ${ct.arquivo?`<button class="btn bx" onclick="verArquivoCt('${m.id}')">📎 Arquivo</button>`:''}
+      </div>
+    </div>`
+    :'<div style="color:var(--sub);font-size:13px;text-align:center;padding:16px">Nenhum contrato cadastrado. Entre em contato com a AMS.</div>'}
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="ch"><span class="ct">🔧 Solicitar Manutenção</span></div>
+    ${solicRows}
+    <div style="display:flex;gap:8px;margin-top:${solics.length?'10px':'0'}">
+      <input id="solicDesc" class="inp" placeholder="Descreva o problema (ex: freio ruim, pneu furado...)">
+      <button class="btn bg" onclick="enviarSolic('${m.id}')">Enviar</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ch"><span class="ct">💬 Chat com a AMS</span></div>
+    <div id="portalChat" style="height:220px;overflow-y:auto;padding:4px;margin-bottom:10px">
+      ${chatMsgs||'<div style="color:var(--sub);font-size:12px;text-align:center;padding:20px">Nenhuma mensagem ainda.</div>'}
+    </div>
+    <div style="display:flex;gap:8px">
+      <input id="portalMsg" class="inp" placeholder="Digite sua mensagem..." onkeydown="if(event.key==='Enter')enviarMsgPortal('${m.id}')">
+      <button class="btn bg" onclick="enviarMsgPortal('${m.id}')">Enviar</button>
+    </div>
+  </div>`;
+}
+
+function enviarMsgPortal(mId){
+  const el=document.getElementById('portalMsg');
+  const msg=el?.value.trim();if(!msg)return;
+  DB.chats.push({id:uid(),mId,de:'loc',msg,ts:Date.now()});
+  sv('chats');el.value='';render();
+  setTimeout(()=>{const c=document.getElementById('portalChat');if(c)c.scrollTop=c.scrollHeight;},50);
+}
+function enviarSolic(mId){
+  const el=document.getElementById('solicDesc');
+  const desc=el?.value.trim();if(!desc){alert('Descreva o problema.');return;}
+  if(!DB.solics)DB.solics=[];
+  DB.solics.push({id:uid(),mId,desc,status:'pendente',ts:Date.now()});
+  sv('solics');el.value='';alert('✅ Solicitação enviada!');render();
+}
+function verArquivoCt(mId){
+  const ct=DB.contratos.filter(c=>c.mId===mId).sort((a,b)=>(b.criado||'').localeCompare(a.criado||''))[0];
+  if(!ct?.arquivo){alert('Nenhum arquivo.');return;}
+  const w=window.open('','_blank');
+  if(ct.arquivo.startsWith('data:application/pdf'))w.document.write(`<iframe src="${ct.arquivo}" style="width:100%;height:100vh;border:none"></iframe>`);
+  else w.document.write(`<img src="${ct.arquivo}" style="max-width:100%">`);
+  w.document.close();
+}
+
+// ── Chat AMS → Locatário ─────────────────────────────────────────────────────
+function abrirChatAms(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const chats=[...DB.chats.filter(c=>c.mId===mId)].sort((a,b)=>a.ts-b.ts);
+  const solics=(DB.solics||[]).filter(s=>s.mId===mId);
+  const msgs=chats.map(c=>{
+    const isAms=c.de==='ams';
+    return`<div style="display:flex;${isAms?'justify-content:flex-end':''};margin-bottom:6px">
+      <div style="max-width:80%;background:${isAms?'var(--accbg)':'var(--sur)'};border-radius:10px;padding:7px 11px;border:1px solid ${isAms?'rgba(249,115,22,.3)':'var(--bor)'}">
+        <div style="font-size:9px;color:var(--sub);margin-bottom:2px">${isAms?'Você (AMS)':m.nome.split(' ')[0]} · ${new Date(c.ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+        <div style="font-size:12px">${c.msg}</div>
+      </div>
+    </div>`;
+  }).join('');
+  const solicList=solics.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--sur);border-radius:6px;margin-bottom:4px">
+    <div><div style="font-size:12px;font-weight:600">${s.desc}</div><div style="font-size:10px;color:var(--sub)">${new Date(s.ts).toLocaleDateString('pt-BR')}</div></div>
+    <select class="inp" style="width:140px;padding:3px 6px;font-size:11px" onchange="atualizarSolic('${s.id}',this.value)">
+      <option value="pendente" ${s.status==='pendente'?'selected':''}>⏳ Pendente</option>
+      <option value="andamento" ${s.status==='andamento'?'selected':''}>🔧 Em andamento</option>
+      <option value="resolvido" ${s.status==='resolvido'?'selected':''}>✅ Resolvido</option>
+    </select>
+  </div>`).join('');
+  showM(mWrap('mChatAms',`<div class="modal" style="max-width:560px">
+    <div class="mh"><span class="ct">💬 Chat — ${m.nome.split(' ')[0]} (${m.placa})</span><button class="btn bx" onclick="closeM('mChatAms')">✕</button></div>
+    ${solics.length?`<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">🔧 Solicitações</div>${solicList}</div>`:''}
+    <div id="chatAmsBox" style="height:260px;overflow-y:auto;padding:4px;margin-bottom:10px">${msgs||'<div style="color:var(--sub);font-size:12px;text-align:center;padding:20px">Nenhuma mensagem</div>'}</div>
+    <div style="display:flex;gap:8px">
+      <input id="chatAmsInp" class="inp" placeholder="Responder ao locatário..." onkeydown="if(event.key==='Enter')enviarMsgAms('${mId}')">
+      <button class="btn bg" onclick="enviarMsgAms('${mId}')">Enviar</button>
+    </div>
+  </div>`));
+  setTimeout(()=>{const c=document.getElementById('chatAmsBox');if(c)c.scrollTop=c.scrollHeight;},100);
+}
+function enviarMsgAms(mId){
+  const el=document.getElementById('chatAmsInp');
+  const msg=el?.value.trim();if(!msg)return;
+  DB.chats.push({id:uid(),mId,de:'ams',msg,ts:Date.now()});
+  sv('chats');el.value='';
+  const chats=[...DB.chats.filter(c=>c.mId===mId)].sort((a,b)=>a.ts-b.ts);
+  const m=DB.motos.find(x=>x.id===mId);
+  const box=document.getElementById('chatAmsBox');
+  if(box){
+    box.innerHTML=chats.map(c=>{const isAms=c.de==='ams';return`<div style="display:flex;${isAms?'justify-content:flex-end':''};margin-bottom:6px"><div style="max-width:80%;background:${isAms?'var(--accbg)':'var(--sur)'};border-radius:10px;padding:7px 11px;border:1px solid ${isAms?'rgba(249,115,22,.3)':'var(--bor)'}"><div style="font-size:9px;color:var(--sub);margin-bottom:2px">${isAms?'Você (AMS)':(m?.nome||'').split(' ')[0]} · ${new Date(c.ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div><div style="font-size:12px">${c.msg}</div></div></div>`;}).join('');
+    box.scrollTop=box.scrollHeight;
+  }
+}
+function atualizarSolic(id,status){
+  const s=(DB.solics||[]).find(x=>x.id===id);
+  if(s){s.status=status;sv('solics');}
+}
+function configPixAms(){
+  showM(mWrap('mPix',`<div class="modal">
+    <div class="mh"><span class="ct">💰 Chave PIX — Portal do Locatário</span><button class="btn bx" onclick="closeM('mPix')">✕</button></div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:14px">Será exibida no portal para que o locatário pague via PIX.</div>
+    <label>Chave PIX (CPF, e-mail, telefone ou chave aleatória)</label>
+    <input id="pixInp" class="inp" value="${DB.pixAms||''}" placeholder="Ex: contato@amsmotos.com" style="margin:6px 0 16px">
+    <div class="row" style="gap:8px;justify-content:flex-end">
+      <button class="btn bx" onclick="closeM('mPix')">Cancelar</button>
+      <button class="btn bg" onclick="salvarPix()">✓ Salvar</button>
+    </div>
+  </div>`));
+}
+function salvarPix(){
+  DB.pixAms=document.getElementById('pixInp').value.trim();
+  localStorage.setItem('mg_pixAms',DB.pixAms);
+  closeM('mPix');alert('✅ Chave PIX salva!');
+}
+function configAcessoLoc(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  showM(mWrap('mAcessoLoc',`<div class="modal">
+    <div class="mh"><span class="ct">🔑 Acesso ao Portal — ${m.placa}</span><button class="btn bx" onclick="closeM('mAcessoLoc')">✕</button></div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:14px">${m.nome||'—'}</div>
+    <label>CPF do Locatário</label>
+    <input id="locCpf" class="inp" value="${m.cpfLoc||''}" placeholder="000.000.000-00" style="margin:4px 0 10px" oninput="this.value=formatCpf(this.value)">
+    <label>Senha de acesso</label>
+    <input id="locSenha" class="inp" type="text" value="${m.senhaLoc||''}" placeholder="Defina uma senha" style="margin:4px 0 16px">
+    <div style="background:var(--accbg);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--acc);margin-bottom:16px">
+      💡 O locatário acessa em <b>📱 Portal Locatário</b> com CPF + senha.
+    </div>
+    <div class="row" style="gap:8px;justify-content:flex-end">
+      <button class="btn bx" onclick="closeM('mAcessoLoc')">Cancelar</button>
+      <button class="btn bg" onclick="salvarAcessoLoc('${mId}')">✓ Salvar</button>
+    </div>
+  </div>`));
+}
+function salvarAcessoLoc(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  m.cpfLoc=document.getElementById('locCpf').value.trim();
+  m.senhaLoc=document.getElementById('locSenha').value.trim();
+  sv('m');closeM('mAcessoLoc');
+  alert(`✅ Acesso criado!\n\nCPF: ${m.cpfLoc}\nSenha: ${m.senhaLoc}\n\nCompartilhe com ${m.nome.split(' ')[0]}.`);
+}
+
+// ── DOCUMENTOS ────────────────────────────────────────────────────────────────
 function vDocs(){
   const ativ=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim());
-  // Documentos vencendo
   const hoje=new Date();hoje.setHours(12,0,0,0);
   function diasP(d){if(!d)return null;const dt=new Date(d+'T12:00');return Math.ceil((dt-hoje)/86400000)}
-
-  // CNH dos locatários vencendo
   const cnhAlert=ativ.filter(m=>{const d=diasP(m.cnhValidade);return d!==null&&d<=30;});
-  // CRLV vencendo
   const crlvAlert=ativ.filter(m=>{const d=diasP(m.crlvVenc);return d!==null&&d<=30;});
-  // Contratos vencendo
   const ctAlert=DB.contratos.filter(c=>{const d=diasP(c.venc);return d!==null&&d<=30;});
-
   const alertHtml=[
     ...cnhAlert.map(m=>{const d=diasP(m.cnhValidade);return`<div style="background:${d<=0?'var(--redbg)':'var(--yelbg)'};border-radius:8px;padding:8px 12px;font-size:12px;color:${d<=0?'var(--red)':'var(--yel)'};display:flex;gap:6px;align-items:center">🪪 <b>CNH de ${m.nome.split(' ')[0]} (${m.placa})</b> — ${d<=0?'VENCIDA':'vence em '+d+' dias'}</div>`;}),
     ...crlvAlert.map(m=>{const d=diasP(m.crlvVenc);return`<div style="background:${d<=0?'var(--redbg)':'var(--yelbg)'};border-radius:8px;padding:8px 12px;font-size:12px;color:${d<=0?'var(--red)':'var(--yel)'};display:flex;gap:6px;align-items:center">📄 <b>CRLV ${m.placa}</b> — ${d<=0?'VENCIDO':'vence em '+d+' dias'}</div>`;}),
     ...ctAlert.map(c=>{const m=DB.motos.find(x=>x.id===c.mId)||{};const d=diasP(c.venc);return`<div style="background:${d<=0?'var(--redbg)':'var(--yelbg)'};border-radius:8px;padding:8px 12px;font-size:12px;color:${d<=0?'var(--red)':'var(--yel)'};display:flex;gap:6px;align-items:center">📝 <b>Contrato ${m.placa||c.mId}</b> — ${d<=0?'VENCIDO':'vence em '+d+' dias'}</div>`;})
   ].join('');
-
-  // Tabela de locatários com situação
   const rows=ativ.map(m=>{
     const ct=DB.contratos.filter(c=>c.mId===m.id).sort((a,b)=>(b.venc||'').localeCompare(a.venc||''))[0];
     const cau=DB.caucoes.find(c=>c.mId===m.id);
@@ -1944,6 +2316,9 @@ function vDocs(){
     const badgeCnh=m.cnhValidade?(dCnh<=0?'<span class="badge" style="background:var(--redbg);color:var(--red)">VENCIDA</span>':dCnh<=30?`<span class="badge" style="background:var(--yelbg);color:var(--yel)">${dCnh}d</span>`:`<span class="badge" style="background:var(--grnbg);color:var(--grn)">${fD(m.cnhValidade)}</span>`):'<span style="color:var(--mut)">—</span>';
     const badgeCt=ct?(dCt<=0?'<span class="badge" style="background:var(--redbg);color:var(--red)">VENCIDO</span>':dCt<=30?`<span class="badge" style="background:var(--yelbg);color:var(--yel)">${dCt}d</span>`:`<span class="badge" style="background:var(--grnbg);color:var(--grn)">${fD(ct.venc)}</span>`):'<span style="color:var(--mut)">—</span>';
     const badgeCau=cau?`<span class="badge" style="background:var(--grnbg);color:var(--grn)">${fR(cau.val)}</span>`:'<span style="color:var(--mut)">—</span>';
+    const temPortal=m.cpfLoc&&m.senhaLoc;
+    const chatPend=DB.chats.filter(c=>c.mId===m.id&&c.de==='loc').length;
+    const solicPend=(DB.solics||[]).filter(s=>s.mId===m.id&&s.status==='pendente').length;
     return`<tr>
       <td><b>${m.placa}</b></td>
       <td style="font-size:12px">${m.nome}</td>
@@ -1955,16 +2330,19 @@ function vDocs(){
         <button class="btn bxs" style="font-size:10px;padding:2px 6px;margin-left:4px" onclick="verFotos('${m.id}')">📷</button>
         <button class="btn bg bxs" style="font-size:10px;padding:2px 6px" onclick="addFoto('${m.id}')">+ Foto</button>
       </td>
-      <td>
-        <button class="btn bxs" style="font-size:10px;padding:2px 6px" onclick="novoContrato('${m.id}')">📝 Contrato</button>
+      <td style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="btn bxs" style="font-size:10px;padding:2px 6px" onclick="novoContrato('${m.id}')">📝</button>
+        <button class="btn bxs" style="font-size:10px;padding:2px 6px;background:${temPortal?'var(--grnbg)':'var(--sur)'};color:${temPortal?'var(--grn)':'var(--sub)'}" onclick="configAcessoLoc('${m.id}')" title="${temPortal?'Portal ativo':'Criar acesso portal'}">🔑${temPortal?' ✓':''}</button>
+        ${temPortal?`<button class="btn bxs" style="font-size:10px;padding:2px 6px;position:relative;background:${(chatPend+solicPend)>0?'rgba(249,115,22,.15)':'var(--sur)'}" onclick="abrirChatAms('${m.id}')" title="Chat / Solicitações">💬${(chatPend+solicPend)>0?`<span style="position:absolute;top:-4px;right:-4px;background:var(--acc);color:#000;border-radius:8px;font-size:8px;font-weight:700;padding:0 3px">${chatPend+solicPend}</span>`:''}
+        </button>`:''}
       </td>
     </tr>`;
   }).join('');
-
   return`
   ${alertHtml?`<div class="card" style="margin-bottom:12px"><div class="ch" style="margin-bottom:8px"><span class="ct">🔔 Alertas de Documentos</span></div><div style="display:flex;flex-direction:column;gap:6px">${alertHtml}</div></div>`:''}
   <div class="card"><div class="ch">
-    <span class="ct">📋 Situação Documental dos Locatários</span>
+    <span class="ct">📋 Situação Documental</span>
+    <button class="btn bx bs" onclick="configPixAms()">💰 Config PIX</button>
   </div>
   <div style="overflow-x:auto"><table class="tbl">
     <thead><tr><th>Placa</th><th>Locatário</th><th>CNH</th><th>Contrato</th><th>Caução</th><th>Fotos</th><th>Ações</th></tr></thead>
