@@ -77,6 +77,7 @@ label{display:block;font-size:11px;color:var(--sub);margin-bottom:3px;font-weigh
 <div id="topbar">
   <h1>🏍️ MotoGest</h1>
   <button id="pwaBtn" onclick="installPWA()" style="display:none;align-items:center;gap:6px;background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-left:auto;margin-right:12px">⬇️ Instalar App</button>
+  <button id="notifBtn" onclick="habilitarNotif()" style="display:flex;align-items:center;gap:5px;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">🔔 Notificações</button>
   <button id="saveBtn" onclick="saveAll()" style="display:flex;align-items:center;gap:6px;background:#22c55e;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-left:auto;margin-right:8px">💾 Salvar</button>
   <button onclick="exportBackup()" title="Exportar backup" style="display:flex;align-items:center;gap:5px;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">📥 Backup</button>
   <label title="Importar backup" style="display:flex;align-items:center;gap:5px;background:#7c3aed;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:8px">📤 Restaurar<input type="file" accept=".json" onchange="importBackup(event)" style="display:none"></label>
@@ -608,7 +609,23 @@ function vDash(){
   if(cnhExp.length) al+=`<div style="background:var(--redbg);border-radius:8px;padding:10px 14px;color:var(--red);display:flex;gap:8px;cursor:pointer" onclick="go('docs')">🪪 <b>${cnhExp.length} CNH(s) VENCIDA(S):</b>&nbsp;${cnhExp.map(m=>m.nome.split(' ')[0]+' ('+m.placa+')').join(', ')}</div>`;
   if(cnhVenc.length) al+=`<div style="background:var(--yelbg);border-radius:8px;padding:10px 14px;color:var(--yel);display:flex;gap:8px;cursor:pointer" onclick="go('docs')">🪪 <b>${cnhVenc.length} CNH(s)</b>&nbsp;vence(m) em até 15 dias — clique para ver</div>`;
   if(ctVenc.length) al+=`<div style="background:var(--yelbg);border-radius:8px;padding:10px 14px;color:var(--yel);display:flex;gap:8px;cursor:pointer" onclick="go('docs')">📝 <b>${ctVenc.length} contrato(s)</b>&nbsp;vence(m) em até 15 dias — clique para ver</div>`;
+
+  const _avisosHoje=(DB.avisos&&DB.avisos[tod()])||0;
+  const _btnsAcao=`<div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px;padding:0 2px">
+    <button class="btn bxs" style="background:#25d366;color:#fff;border:none;font-size:12px;display:flex;align-items:center;gap:5px" onclick="waAlertaGeral()">⚡ Alerta Geral WA${_avisosHoje?` <span style='background:rgba(255,255,255,.3);border-radius:10px;padding:0 6px;font-size:10px'>${_avisosHoje}x hoje</span>`:''}</button>
+    <button class="btn bxs" style="font-size:12px" onclick="vRanking()">🏆 Ranking</button>
+    <button class="btn bxs" style="font-size:12px" onclick="vAgendaRevisoes()">📅 Agenda Manutenção</button>
+    <button class="btn bxs" style="font-size:12px" onclick="vMotoParada()">🏍️ Motos Paradas</button>
+    <button class="btn bxs" style="font-size:12px" onclick="vCustoReceita()">📊 Custo vs Receita</button>
+    <button class="btn bxs" style="font-size:12px" onclick="gerarRelatorioSemanal()">📄 Rel. Semanal PDF</button>
+  </div>`;
   if(!al) al=`<div style="background:var(--grnbg);border-radius:8px;padding:10px 14px;color:var(--grn)">✅ Tudo em ordem hoje!</div>`;
+
+  // ── Troca de óleo no dashboard ────────────────────────────────────────────
+  const oleoPend=ativ.filter(m=>m.nome&&m.nome.trim()&&m.odo>0&&(m.odo-m.loilKm)>=OIL);
+  const oleoAlert=ativ.filter(m=>m.nome&&m.nome.trim()&&m.odo>0&&(m.odo-m.loilKm)>=(OIL*0.8)&&(m.odo-m.loilKm)<OIL);
+  if(oleoPend.length) al+=`<div style="background:rgba(249,115,22,.1);border-radius:8px;padding:10px 14px;color:var(--acc);display:flex;gap:8px;flex-wrap:wrap;align-items:center;cursor:pointer" onclick="go('odo')">🛢️ <b>${oleoPend.length} moto(s) com troca de óleo VENCIDA</b> — <span style="font-size:11px">${oleoPend.slice(0,4).map(m=>m.placa).join(', ')}${oleoPend.length>4?' e mais...':''}</span> <button class="btn bxs" style="font-size:11px;padding:3px 8px;background:#25d366;color:#fff;border:none;margin-left:auto" onclick="event.stopPropagation();waOleoBulk()">📱 Avisar todos</button></div>`;
+  if(oleoAlert.length) al+=`<div style="background:var(--yelbg);border-radius:8px;padding:10px 14px;color:var(--yel);display:flex;gap:8px;align-items:center;cursor:pointer" onclick="go('odo')">🛢️ <b>${oleoAlert.length} moto(s)</b>&nbsp;próximas da troca de óleo (80%+)</div>`;
 
   // ── Inadimplência rápida para o dashboard ─────────────────────────────────
   const paidByM={};
@@ -638,7 +655,7 @@ function vDash(){
 
   const alugadas=ativ.filter(m=>m.nome&&m.nome.trim()!=='');
   const disponiveis=ativ.filter(m=>!m.nome||m.nome.trim()==='');
-  return`<div class="g4" style="margin-bottom:12px">
+  return _btnsAcao+`<div class="g4" style="margin-bottom:12px">
     ${sc('Total de Motos',ativ.length,'var(--acc)')}
     ${sc('🟢 Alugadas',alugadas.length,'var(--grn)',Math.round(alugadas.length/ativ.length*100||0)+'% da frota')}
     ${sc('🔵 Disponíveis',disponiveis.length,'var(--blu)',Math.round(disponiveis.length/ativ.length*100||0)+'% da frota')}
@@ -701,7 +718,10 @@ function vOdo(){
     const leit=ld.find(l=>l.mId===m.id);
     const km=oV[m.id]!==undefined?oV[m.id]:(leit?leit.km:m.odo);
     const {u}=ms(m);
+    const kmDesdeOil=m.odo>0?Math.max(0,m.odo-m.loilKm):0;
     const pct=m.odo>0?(m.odo%OIL)/OIL*100:0;
+    const oiVenc=kmDesdeOil>=OIL;
+    const oiPert=kmDesdeOil>=(OIL*0.8)&&!oiVenc;
     return`<div class="card" style="border-color:${leit?'var(--grn)':'var(--bor)'}">
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
         <div><div style="font-weight:700">${m.placa}</div><div style="font-size:11px;color:var(--sub)">${m.nome||'Sem locatário'}</div></div>
@@ -711,7 +731,11 @@ function vOdo(){
         <input type="number" placeholder="${fN(m.odo)} km" value="${km||''}" id="o_${m.id}" onchange="oV['${m.id}']=Number(this.value)" style="flex:1">
         <span style="font-size:11px;color:var(--sub)">km</span>
       </div>
-      <div style="font-size:10px;color:var(--sub);margin-bottom:4px">Próx. óleo: ${fN(m.loilKm+OIL)} km</div>
+      <div style="font-size:10px;color:var(--sub);margin-bottom:4px">
+        🛢️ Próx. óleo: ${fN(m.loilKm+OIL)} km
+        ${oiVenc?`<b style="color:var(--red)"> VENCIDO ${fN(kmDesdeOil-OIL)}km atraso</b>`:oiPert?`<b style="color:var(--yel)"> ${fN(OIL-kmDesdeOil)}km rest. ⚠️</b>`:`<span style="color:var(--sub)"> ${fN(OIL-kmDesdeOil)}km rest.</span>`}
+      </div>
+      ${(oiVenc||oiPert)&&m.nome?`<button class="btn bxs" style="width:100%;margin-bottom:4px;background:#25d366;color:#fff;border:none;font-size:11px" onclick="waOleo('${m.id}')">📱 Avisar troca de óleo</button>`:''}
       <div class="bar-bg"><div class="bar-fill" style="width:${Math.min(100,pct)}%;background:${uc(u)}"></div></div>
     </div>`;
   }).join('');
@@ -1755,7 +1779,7 @@ function vInd(){
         <td><span class="badge" style="background:${corBg};color:${cor};font-weight:700">${w} sem${w>1?'anas':'ana'}</span></td>
         <td style="color:${cor};font-weight:700">${fR(w*Number(m.val||0))}</td>
         <td style="color:var(--red);font-weight:700">${saldo>0?fR(saldo):'—'}</td>
-        <td><button class="btn bg bxs" onclick="sPgHoje('${m.id}')">✓ Marcar Pago</button> <button class="btn bxs" style="background:#25d366;color:#fff;font-size:11px;border:none" onclick="abrirWhatsApp('${m.id}')">📱 WA</button></td>
+        <td><button class="btn bg bxs" onclick="sPgHoje('${m.id}')">✓ Marcar Pago</button> <button class="btn bxs" style="background:#25d366;color:#fff;font-size:11px;border:none" onclick="abrirWhatsApp('${m.id}')">📱 WA</button> <button class="btn bxs" style="background:#0ea5e9;color:#fff;font-size:11px;border:none" onclick="gerarQRPix('${m.id}')">💰 QR PIX</button></td>
       </tr>`;
     }).join('');
     html+=`<div class="card" style="margin-bottom:10px">
@@ -1777,6 +1801,142 @@ function vInd(){
 function sPgHoje(mId){openPgModal(mId,wS(tod()))}
 
 // ── WhatsApp de Cobrança ──────────────────────────────────────────────────────
+
+function waOleo(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const kmDesde=Math.max(0,m.odo-m.loilKm);
+  const atrasado=kmDesde>=OIL?kmDesde-OIL:0;
+  const pN=m.nome.split(' ')[0];
+  let msg='🛢️ Olá, *'+pN+'*!\n\n';
+  msg+='A moto *'+m.placa+'* está com troca de óleo ';
+  if(atrasado>0) msg+='*VENCIDA há '+fN(atrasado)+' km*. ⚠️\n\nPasse na *AMS Motos* o quanto antes para evitar danos ao motor. 🙏';
+  else msg+='*próxima — faltam '+fN(OIL-kmDesde)+' km*.\n\nFique atento para não ultrapassar o limite! 🔧';
+  msg+='\n\n_AMS Motos 🏍️_';
+  const mEsc=msg.replace(/`/g,'\\`');
+  showM(mWrap('mWAO',`<div class="modal"><div class="mh"><span class="ct">🛢️ Aviso Óleo — ${pN}</span><button class="btn bx" onclick="closeM('mWAO')">✕</button></div><div style="background:var(--sur);border-radius:10px;padding:14px;font-size:13px;white-space:pre-wrap;line-height:1.6;max-height:45vh;overflow-y:auto;font-family:monospace">${msg}</div><div class="row" style="gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn bx" onclick="navigator.clipboard.writeText(\`${mEsc}\`).then(()=>alert('✅ Copiado!'))">📋 Copiar</button><button class="btn bx" onclick="closeM('mWAO')">Fechar</button><button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="window.open('https://wa.me/?text='+encodeURIComponent(\`${mEsc}\`),'_blank')">📱 WA</button></div></div>`));
+}
+function waOleoBulk(){
+  const venc=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim()&&m.odo>0&&(m.odo-m.loilKm)>=OIL);
+  if(!venc.length){alert('Nenhuma moto com óleo vencido.');return;}
+  const lista=venc.map(m=>'• '+m.placa+' — '+m.nome.split(' ').slice(0,2).join(' ')+' ('+fN(m.odo-m.loilKm-OIL)+' km atrasada)').join('\n');
+  const msg='🛢️ *AMS Motos — Trocas de Óleo Vencidas*\n\n'+lista+'\n\nPasse na AMS Motos o quanto antes!\n\n_AMS Motos 🏍️_';
+  const mEsc=msg.replace(/`/g,'\\`');
+  showM(mWrap('mWAOB',`<div class="modal"><div class="mh"><span class="ct">🛢️ Óleo Vencido — ${venc.length} motos</span><button class="btn bx" onclick="closeM('mWAOB')">✕</button></div><div style="background:var(--sur);border-radius:10px;padding:14px;font-size:13px;white-space:pre-wrap;line-height:1.6;max-height:45vh;overflow-y:auto;font-family:monospace">${msg}</div><div class="row" style="gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn bx" onclick="navigator.clipboard.writeText(\`${mEsc}\`).then(()=>alert('✅ Copiado!'))">📋 Copiar</button><button class="btn bx" onclick="closeM('mWAOB')">Fechar</button><button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="window.open('https://wa.me/?text='+encodeURIComponent(\`${mEsc}\`),'_blank')">📱 WA</button></div></div>`));
+}
+function waCNH(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const hoje2=new Date();hoje2.setHours(12,0,0,0);
+  const dias=m.cnhValidade?Math.ceil((new Date(m.cnhValidade+'T12:00')-hoje2)/86400000):null;
+  if(dias===null){alert('CNH sem data cadastrada.');return;}
+  const pN=m.nome.split(' ')[0];
+  const status=dias<0?'*VENCIDA há '+Math.abs(dias)+' dias*':dias===0?'*VENCE HOJE*':'*vence em '+dias+' dia'+(dias>1?'s':'')+'*';
+  const msg='🪪 Olá, *'+pN+'*!\n\nSua CNH '+status+'.\n\nPor favor, regularize sua habilitação. A locação da moto *'+m.placa+'* pode ser suspensa caso não seja renovada. ⚠️\n\n_AMS Motos 🏍️_';
+  const mEsc=msg.replace(/`/g,'\\`');
+  showM(mWrap('mWACNH',`<div class="modal"><div class="mh"><span class="ct">🪪 Aviso CNH — ${pN}</span><button class="btn bx" onclick="closeM('mWACNH')">✕</button></div><div style="background:var(--sur);border-radius:10px;padding:14px;font-size:13px;white-space:pre-wrap;line-height:1.6;max-height:45vh;overflow-y:auto;font-family:monospace">${msg}</div><div class="row" style="gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn bx" onclick="navigator.clipboard.writeText(\`${mEsc}\`).then(()=>alert('✅ Copiado!'))">📋 Copiar</button><button class="btn bx" onclick="closeM('mWACNH')">Fechar</button><button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="window.open('https://wa.me/?text='+encodeURIComponent(\`${mEsc}\`),'_blank')">📱 WA</button></div></div>`));
+}
+function waAlertaGeral(){
+  const hoje2=new Date();hoje2.setHours(12,0,0,0);
+  const diasP2=d=>d?Math.ceil((new Date(d+'T12:00')-hoje2)/86400000):null;
+  const diaJS2={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
+  const paidByM={};DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.sem);});
+  function wL(m){if(!m.dia||!diaJS2.hasOwnProperty(m.dia))return 0;const paid=new Set(paidByM[m.id]||[]);let ref=new Date(hoje2);ref.setDate(ref.getDate()-((ref.getDay()-diaJS2[m.dia]+7)%7));let late=0,check=new Date(ref);for(let i=0;i<12;i++){const sem=wS(check.toISOString().split('T')[0]);if(!paid.has(sem))late++;else break;check.setDate(check.getDate()-7);}return late;}
+  const ativ=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim());
+  const inadim=ativ.filter(m=>m.val>0&&wL(m)>=1);
+  const oleovenc=ativ.filter(m=>m.odo>0&&(m.odo-m.loilKm)>=OIL);
+  const cnhExp=ativ.filter(m=>m.cnhValidade&&diasP2(m.cnhValidade)<0);
+  const cnhProb=ativ.filter(m=>m.cnhValidade&&diasP2(m.cnhValidade)>=0&&diasP2(m.cnhValidade)<=30);
+  const paradas=ativ.filter(m=>{const lts=DB.leit.filter(l=>l.mId===m.id).sort((a,b)=>b.data.localeCompare(a.data));if(!lts.length)return false;return Math.ceil((hoje2-new Date(lts[0].data+'T12:00'))/86400000)>=5&&m.odo>0;});
+  if(!inadim.length&&!oleovenc.length&&!cnhProb.length&&!cnhExp.length&&!paradas.length){alert('✅ Nenhum alerta no momento!');return;}
+  let resumo='⚡ *AMS Motos — Alerta Geral ('+hoje2.toLocaleDateString('pt-BR')+')*\n\n';
+  if(inadim.length) resumo+='💸 *'+inadim.length+' inadimplente(s)*: '+inadim.map(m=>m.placa).join(', ')+'\n';
+  if(oleovenc.length) resumo+='🛢️ *'+oleovenc.length+' óleo vencido*: '+oleovenc.map(m=>m.placa).join(', ')+'\n';
+  if(cnhExp.length) resumo+='🪪 *'+cnhExp.length+' CNH vencida*: '+cnhExp.map(m=>m.placa).join(', ')+'\n';
+  if(cnhProb.length) resumo+='🪪 *'+cnhProb.length+' CNH vencendo 30d*: '+cnhProb.map(m=>m.placa).join(', ')+'\n';
+  if(paradas.length) resumo+='🏍️ *'+paradas.length+' moto(s) parada(s) 5+ dias*: '+paradas.map(m=>m.placa).join(', ')+'\n';
+  resumo+='\n_AMS Motos 🏍️_';
+  if(!DB.avisos)DB.avisos={};DB.avisos[tod()]=(DB.avisos[tod()]||0)+1;localStorage.setItem('mg_avisos',JSON.stringify(DB.avisos));
+  const mEsc=resumo.replace(/`/g,'\\`');
+  showM(mWrap('mWAG2',`<div class="modal"><div class="mh"><span class="ct">⚡ Alerta Geral AMS</span><button class="btn bx" onclick="closeM('mWAG2')">✕</button></div><div style="background:var(--sur);border-radius:10px;padding:14px;font-size:13px;white-space:pre-wrap;line-height:1.6;max-height:50vh;overflow-y:auto;font-family:monospace">${resumo}</div><div class="row" style="gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn bx" onclick="navigator.clipboard.writeText(\`${mEsc}\`).then(()=>alert('✅ Copiado!'))">📋 Copiar</button><button class="btn bx" onclick="closeM('mWAG2')">Fechar</button><button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="window.open('https://wa.me/?text='+encodeURIComponent(\`${mEsc}\`),'_blank')">📱 WA</button></div></div>`));
+}
+function gerarQRPix(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const pix=DB.pixAms||'';
+  if(!pix){alert('Configure a chave PIX primeiro (botão 💰 na aba Documentos).');return;}
+  const saldo=calcSaldo(m.id);
+  if(saldo<=0){alert('Nenhum débito pendente para '+m.nome.split(' ')[0]+'.');return;}
+  const valor=saldo.toFixed(2);
+  const qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=240x240&data='+encodeURIComponent('pix:'+pix+'?amount='+valor+'&description=AMS+Motos+'+m.placa);
+  showM(mWrap('mQR',`<div class="modal" style="max-width:360px;text-align:center"><div class="mh"><span class="ct">💰 PIX — ${m.nome.split(' ')[0]}</span><button class="btn bx" onclick="closeM('mQR')">✕</button></div><div style="font-size:13px;color:var(--sub);margin-bottom:12px">Valor: <b style="color:var(--red);font-size:20px">${fR(saldo)}</b></div><img src="${qrUrl}" style="width:210px;height:210px;border-radius:12px;display:block;margin:0 auto"><div style="margin-top:12px;font-size:12px;color:var(--sub)">Chave PIX: <b>${pix}</b></div><button class="btn bx" style="margin-top:8px;width:100%" onclick="navigator.clipboard.writeText('${pix}').then(()=>alert('✅ Chave copiada!'))">📋 Copiar Chave</button></div>`));
+}
+function gerarRelatorioSemanal(){
+  const hoje=new Date();hoje.setHours(12,0,0,0);
+  const domSem=new Date(hoje);domSem.setDate(domSem.getDate()-domSem.getDay());
+  const sabSem=new Date(domSem);sabSem.setDate(sabSem.getDate()+6);
+  const semStr=domSem.toLocaleDateString('pt-BR')+' a '+sabSem.toLocaleDateString('pt-BR');
+  const diaJS2={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
+  const paidByM={};DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.sem);});
+  function wL(m){if(!m.dia||!diaJS2.hasOwnProperty(m.dia))return 0;const paid=new Set(paidByM[m.id]||[]);let ref=new Date(hoje);ref.setDate(ref.getDate()-((ref.getDay()-diaJS2[m.dia]+7)%7));let late=0,check=new Date(ref);for(let i=0;i<12;i++){const sem=wS(check.toISOString().split('T')[0]);if(!paid.has(sem))late++;else break;check.setDate(check.getDate()-7);}return late;}
+  const ativ=DB.motos.filter(m=>m.on&&m.val>0&&m.nome);
+  const indAll=ativ.map(m=>({m,w:wL(m)})).filter(x=>x.w>=1);
+  const oleovenc=DB.motos.filter(m=>m.on&&m.nome&&m.odo>0&&(m.odo-m.loilKm)>=OIL);
+  const semSt=wS(domSem.toISOString().split('T')[0]);
+  const semPgs=DB.pg.filter(p=>p.sem===semSt||(p.data&&wS(p.data)===semSt));
+  const recSem=semPgs.reduce((a,p)=>a+Number(p.val||0),0);
+  const indVal=indAll.reduce((a,x)=>a+x.w*Number(x.m.val||0),0);
+  const w2=window.open('','_blank');
+  const trsInd=indAll.length?`<table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse"><thead><tr style="background:#fee2e2"><th>Placa</th><th>Locatário</th><th>Semanas Atraso</th><th>Valor</th></tr></thead><tbody>${indAll.sort((a,b)=>b.w-a.w).map(x=>'<tr><td><b>'+x.m.placa+'</b></td><td>'+x.m.nome+'</td><td style="color:red">'+x.w+'x</td><td style="color:red">R$ '+(x.w*Number(x.m.val||0)).toFixed(2)+'</td></tr>').join('')}</tbody></table>`:'<p style="color:green">✅ Sem inadimplentes!</p>';
+  const trsOleo=oleovenc.length?`<table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse"><thead><tr style="background:#fff7ed"><th>Placa</th><th>Locatário</th><th>Km Atrasado</th></tr></thead><tbody>${oleovenc.map(m=>'<tr><td><b>'+m.placa+'</b></td><td>'+m.nome+'</td><td style="color:orange">'+fN(m.odo-m.loilKm-OIL)+' km</td></tr>').join('')}</tbody></table>`:'<p style="color:green">✅ Sem trocas vencidas!</p>';
+  const trsPg=semPgs.length?`<table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse"><thead><tr style="background:#f0fdf4"><th>Placa</th><th>Locatário</th><th>Valor</th></tr></thead><tbody>${semPgs.map(p=>{const m2=DB.motos.find(x=>x.id===p.mId);return'<tr><td><b>'+(m2?m2.placa:'?')+'</b></td><td>'+(m2?m2.nome:'?')+'</td><td style="color:green">R$ '+Number(p.val||0).toFixed(2)+'</td></tr>';}).join('')}</tbody></table>`:'<p>Nenhum pagamento registrado.</p>';
+  w2.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Relatorio Semanal AMS</title></head><body style="font-family:Arial,sans-serif;margin:30px"><h1 style="color:#f97316">🏍️ AMS Motos — Relatório Semanal</h1><p><b>Semana:</b> '+semStr+' &nbsp;|&nbsp; <b>Gerado:</b> '+hoje.toLocaleDateString('pt-BR')+'</p><hr><table width="100%" cellpadding="10"><tr><td style="background:#f0fdf4;border-radius:8px;text-align:center"><div style="font-size:11px;color:gray">RECEITA DA SEMANA</div><div style="font-size:26px;font-weight:800;color:green">R$ '+recSem.toFixed(2)+'</div></td><td style="background:#fef2f2;border-radius:8px;text-align:center"><div style="font-size:11px;color:gray">INADIMPLÊNCIA</div><div style="font-size:26px;font-weight:800;color:red">R$ '+indVal.toFixed(2)+'</div><div style="font-size:12px;color:gray">'+indAll.length+' locatário(s)</div></td><td style="background:#fff7ed;border-radius:8px;text-align:center"><div style="font-size:11px;color:gray">ÓLEO VENCIDO</div><div style="font-size:26px;font-weight:800;color:orange">'+oleovenc.length+'</div><div style="font-size:12px;color:gray">moto(s)</div></td></tr></table><h2>📋 Inadimplentes</h2>'+trsInd+'<h2>🛢️ Troca de Óleo Vencida</h2>'+trsOleo+'<h2>💰 Pagamentos da Semana</h2>'+trsPg+'<script>window.onload=()=>window.print();<\/script></body></html>');
+  w2.document.close();
+}
+function vRanking(){
+  const diaJS2={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
+  const paidByM={};DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.sem);});
+  function wL(m){if(!m.dia||!diaJS2.hasOwnProperty(m.dia))return 0;const paid=new Set(paidByM[m.id]||[]);const ref=new Date();ref.setHours(12,0,0,0);ref.setDate(ref.getDate()-((ref.getDay()-diaJS2[m.dia]+7)%7));let late=0,check=new Date(ref);for(let i=0;i<12;i++){const sem=wS(check.toISOString().split('T')[0]);if(!paid.has(sem))late++;else break;check.setDate(check.getDate()-7);}return late;}
+  const ativ=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim()&&m.val>0);
+  const ranked=ativ.map(m=>{const pags=(paidByM[m.id]||[]).length;const atrasado=wL(m);return{m,pags,atrasado,score:pags*10-atrasado*25};}).sort((a,b)=>b.score-a.score);
+  const rows=ranked.map((r,i)=>{const emoji=i<3?['🥇','🥈','🥉'][i]:i>=ranked.length-3?'⚠️':'';const cor=r.atrasado===0?'var(--grn)':r.atrasado<=1?'var(--yel)':'var(--red)';return`<tr><td style="font-weight:700">${emoji} ${i+1}º</td><td><b>${r.m.placa}</b></td><td>${r.m.nome.split(' ').slice(0,2).join(' ')}</td><td style="color:var(--grn)">${r.pags}</td><td style="color:${cor}">${r.atrasado}</td><td style="font-weight:700;color:${cor}">${r.score}</td><td>${r.atrasado>=3?`<button class="btn bxs" style="font-size:10px;padding:2px 7px;background:#25d366;color:#fff;border:none" onclick="abrirWhatsApp('${r.m.id}')">📱</button>`:''}</td></tr>`;}).join('');
+  showM(mWrap('mRank',`<div class="modal" style="max-width:680px"><div class="mh"><span class="ct">🏆 Ranking de Locatários</span><button class="btn bx" onclick="closeM('mRank')">✕</button></div><p style="font-size:12px;color:var(--sub);margin-bottom:12px">Score: +10 por pagamento, -25 por semana em atraso</p><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Pos.</th><th>Placa</th><th>Locatário</th><th>✅ Pag.</th><th>⚠️ Atraso</th><th>Score</th><th>WA</th></tr></thead><tbody>${rows}</tbody></table></div></div>`));
+}
+function vAgendaRevisoes(){
+  const REV=10000;
+  const ativ=DB.motos.filter(m=>m.on);
+  const agd=ativ.map(m=>{
+    const kmDesdeOil=Math.max(0,m.odo-m.loilKm);
+    const lastRev=DB.mhist.filter(h=>h.mId===m.id&&h.tipo==='rev').sort((a,b)=>b.km-a.km)[0];
+    const kmRev=lastRev?lastRev.km:m.lrevKm||0;
+    const kmFaltaRev=Math.max(0,REV-(m.odo-kmRev));
+    const oiVenc=kmDesdeOil>=OIL;
+    const oiPert=kmDesdeOil>=(OIL*0.8)&&!oiVenc;
+    return{m,kmFaltaRev,oiVenc,oiPert,kmFaltaOil:Math.max(0,OIL-kmDesdeOil)};
+  }).filter(x=>x.kmFaltaRev<=2000||x.oiVenc||x.oiPert).sort((a,b)=>a.kmFaltaRev-b.kmFaltaRev);
+  const rows=agd.map(x=>{
+    const revCor=x.kmFaltaRev<=500?'var(--red)':x.kmFaltaRev<=1000?'var(--yel)':'var(--sub)';
+    const oilStr=x.oiVenc?'🛢️ VENCIDO':x.oiPert?fN(x.kmFaltaOil)+' km ⚠️':fN(x.kmFaltaOil)+' km';
+    const oilCor=x.oiVenc?'var(--red)':x.oiPert?'var(--yel)':'var(--sub)';
+    return`<tr><td><b>${x.m.placa}</b></td><td>${x.m.nome?x.m.nome.split(' ').slice(0,2).join(' '):'—'}</td><td>${fN(x.m.odo)} km</td><td style="color:${revCor};font-weight:${x.kmFaltaRev<=500?700:400}">${x.kmFaltaRev<=0?'🚨 VENCIDA':fN(x.kmFaltaRev)+' km'}</td><td style="color:${oilCor};font-weight:${x.oiVenc?700:400}">${oilStr}</td></tr>`;
+  }).join('');
+  showM(mWrap('mAgd',`<div class="modal" style="max-width:660px"><div class="mh"><span class="ct">📅 Agenda de Manutenções</span><button class="btn bx" onclick="closeM('mAgd')">✕</button></div><p style="font-size:12px;color:var(--sub);margin-bottom:12px">Motos com revisão &lt; 2.000 km ou óleo crítico</p>${agd.length?`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Placa</th><th>Locatário</th><th>Odômetro</th><th>Próx. Revisão</th><th>Próx. Óleo</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div style="text-align:center;padding:30px;color:var(--grn)">✅ Nenhuma manutenção crítica!</div>'}</div>`));
+}
+function vMotoParada(){
+  const hoje=new Date();hoje.setHours(12,0,0,0);
+  const ativ=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim()&&m.odo>0);
+  const paradas=ativ.map(m=>{const lts=DB.leit.filter(l=>l.mId===m.id).sort((a,b)=>b.data.localeCompare(a.data));if(!lts.length)return null;const dias=Math.ceil((hoje-new Date(lts[0].data+'T12:00'))/86400000);return dias>=3?{m,dias,ult:lts[0].data}:null;}).filter(Boolean).sort((a,b)=>b.dias-a.dias);
+  const rows=paradas.map(x=>{const cor=x.dias>=10?'var(--red)':x.dias>=7?'var(--yel)':'var(--sub)';return`<tr><td><b>${x.m.placa}</b></td><td>${x.m.nome.split(' ').slice(0,2).join(' ')}</td><td>${fN(x.m.odo)} km</td><td>${x.ult}</td><td style="color:${cor};font-weight:700">${x.dias} dias</td><td><button class="btn bxs" style="font-size:10px;padding:2px 7px;background:#25d366;color:#fff;border:none" onclick="abrirWhatsApp('${x.m.id}')">📱</button></td></tr>`;}).join('');
+  showM(mWrap('mPar',`<div class="modal" style="max-width:680px"><div class="mh"><span class="ct">🏍️ Motos Paradas (3+ dias sem leitura)</span><button class="btn bx" onclick="closeM('mPar')">✕</button></div>${paradas.length?`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Placa</th><th>Locatário</th><th>Odômetro</th><th>Última Leitura</th><th>Dias Parada</th><th>WA</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div style="text-align:center;padding:30px;color:var(--grn)">✅ Nenhuma moto parada!</div>'}</div>`));
+}
+function vCustoReceita(){
+  const paidByM={};DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(Number(p.val||0));});
+  const data=DB.motos.filter(m=>m.on).map(m=>{
+    const receita=(paidByM[m.id]||[]).reduce((a,v)=>a+v,0);
+    const custo=DB.os.filter(o=>o.mId===m.id).reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0)+DB.multas.filter(x=>x.mId===m.id).reduce((a,x)=>a+Number(x.val||0),0);
+    return{m,receita,custo,lucro:receita-custo};
+  }).filter(x=>x.receita>0||x.custo>0).sort((a,b)=>b.lucro-a.lucro);
+  const totRec=data.reduce((a,x)=>a+x.receita,0);const totCus=data.reduce((a,x)=>a+x.custo,0);
+  const rows=data.map(x=>{const cor=x.lucro>=0?'var(--grn)':'var(--red)';return`<tr><td><b>${x.m.placa}</b></td><td>${x.m.nome?x.m.nome.split(' ').slice(0,2).join(' '):'—'}</td><td style="color:var(--grn)">${fR(x.receita)}</td><td style="color:var(--red)">${fR(x.custo)}</td><td style="color:${cor};font-weight:700">${fR(x.lucro)}</td></tr>`;}).join('');
+  showM(mWrap('mCR',`<div class="modal" style="max-width:680px"><div class="mh"><span class="ct">📊 Custo vs Receita por Moto</span><button class="btn bx" onclick="closeM('mCR')">✕</button></div><div class="row" style="gap:10px;margin-bottom:14px"><div style="background:rgba(34,197,94,.1);border-radius:8px;padding:10px 16px;flex:1;text-align:center"><div style="font-size:11px;color:var(--sub);font-weight:700">RECEITA TOTAL</div><div style="font-size:18px;font-weight:800;color:var(--grn)">${fR(totRec)}</div></div><div style="background:rgba(244,63,94,.1);border-radius:8px;padding:10px 16px;flex:1;text-align:center"><div style="font-size:11px;color:var(--sub);font-weight:700">CUSTO TOTAL</div><div style="font-size:18px;font-weight:800;color:var(--red)">${fR(totCus)}</div></div><div style="background:var(--sur);border-radius:8px;padding:10px 16px;flex:1;text-align:center"><div style="font-size:11px;color:var(--sub);font-weight:700">LUCRO TOTAL</div><div style="font-size:18px;font-weight:800;color:${totRec-totCus>=0?'var(--grn)':'var(--red)'}">${fR(totRec-totCus)}</div></div></div><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Placa</th><th>Locatário</th><th>Receita</th><th>Custo</th><th>Lucro</th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="empty">Sem dados</td></tr>'}</tbody></table></div></div>`));
+}
 function gerarMsgCobranca(mId){
   const m=DB.motos.find(x=>x.id===mId);if(!m)return'';
   const paidByM={};
@@ -3002,6 +3162,25 @@ render();
     const btn=document.getElementById('pwaBtn');
     if(btn){btn.style.display='none';}
   });
+  window.habilitarNotif=async function(){
+    if(!('Notification' in window)){alert('Notificações não suportadas.');return;}
+    const perm=await Notification.requestPermission();
+    if(perm==='granted'){
+      localStorage.setItem('mg_notif','1');
+      const btn=document.getElementById('notifBtn');
+      if(btn){btn.textContent='🔔 Ativas';btn.style.background='#22c55e';}
+      alert('✅ Notificações habilitadas!');
+    } else {alert('❌ Permissão negada. Verifique as configurações do navegador.');}
+  };
+  setTimeout(()=>{
+    const btn=document.getElementById('notifBtn');
+    if(btn&&localStorage.getItem('mg_notif')==='1'){btn.textContent='🔔 Ativas';btn.style.background='#22c55e';}
+    if(Notification.permission!=='granted'||localStorage.getItem('mg_notif')!=='1')return;
+    if(typeof DB==='undefined')return;
+    const ativ2=DB.motos.filter(m=>m.on&&m.nome&&m.odo>0);
+    const oleov2=ativ2.filter(m=>(m.odo-m.loilKm)>=1000).length;
+    if(oleov2>0)new Notification('🛢️ AMS Motos — Óleo Vencido',{body:oleov2+' moto(s) com troca vencida!'});
+  },4000);
   window.installPWA=function(){
     if(!deferredPrompt){
       alert('Para instalar:\n\nChrome: clique nos 3 pontinhos (⋮) → "Instalar MotoGest"\nEdge: clique no ícone + na barra de endereços');
