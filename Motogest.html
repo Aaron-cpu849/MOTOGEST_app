@@ -1421,10 +1421,15 @@ async function processImpFile(inp){
   document.getElementById('impStatus').textContent='⏳ Processando arquivo...';
   try{
     if(file.name.toLowerCase().endsWith('.csv')){
-      // Tenta latin-1 (Sicoob) depois UTF-8
+      // Lê o arquivo e detecta encoding automaticamente
+      const readAs=(enc)=>new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsText(file,enc);});
       let txt='';
-      try{txt=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsText(file,'latin1');});}
-      catch{txt=await file.text();}
+      // Tenta UTF-8 primeiro (Sicoob exporta em UTF-8)
+      txt=await readAs('utf-8');
+      // Verifica se parece garbled (sinal de latin-1 lido como UTF-8)
+      if(txt.includes('Ã§')||txt.includes('Ã³')||txt.includes('Ã©')){
+        txt=await readAs('latin1');
+      }
       const lines=txt.split('\n').map(l=>l.trim()).filter(Boolean);
       parseExtratoCsv(lines);
     } else if(file.name.toLowerCase().endsWith('.xlsx')||file.name.toLowerCase().endsWith('.xls')){
@@ -1478,7 +1483,12 @@ function extrairValor(t){
 // ── Templates de banco (configuração persistente) ──────────────
 // Estrutura: { sep, colData, colTipo, colNome, colVal, tiposFiltro }
 function getBankTemplate(){
-  try{return JSON.parse(localStorage.getItem('mg_bankTpl')||'null');}catch{return null;}
+  try{
+    const t=JSON.parse(localStorage.getItem('mg_bankTpl')||'null');
+    // Invalida templates de versão antiga
+    if(t&&t.v!==2){localStorage.removeItem('mg_bankTpl');return null;}
+    return t;
+  }catch{return null;}
 }
 function saveBankTemplate(tpl){
   localStorage.setItem('mg_bankTpl',JSON.stringify(tpl));
@@ -1488,70 +1498,66 @@ function resetBankTemplate(){
   alert('✅ Template do banco removido. Na próxima importação será detectado automaticamente.');
 }
 
-// ── Detecta formato do CSV dinamicamente ───────────────────────
+// ── Detecta formato do CSV ─────────────────────────────────────
 function detectCsvFormat(lines){
-  // Tenta templates salvos
-  const saved=getBankTemplate();
-  if(saved&&saved.type==='csv') return saved;
-
-  // Detecta separador pela primeira linha que tiver múltiplos deles
+  // Detecta separador: usa a linha com mais separadores
   let sep=';';
-  for(const l of lines.slice(0,15)){
-    const sc=l.split(';').length;const tc=l.split('\t').length;const cc=l.split(',').length;
-    if(sc>=4){sep=';';break;}
-    if(tc>=4){sep='\t';break;}
-    if(cc>=4){sep=',';break;}
+  let maxCols=0;
+  for(const l of lines.slice(0,20)){
+    const sc=l.split(';').length-1;
+    const tc=l.split('\t').length-1;
+    const cc=l.split(',').length-1;
+    const best=Math.max(sc,tc,cc);
+    if(best>maxCols){maxCols=best;sep=sc>=tc&&sc>=cc?';':tc>=cc?'\t':',';}
   }
 
-  // Localiza linha de cabeçalho (tem palavras-chave de coluna)
+  // Localiza linha de cabeçalho: linha com >= 4 colunas que contém palavras típicas
   let hdrIdx=-1;
   for(let i=0;i<Math.min(20,lines.length);i++){
-    const cols=lines[i].split(sep).map(c=>c.replace(/[\u0080-\uffff]/g,'?').toLowerCase().trim());
-    const hasDate=cols.some(c=>/data/.test(c));
-    const hasVal=cols.some(c=>/valor/.test(c)&&!/saldo/.test(c));
-    const hasHist=cols.some(c=>/hist|descri|lan|tipo/.test(c));
-    if((hasDate||hasHist)&&(hasVal||cols.length>=4)){hdrIdx=i;break;}
+    const raw=lines[i];
+    if(raw.split(sep).length<3) continue;
+    // Normaliza: remove acentos para comparar
+    const norm=raw.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    const hasDate=/data/.test(norm);
+    const hasVal=/valor/.test(norm)&&!/saldo/.test(norm.split(sep).find(c=>c.toLowerCase().includes('valor'))||'');
+    const hasHist=/historico|descri|lancamento/.test(norm);
+    if((hasDate||hasHist)&&raw.split(sep).length>=4){hdrIdx=i;break;}
   }
 
+  // Mapeia colunas pelo cabeçalho
   let colData=-1,colTipo=-1,colNome=-1,colVal=-1,colSaldo=-1;
   if(hdrIdx>=0){
     lines[hdrIdx].split(sep).forEach((c,i)=>{
-      const cl=c.replace(/[\u0080-\uffff]/g,'?').toLowerCase().trim();
-      if(/data/.test(cl)) colData=i;
-      if(/hist/.test(cl)&&colTipo===-1) colTipo=i;
-      if(/descri/.test(cl)) colNome=i;
-      if(/lan/.test(cl)&&colData===-1) colData=i;
-      if(/valor/.test(cl)&&!/saldo/.test(cl)) colVal=i;
-      if(/saldo/.test(cl)) colSaldo=i;
+      const n=c.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+      if(/^data/.test(n)) colData=i;
+      else if(/historico/.test(n)&&colTipo===-1) colTipo=i;
+      else if(/descri/.test(n)) colNome=i;
+      else if(/lancamento/.test(n)&&colData===-1) colData=i;
+      else if(/^valor$/.test(n)) colVal=i;
+      else if(/^saldo/.test(n)) colSaldo=i;
     });
   }
 
-  // Detecta estrutura inferindo pela primeira linha de dados
+  // Fallback: infere colunas pela primeira linha de crédito
   if(colData===-1||colVal===-1){
-    const dataLines=lines.filter(l=>/pix recebido|transferência recebida|ted recebida/i.test(l));
-    if(dataLines.length>0){
-      const cols=dataLines[0].split(sep);
-      if(cols.length>=4){
-        // Identifica colunas por conteúdo
-        cols.forEach((c,i)=>{
-          const cl=c.trim();
-          if(!cl) return;
-          if(extrairData(cl)&&colData===-1) colData=i;
-          if(/pix recebido|transferência|ted recebida/i.test(cl)&&colTipo===-1) colTipo=i;
-          if(colTipo>=0&&i===colTipo+1&&colNome===-1) colNome=i;
-          // Valor: número positivo sem sinal com vírgula, não muito grande
-          const v=parseFloat(cl.replace(/\./g,'').replace(',','.'));
-          if(!isNaN(v)&&v>0&&v<50000&&/^\d{1,3}(?:\.\d{3})*,\d{2}$/.test(cl)){
-            if(colVal===-1) colVal=i;
-            else colSaldo=i;
-          }
-        });
-      }
+    const sample=lines.find(l=>/pix recebido/i.test(l));
+    if(sample){
+      const cols=sample.split(sep).map(c=>c.trim());
+      cols.forEach((c,i)=>{
+        if(extrairData(c)&&colData===-1) colData=i;
+        else if(/pix recebido/i.test(c)&&colTipo===-1) colTipo=i;
+        else if(colTipo>=0&&i===colTipo+1&&colNome===-1&&c.length>2&&!/^\d/.test(c)) colNome=i;
+        const v=parseFloat(c.replace(/\./g,'').replace(',','.'));
+        if(!isNaN(v)&&v>0&&v<50000&&/^\d{1,3}(?:\.\d{3})*,\d{2}$/.test(c)){
+          if(colVal===-1) colVal=i;
+          else if(colSaldo===-1) colSaldo=i;
+        }
+      });
     }
   }
 
-  const tpl={type:'csv',sep,hdrIdx,colData,colTipo,colNome,colVal,colSaldo,
-    tiposFiltro:['pix recebido','transferência recebida','ted recebida','boleto de cobrança recebido']};
+  const tpl={type:'csv',v:2,sep,hdrIdx,colData,colTipo,colNome,colVal,colSaldo,
+    tiposFiltro:['pix recebido','transferência recebida','ted recebida','boleto de cobran']};
   saveBankTemplate(tpl);
   return tpl;
 }
