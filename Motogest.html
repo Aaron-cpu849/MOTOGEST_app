@@ -1676,173 +1676,120 @@ function parseExtratoXlsx(file){
 
 // ── Parser PDF — detecção de colunas por posição X ─────────────
 function parseExtratoPdf(file){
-  const s=document.createElement('script');
-  s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-  s.onload=async()=>{
-    try{
-      pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      const buf=await file.arrayBuffer();
-      const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  // Parser específico para Banco Inter (formato com texto extraível)
+  // Formato: Pix recebido: "Cp :XXXXXXXX-NOME" R$ VALOR R$ SALDO
+  const MESES={'janeiro':'01','fevereiro':'02','março':'03','abril':'04','maio':'05','junho':'06',
+    'julho':'07','agosto':'08','setembro':'09','outubro':'10','novembro':'11','dezembro':'12'};
 
-      // Extrai TODOS os items com coordenadas
-      const allItems=[];
+  function parseInterText(text){
+    const credits=[];
+    let currentDate='';
+    const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
+
+    for(const line of lines){
+      // Data do dia: "17 de Março de 2026"
+      const dm=line.match(/^(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})/i);
+      if(dm){
+        const mes=dm[2].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        if(MESES[mes]) currentDate=`${dm[3]}-${MESES[mes]}-${dm[1].padStart(2,'0')}`;
+        continue;
+      }
+      // Só créditos
+      if(!/^Pix recebido:/i.test(line)) continue;
+
+      // Extrai nome: "Cp :XXXXXXXX-NOME" ou "00019 XXXXXXXX NOME"
+      let nome='';
+      let m=line.match(/"Cp\s?:\d+[-\s]([^"]+)"/);
+      if(m) nome=m[1].trim();
+      else{
+        m=line.match(/"00019\s+\d+\s+([^"]+)"/);
+        if(m) nome=m[1].trim();
+        else{
+          m=line.match(/Pix recebido:\s*"([^"]+)"/i);
+          if(m) nome=m[1].replace(/^Cp\s?:\d+[-\s]/,'').trim();
+        }
+      }
+      if(!nome||nome.length<2) continue;
+
+      // Extrai valores R$ — PRIMEIRO = transação, SEGUNDO = saldo
+      const vals=line.match(/R\$\s*([\d.]+,\d{2})/g)||[];
+      if(!vals.length) continue;
+      const val=parseFloat(vals[0].replace('R$','').trim().replace(/\./g,'').replace(',','.'));
+      if(!val||val<=0) continue;
+
+      // Evita duplicatas exatas
+      const dup=credits.find(c=>c.nome===nome&&c.val===val&&c.dataLanc===currentDate);
+      if(!dup) credits.push({nome,val,dataLanc:currentDate,raw:line});
+    }
+    return credits;
+  }
+
+  // Tenta extrair texto diretamente (PDFs com texto nativo — Inter exporta assim)
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      // Carrega pdf.js dinamicamente
+      if(!window.pdfjsLib){
+        await new Promise((res,rej)=>{
+          const s=document.createElement('script');
+          s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          s.onload=res;s.onerror=rej;
+          document.head.appendChild(s);
+        });
+        pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+
+      const pdf=await pdfjsLib.getDocument({data:e.target.result}).promise;
+      let fullText='';
+
       for(let pi=1;pi<=pdf.numPages;pi++){
         const page=await pdf.getPage(pi);
         const tc=await page.getTextContent();
-        tc.items.forEach(item=>{
-          if(item.str.trim())
-            allItems.push({x:Math.round(item.transform[4]),y:Math.round(item.transform[5]),str:item.str.trim(),page:pi});
+        // Agrupa items por linha (Y) e ordena por X — reconstrói o texto
+        const byY={};
+        tc.items.forEach(it=>{
+          if(!it.str.trim()) return;
+          const y=Math.round(it.transform[5]);
+          if(!byY[y]) byY[y]=[];
+          byY[y].push({x:it.transform[4],str:it.str});
+        });
+        // Ordena Y decrescente (topo→baixo), X crescente (esq→dir)
+        Object.keys(byY).sort((a,b)=>Number(b)-Number(a)).forEach(y=>{
+          const linha=byY[y].sort((a,b)=>a.x-b.x).map(i=>i.str).join('');
+          fullText+=linha+'\n';
         });
       }
 
-      // Agrupa por linha (Y ±3px)
-      const rowMap={};
-      allItems.forEach(it=>{
-        const yKey=Math.round(it.y/3)*3;
-        if(!rowMap[yKey])rowMap[yKey]=[];
-        rowMap[yKey].push(it);
-      });
-      // Linhas ordenadas por Y desc (topo → baixo)
-      const rows=Object.keys(rowMap)
-        .sort((a,b)=>Number(b)-Number(a))
-        .map(y=>({y:Number(y),items:rowMap[y].sort((a,b)=>a.x-b.x)}));
-
-      // Detecta colunas pelo cabeçalho (linha com "Data" e "Valor" e "Saldo")
-      let colXData=-1,colXTipo=-1,colXNome=-1,colXVal=-1,colXSaldo=-1;
-      let hdrRow=null;
-      for(const row of rows){
-        const txt=row.items.map(i=>i.str).join(' ').toLowerCase();
-        if(/data/.test(txt)&&(/valor/.test(txt)||/saldo/.test(txt))){
-          hdrRow=row;
-          row.items.forEach(it=>{
-            const cl=it.str.toLowerCase();
-            if(/^data/.test(cl)) colXData=it.x;
-            else if(/hist/.test(cl)) colXTipo=it.x;
-            else if(/descri/.test(cl)) colXNome=it.x;
-            else if(/^valor/.test(cl)&&!/saldo/.test(cl)) colXVal=it.x;
-            else if(/saldo/.test(cl)) colXSaldo=it.x;
-          });
-          break;
-        }
-      }
-
-      // Tolerance: item pertence à coluna X se estiver a ±40px do X da coluna
-      function getCol(rowItems, colX){
-        if(colX<0) return '';
-        const near=rowItems.filter(i=>Math.abs(i.x-colX)<=60).sort((a,b)=>a.x-b.x);
-        return near.map(i=>i.str).join(' ').trim();
-      }
-      function getAfterX(rowItems, minX, maxX){
-        return rowItems.filter(i=>i.x>=minX&&i.x<=maxX).map(i=>i.str).join(' ').trim();
-      }
-
-      const tipos=['pix recebido','transferência recebida','ted recebida','boleto de cobrança recebido'];
-      const credits=[];
-
-      // Se detectou colunas pelo cabeçalho
-      if(colXData>=0||colXVal>=0){
-        for(const row of rows){
-          if(hdrRow&&row.y===hdrRow.y) continue;
-          const rowTxt=row.items.map(i=>i.str).join(' ');
-          if(!tipos.some(t=>rowTxt.toLowerCase().includes(t))) continue;
-
-          const dataLanc=colXData>=0?extrairData(getCol(row.items,colXData)):'';
-          let nome=colXNome>=0?getCol(row.items,colXNome):'';
-          if(!nome&&colXTipo>=0){
-            // Nome pode estar na mesma área que tipo+nome juntos — pega texto entre tipo e valor
-            const xMin=colXTipo+40;
-            const xMax=colXVal>=0?colXVal-10:9999;
-            nome=getAfterX(row.items,xMin,xMax);
-          }
-          // Remove tipo do nome se misturou
-          nome=nome.replace(/pix recebido|transferência recebida|ted recebida|boleto de cobrança recebido/gi,'').trim();
-
-          let val=0;
-          if(colXVal>=0){
-            const vStr=getCol(row.items,colXVal);
-            val=parseFloat(vStr.replace(/\./g,'').replace(',','.'));
-            if(isNaN(val)||val<0) continue;
-          }
-          if(!val) val=extrairValor(rowTxt);
-
-          const dL=dataLanc||extrairData(rowTxt);
-          const nL=nome.length>2?nome:extrairNome(rowTxt);
-          if(val>0&&nL.length>2){
-            const dup=credits.find(c=>c.nome===nL&&c.val===val&&c.dataLanc===dL);
-            if(!dup) credits.push({nome:nL,val,dataLanc:dL,raw:rowTxt.slice(0,200)});
-          }
-        }
-      }
-
-      // Fallback: sem cabeçalho detectado — usa heurística de posição X
-      if(credits.length===0){
-        for(const row of rows){
-          const rowTxt=row.items.map(i=>i.str).join(' ');
-          if(!tipos.some(t=>rowTxt.toLowerCase().includes(t))) continue;
-
-          const dataLanc=extrairData(rowTxt);
-          // Heurística: items com números monetários — o de menor X é o valor, maior X é saldo
-          const monItems=row.items.filter(it=>/^\d{1,3}(?:\.\d{3})*,\d{2}$/.test(it.str));
-          let val=0;
-          if(monItems.length>=2){
-            // Primeiro (menor X) = valor, último (maior X) = saldo
-            const sorted=monItems.sort((a,b)=>a.x-b.x);
-            val=parseFloat(sorted[0].str.replace(/\./g,'').replace(',','.'));
-          } else if(monItems.length===1){
-            val=parseFloat(monItems[0].str.replace(/\./g,'').replace(',','.'));
-          }
-          if(!val||val<0){val=extrairValor(rowTxt);}
-
-          // Nome: items de texto (não monetário, não data, não tipo)
-          const nomeItems=row.items.filter(it=>{
-            if(/^\d{1,3}(?:\.\d{3})*,\d{2}$/.test(it.str)) return false;
-            if(extrairData(it.str)) return false;
-            if(tipos.some(t=>it.str.toLowerCase().includes(t))) return false;
-            if(/^\d+$/.test(it.str)) return false;
-            return it.str.length>2;
-          });
-          const nome=nomeItems.map(i=>i.str).join(' ').trim()||extrairNome(rowTxt);
-
-          const dL=dataLanc||'';
-          if(val>0&&nome.length>2){
-            const dup=credits.find(c=>c.nome===nome&&c.val===val&&c.dataLanc===dL);
-            if(!dup) credits.push({nome,val,dataLanc:dL,raw:rowTxt.slice(0,200)});
-          }
-        }
-      }
-
-      // Fallback 2: regex no texto completo
-      if(credits.length===0){
-        const fullText=rows.map(r=>r.items.map(i=>i.str).join(' ')).join('\n');
-        const pats=[
-          /Pix recebido[:\s]*[""]([^""]+)[""]\s*R?\$?\s*([\d.,]+)/gi,
-          /Pix recebido\s+([A-ZÁÉÍÓÚÀÂÊÔÃÕ][A-Za-záéíóúàâêôãõ\s]{4,50})\s+([\d.,]+)/gi,
-        ];
-        for(const pat of pats){
-          let m;pat.lastIndex=0;
-          while((m=pat.exec(fullText))!==null){
-            const nome=extrairNome(m[1]).trim();
-            const val=parseFloat(m[2].replace(/\./g,'').replace(',','.'));
-            if(val>0&&nome.length>2) credits.push({nome,val,dataLanc:'',raw:m[0]});
-          }
-          if(credits.length>0) break;
-        }
-      }
+      const credits=parseInterText(fullText);
 
       if(credits.length===0){
-        document.getElementById('impStatus').innerHTML=
-          '⚠️ Nenhum crédito encontrado. O PDF pode ser de imagem escaneada.<br>'+
-          '<b>Recomendação:</b> use o CSV ou XLSX do banco. Se o problema persistir, <button class="btn bx" onclick="resetBankTemplate()">🔄 Redefinir template</button>';
-      } else {
-        showImportResults(credits);
+        // Fallback: tenta regex direto no texto bruto
+        const credFallback=[];
+        const pixRe=/Pix recebido:\s*"([^"]+)"\s*R\$\s*([\d.]+,\d{2})/gi;
+        let m;
+        while((m=pixRe.exec(fullText))!==null){
+          let nome=m[1].replace(/^Cp\s?:\d+[-\s]/,'').trim();
+          const val=parseFloat(m[2].replace(/\./g,'').replace(',','.'));
+          if(nome.length>1&&val>0) credFallback.push({nome,val,dataLanc:'',raw:m[0]});
+        }
+        if(credFallback.length>0) return showImportResults(credFallback);
+
+        if(document.getElementById('impStatus'))
+          document.getElementById('impStatus').innerHTML=
+            '⚠️ Nenhum crédito encontrado no PDF.<br>'+
+            '<b>Dica:</b> use o botão <b>Exportar CSV</b> no Banco Inter — é mais confiável que o PDF.'+
+            '<br><button class="btn bx" style="margin-top:6px" onclick="resetBankTemplate();openImport()">🔄 Tentar novamente</button>';
+        return;
       }
+      showImportResults(credits);
     }catch(err){
       if(document.getElementById('impStatus'))
-        document.getElementById('impStatus').innerHTML='Erro: '+err.message+'<br><button class="btn bx" onclick="resetBankTemplate()">🔄 Redefinir template</button>';
+        document.getElementById('impStatus').innerHTML='❌ Erro ao ler PDF: '+err.message+
+          '<br><small>Tente exportar como <b>CSV</b> no Banco Inter.</small>';
     }
   };
-  s.onerror=()=>alert('Erro ao carregar PDF.js');
-  document.head.appendChild(s);
+  reader.onerror=()=>{if(document.getElementById('impStatus'))document.getElementById('impStatus').textContent='Erro ao ler arquivo.';};
+  reader.readAsArrayBuffer(file);
 }
 function normNome(n){
   return (n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase()
