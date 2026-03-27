@@ -11,6 +11,8 @@
 <meta name="apple-mobile-web-app-title" content="MotoGest">
 <link rel="manifest" id="pwaManifest">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#09090f;--sur:#111118;--card:#17171f;--bor:#23232e;--acc:#f97316;--accbg:#2a1506;--grn:#22c55e;--grnbg:#052010;--red:#ef4444;--redbg:#200505;--yel:#eab308;--yelbg:#1a1500;--blu:#3b82f6;--blubg:#05102a;--txt:#f1f5f9;--sub:#94a3b8;--mut:#4b5563}
@@ -78,6 +80,8 @@ label{display:block;font-size:11px;color:var(--sub);margin-bottom:3px;font-weigh
   <h1>🏍️ MotoGest</h1>
   <button id="pwaBtn" onclick="installPWA()" style="display:none;align-items:center;gap:6px;background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-left:auto;margin-right:12px">⬇️ Instalar App</button>
   <button id="notifBtn" onclick="habilitarNotif()" style="display:flex;align-items:center;gap:5px;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">🔔 Notificações</button>
+  <button onclick="openGlobalSearch()" title="Busca global" style="display:flex;align-items:center;gap:5px;background:#1e293b;color:#94a3b8;border:1px solid #23232e;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">🔍 Buscar</button>
+  <button id="fbBtn" onclick="openFirebaseConfig()" title="Sincronização Firebase" style="display:flex;align-items:center;gap:5px;background:#ff6b00;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px" id="fbBtn">🔥 Sync</button>
   <button id="saveBtn" onclick="saveAll()" style="display:flex;align-items:center;gap:6px;background:#22c55e;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-left:auto;margin-right:8px">💾 Salvar</button>
   <button onclick="exportBackup()" title="Exportar backup" style="display:flex;align-items:center;gap:5px;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">📥 Backup</button>
   <label title="Importar backup" style="display:flex;align-items:center;gap:5px;background:#7c3aed;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:8px">📤 Restaurar<input type="file" accept=".json" onchange="importBackup(event)" style="display:none"></label>
@@ -208,16 +212,24 @@ const SEED=[
 const SEED_EST=[
   {id:"e1",nome:"Pneu Traseiro",un:"un",qtd:4,min:2,custo:220},
   {id:"e2",nome:"Pneu Dianteiro",un:"un",qtd:3,min:2,custo:180},
-  {id:"e3",nome:"Lona de Freio",un:"un",qtd:8,min:4,custo:45},
+  {id:"e3",nome:"Lona de Freio",un:"un",qtd:6,min:4,custo:45},
   {id:"e4",nome:"Filtro de Ar",un:"un",qtd:6,min:3,custo:28},
   {id:"e5",nome:"Oleo de Bengala",un:"L",qtd:5,min:2,custo:35},
   {id:"e6",nome:"Graxa",un:"kg",qtd:3,min:1,custo:22},
   {id:"e7",nome:"Estopa",un:"kg",qtd:2,min:1,custo:15},
-  {id:"e8",nome:"Oleo de Motor",un:"L",qtd:12,min:4,custo:42},
-  {id:"e9",nome:"Pastilha de Freio",un:"par",qtd:5,min:3,custo:65},
+  {id:"e8",nome:"Oleo de Motor",un:"L",qtd:104,min:4,custo:42},
+  {id:"e9",nome:"Pastilha de Freio",un:"par",qtd:63,min:3,custo:65},
   {id:"e10",nome:"Filtro de Oleo",un:"un",qtd:7,min:3,custo:32},
   {id:"e11",nome:"Vela de Ignicao",un:"un",qtd:10,min:4,custo:18},
-  {id:"e12",nome:"Cabo de Embreagem",un:"un",qtd:4,min:2,custo:38},
+  {id:"e12",nome:"Cabo de Embreagem",un:"un",qtd:83,min:2,custo:38},
+  {id:"e13",nome:"Cabo AB",un:"un",qtd:38,min:5,custo:0},
+  {id:"e14",nome:"Oleo ATF",un:"L",qtd:17,min:2,custo:0},
+  {id:"e15",nome:"Escova de Arranque",un:"un",qtd:16,min:2,custo:0},
+  {id:"e16",nome:"Kit Transmissao",un:"un",qtd:28,min:2,custo:0},
+  {id:"e17",nome:"Bucha da Coroa",un:"un",qtd:15,min:2,custo:0},
+  {id:"e18",nome:"Cabo de Acelerador",un:"un",qtd:30,min:2,custo:0},
+  {id:"e19",nome:"Pneu Matrix Dianteiro",un:"un",qtd:10,min:2,custo:0},
+  {id:"e20",nome:"Pneu Matrix Traseiro",un:"un",qtd:10,min:2,custo:0},
 ];
 
 // ── State ──────────────────────────────────────────────────────────────────
@@ -232,7 +244,7 @@ function saveGpsCfg(){S.set('mg_gps_cfg', GPS_CFG);}
   localStorage.setItem('mg_l',    '[{"id": "1773372574332_8v8l", "mId": "m1", "data": "2026-03-12", "km": 33618}, {"id": "1773372574332_xdjb", "mId": "m2", "data": "2026-03-12", "km": 31817}, {"id": "1773372574332_3od2", "mId": "m3", "data": "2026-03-12", "km": 23881}, {"id": "1773372574333_xv05", "mId": "m4", "data": "2026-03-12", "km": 38742}, {"id": "1773372574333_j6tb", "mId": "m5", "data": "2026-03-12", "km": 17593}, {"id": "1773372574333_0xpy", "mId": "m6", "data": "2026-03-12", "km": 18324}, {"id": "1773372574333_zhzw", "mId": "m7", "data": "2026-03-12", "km": 40918}, {"id": "1773372574333_fat9", "mId": "m8", "data": "2026-03-12", "km": 29191}, {"id": "1773372574333_u775", "mId": "m9", "data": "2026-03-12", "km": 32802}, {"id": "1773372574333_6ygc", "mId": "m10", "data": "2026-03-12", "km": 24746}, {"id": "1773372574333_xhcl", "mId": "m11", "data": "2026-03-12", "km": 29420}, {"id": "1773372574333_q4fz", "mId": "m12", "data": "2026-03-12", "km": 27934}, {"id": "1773372574333_a7ef", "mId": "m13", "data": "2026-03-12", "km": 50022}, {"id": "1773372574333_w1mr", "mId": "m14", "data": "2026-03-12", "km": 28711}, {"id": "1773372574333_3a1t", "mId": "m15", "data": "2026-03-12", "km": 28131}, {"id": "1773372574333_zgof", "mId": "m16", "data": "2026-03-12", "km": 20588}, {"id": "1773372574333_buzz", "mId": "m17", "data": "2026-03-12", "km": 41566}, {"id": "1773372574333_xqsg", "mId": "m18", "data": "2026-03-12", "km": 44373}, {"id": "1773372574333_kt0r", "mId": "m19", "data": "2026-03-12", "km": 47843}, {"id": "1773372574333_0u4s", "mId": "m20", "data": "2026-03-12", "km": 43744}, {"id": "1773372574333_gob8", "mId": "m21", "data": "2026-03-12", "km": 21952}, {"id": "1773372574333_qt72", "mId": "m22", "data": "2026-03-12", "km": 13853}, {"id": "1773372574333_ugkd", "mId": "m24", "data": "2026-03-12", "km": 29938}, {"id": "1773372574333_8ynd", "mId": "m25", "data": "2026-03-12", "km": 45429}, {"id": "1773372574333_semk", "mId": "m26", "data": "2026-03-12", "km": 25708}, {"id": "1773372574333_jquq", "mId": "m27", "data": "2026-03-12", "km": 7001}, {"id": "1773372574333_banq", "mId": "m28", "data": "2026-03-12", "km": 40221}, {"id": "1773372574333_jm6r", "mId": "m29", "data": "2026-03-12", "km": 29862}, {"id": "1773372574333_5asy", "mId": "m30", "data": "2026-03-12", "km": 10}, {"id": "1773372574333_0b9j", "mId": "m31", "data": "2026-03-12", "km": 32839}, {"id": "1773372574333_p588", "mId": "m32", "data": "2026-03-12", "km": 40000}, {"id": "1773372574333_1yqz", "mId": "m33", "data": "2026-03-12", "km": 40947}, {"id": "1773372574333_oe8z", "mId": "m34", "data": "2026-03-12", "km": 34261}, {"id": "1773372574333_o0yz", "mId": "m35", "data": "2026-03-12", "km": 40000}, {"id": "1773372574333_u18l", "mId": "m36", "data": "2026-03-12", "km": 24912}, {"id": "1773372574333_e3rn", "mId": "m37", "data": "2026-03-12", "km": 20405}, {"id": "1773372574333_3tq5", "mId": "m38", "data": "2026-03-12", "km": 4607}, {"id": "1773372574333_wpre", "mId": "m39", "data": "2026-03-12", "km": 5177}, {"id": "1773372574333_zn7o", "mId": "m40", "data": "2026-03-12", "km": 38129}, {"id": "1773372574333_azyz", "mId": "m41", "data": "2026-03-12", "km": 33308}, {"id": "1773372574333_ckuv", "mId": "m42", "data": "2026-03-12", "km": 21653}, {"id": "1773372574333_u66d", "mId": "m43", "data": "2026-03-12", "km": 20000}, {"id": "1773372574333_u20p", "mId": "m44", "data": "2026-03-12", "km": 31650}, {"id": "1773372574333_74i7", "mId": "m45", "data": "2026-03-12", "km": 23728}, {"id": "1773372574333_9uqd", "mId": "m46", "data": "2026-03-12", "km": 24339}, {"id": "1773372574333_d7fy", "mId": "m47", "data": "2026-03-12", "km": 32053}, {"id": "1773372574333_1gvp", "mId": "m48", "data": "2026-03-12", "km": 20807}, {"id": "1773372574333_xtjf", "mId": "m49", "data": "2026-03-12", "km": 23105}, {"id": "1773372574333_0bod", "mId": "m50", "data": "2026-03-12", "km": 22205}, {"id": "1773372574333_eep7", "mId": "m51", "data": "2026-03-12", "km": 11000}, {"id": "1773372574333_ugkn", "mId": "m52", "data": "2026-03-12", "km": 25273}, {"id": "1773372574333_xcsq", "mId": "m53", "data": "2026-03-12", "km": 12971}, {"id": "1773372574333_tfue", "mId": "m54", "data": "2026-03-12", "km": 7736}, {"id": "1773372574333_o4vx", "mId": "m55", "data": "2026-03-12", "km": 6800}, {"id": "1773372574333_zotn", "mId": "m56", "data": "2026-03-12", "km": 6657}, {"id": "1773372574333_byix", "mId": "m57", "data": "2026-03-12", "km": 2803}, {"id": "1773372574333_9xdz", "mId": "m58", "data": "2026-03-12", "km": 7261}, {"id": "1773372574333_ojjp", "mId": "m59", "data": "2026-03-12", "km": 2000}, {"id": "1773372574333_y8ov", "mId": "m60", "data": "2026-03-12", "km": 8937.57}, {"id": "1773372574333_9c0b", "mId": "m61", "data": "2026-03-12", "km": 3149}, {"id": "1773372574333_0qhu", "mId": "m62", "data": "2026-03-12", "km": 6639}, {"id": "1773372574333_wedu", "mId": "m63", "data": "2026-03-12", "km": 105212}, {"id": "1773372574333_322n", "mId": "m64", "data": "2026-03-12", "km": 7548}, {"id": "1773372574333_stvt", "mId": "m65", "data": "2026-03-12", "km": 9032}, {"id": "1773372574333_ocmt", "mId": "m66", "data": "2026-03-12", "km": 1047}, {"id": "1773372574333_kkh0", "mId": "m67", "data": "2026-03-12", "km": 9714}, {"id": "1773372574333_frpb", "mId": "m68", "data": "2026-03-12", "km": 153}, {"id": "1773372574333_4fvt", "mId": "m69", "data": "2026-03-12", "km": 9893}, {"id": "1773372574333_atq0", "mId": "m70", "data": "2026-03-12", "km": 8407}, {"id": "1773372574333_t8qm", "mId": "m71", "data": "2026-03-12", "km": 2000}, {"id": "1773372574333_dn4i", "mId": "m72", "data": "2026-03-12", "km": 275763}, {"id": "1773372574333_qgke", "mId": "m73", "data": "2026-03-12", "km": 3114}, {"id": "1773372574333_dfps", "mId": "m74", "data": "2026-03-12", "km": 5941}, {"id": "1773372574333_4ixl", "mId": "m75", "data": "2026-03-12", "km": 9867}, {"id": "1773372574333_lchj", "mId": "m76", "data": "2026-03-12", "km": 4904}, {"id": "1773372574333_83ck", "mId": "m77", "data": "2026-03-12", "km": 11.654}, {"id": "1773372574333_lbmm", "mId": "m78", "data": "2026-03-12", "km": 6978}, {"id": "1773372574333_y2pv", "mId": "m79", "data": "2026-03-12", "km": 4666}, {"id": "1773372574333_3rp1", "mId": "m80", "data": "2026-03-12", "km": 20000}, {"id": "1773372574333_qbwa", "mId": "m81", "data": "2026-03-12", "km": 12313}, {"id": "1773372574333_j98e", "mId": "m82", "data": "2026-03-12", "km": 8472}, {"id": "1773372574333_cm1h", "mId": "m83", "data": "2026-03-12", "km": 7268}, {"id": "1773372574333_6vzo", "mId": "m84", "data": "2026-03-12", "km": 147}, {"id": "1773372574333_x8d0", "mId": "m85", "data": "2026-03-12", "km": 9651}, {"id": "1773372574333_ljd8", "mId": "m86", "data": "2026-03-12", "km": 1569}, {"id": "1773372574333_5497", "mId": "m87", "data": "2026-03-12", "km": 20256}, {"id": "1773372574333_43p0", "mId": "m88", "data": "2026-03-12", "km": 15908}, {"id": "1773372574333_33m1", "mId": "m89", "data": "2026-03-12", "km": 1324}, {"id": "1773372574333_7lth", "mId": "m90", "data": "2026-03-12", "km": 1458}, {"id": "1773372574333_hjlu", "mId": "m91", "data": "2026-03-12", "km": 937}, {"id": "1773372574333_215a", "mId": "m92", "data": "2026-03-12", "km": 5361}, {"id": "1773372574333_8sxw", "mId": "m93", "data": "2026-03-12", "km": 4774}, {"id": "1773372574333_xc3y", "mId": "m94", "data": "2026-03-12", "km": 3744}]');
   localStorage.setItem('mg_s',    '[]');
   localStorage.setItem('mg_mu',   '[{"id": "1773635608274_jaen", "mId": "m38", "data": "2026-02-07", "val": 195.23, "auto": "RD00112630", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 20% ATE 50%", "prazo": "", "st": "p"}, {"id": "1773635608274_ld7g", "mId": "m38", "data": "2026-01-28", "val": 130.16, "auto": "R007266341", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_msqv", "mId": "m38", "data": "2025-11-27", "val": 130.16, "auto": "R007192590", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_28sc", "mId": "m38", "data": "2025-10-03", "val": 130.16, "auto": "R007122082", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_vdte", "mId": "m41", "data": "2025-11-05", "val": 130.16, "auto": "R007164984", "loc": "TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE", "prazo": "", "st": "p"}, {"id": "1773635608274_dsto", "mId": "m41", "data": "2025-09-16", "val": 130.16, "auto": "R007100607", "loc": "TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE", "prazo": "", "st": "p"}, {"id": "1773635608274_qwqh", "mId": "m42", "data": "2026-01-03", "val": 130.16, "auto": "AT00031622", "loc": "ESTACIONAR EM GUIA DE CALCADA REBAIXADA DESTINADA A ENTRADA/SAIDA DE VEICULOS", "prazo": "", "st": "p"}, {"id": "1773635608274_3g2w", "mId": "m32", "data": "2026-02-13", "val": 130.16, "auto": "F001543762", "loc": "TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE", "prazo": "", "st": "p"}, {"id": "1773635608274_72pf", "mId": "m32", "data": "2026-01-12", "val": 130.16, "auto": "R007251198", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_bu76", "mId": "m32", "data": "2025-12-30", "val": 130.16, "auto": "M000274061", "loc": "DIRIGIR O VEIC USANDO CALCADO QUE N SE FIRME NOS PES/COMPROMETA UTILIZ PEDAIS", "prazo": "", "st": "p"}, {"id": "1773635608274_xad6", "mId": "m32", "data": "2025-11-25", "val": 130.16, "auto": "R007191368", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_io44", "mId": "m1", "data": "2026-01-24", "val": 293.47, "auto": "T482502067", "loc": "CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR TRANSPORTANDO PASSAGEIRO S/ CAPACETE", "prazo": "", "st": "p"}, {"id": "1773635608274_iyqb", "mId": "m1", "data": "2025-12-28", "val": 130.16, "auto": "R007233967", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_09p7", "mId": "m1", "data": "2025-12-05", "val": 130.16, "auto": "R003878897", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_bsrz", "mId": "m1", "data": "2025-12-04", "val": 130.16, "auto": "R003878859", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_qeat", "mId": "m1", "data": "2025-11-30", "val": 130.16, "auto": "R003872344", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_160l", "mId": "m1", "data": "2025-11-07", "val": 293.47, "auto": "DR00062654", "loc": "CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR TRANSPORTANDO PASSAGEIRO S/ CAPACETE", "prazo": "", "st": "p"}, {"id": "1773635608274_ol9r", "mId": "m39", "data": "2025-11-05", "val": 195.23, "auto": "RT00023125", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 20% ATE 50%", "prazo": "", "st": "p"}, {"id": "1773635608274_jeel", "mId": "m7", "data": "2025-11-05", "val": 130.16, "auto": "DR00065249", "loc": "CONDUZIR MOTOC/MOTON/CICLOM C/ UTIL CAPACETE DE SEG C/ VISEIRA/OCULOS PROT EM DES C/ REGUL CONTRAN", "prazo": "", "st": "p"}, {"id": "1773635608274_w4x6", "mId": "m25", "data": "2025-09-16", "val": 130.16, "auto": "RT00020834", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_hs3c", "mId": "m16", "data": "2026-02-28", "val": 130.16, "auto": "DR00076009", "loc": "CONDUZIR MOTOC/MOTON/CICLOM TRANSP PASS C/ CAPACETE DE SEGURANCA S/ VISEIRA/OCULOS DE PROTECAO", "prazo": "", "st": "p"}, {"id": "1773635608274_hig3", "mId": "m16", "data": "2025-08-16", "val": 130.16, "auto": "RT00020357", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_9vyl", "mId": "m16", "data": "2025-09-02", "val": 130.16, "auto": "R007081359", "loc": "TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE", "prazo": "", "st": "p"}, {"id": "1773635608274_b2kz", "mId": "m22", "data": "2025-11-26", "val": 130.16, "auto": "R007189271", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_6e09", "mId": "m37", "data": "2026-01-21", "val": 1467.35, "auto": "E543002733", "loc": "ULTRAPASSAR PELA CONTRAMAO LINHA DE DIVISAO DE FLUXOS OPOSTOS, CONTINUA AMARELA", "prazo": "", "st": "p"}, {"id": "1773635608274_l7g4", "mId": "m37", "data": "2025-08-31", "val": 130.16, "auto": "R003787988", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_tpab", "mId": "m27", "data": "2025-11-29", "val": 130.16, "auto": "R007195048", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_q69o", "mId": "m19", "data": "2025-11-25", "val": 130.16, "auto": "R007191984", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_r6lo", "mId": "m19", "data": "2025-10-13", "val": 130.16, "auto": "R007133706", "loc": "TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE", "prazo": "", "st": "p"}, {"id": "1773635608274_tuka", "mId": "m13", "data": "2026-01-09", "val": 293.47, "auto": "DR00071196", "loc": "AVANCAR O SINAL VERMELHO DO SEMAFORO", "prazo": "", "st": "p"}, {"id": "1773635608274_1646", "mId": "m13", "data": "2026-01-03", "val": 293.47, "auto": "G029800421", "loc": "CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR TRANSPORTANDO PASSAGEIRO S/ CAPACETE", "prazo": "", "st": "p"}, {"id": "1773635608274_pc7y", "mId": "m13", "data": "2025-12-28", "val": 130.16, "auto": "R007233515", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_pykp", "mId": "m13", "data": "2025-12-24", "val": 195.23, "auto": "R007227110", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 20% ATE 50%", "prazo": "", "st": "p"}, {"id": "1773635608274_4clj", "mId": "m33", "data": "2026-02-26", "val": 195.23, "auto": "M000284649", "loc": "EXECUTAR OPERACAO DE CONVERSAO A ESQUERDA EM LOCAL PROIBIDO PELA SINALIZACAO", "prazo": "", "st": "p"}, {"id": "1773635608274_2zcp", "mId": "m33", "data": "2026-02-14", "val": 130.16, "auto": "F001547146", "loc": "TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE", "prazo": "", "st": "p"}, {"id": "1773635608274_agv4", "mId": "m33", "data": "2026-02-12", "val": 293.47, "auto": "F001541054", "loc": "TRANSITAR NA FAIXA OU VIA EXCLUSIVA REGULAM. P/ TRANSP. PUBL. COLETIVO PASSAG.", "prazo": "", "st": "p"}, {"id": "1773635608274_73f6", "mId": "m33", "data": "2026-02-12", "val": 293.47, "auto": "F001542282", "loc": "TRANSITAR NA FAIXA OU VIA EXCLUSIVA REGULAM. P/ TRANSP. PUBL. COLETIVO PASSAG.", "prazo": "", "st": "p"}, {"id": "1773635608274_3388", "mId": "m33", "data": "2026-01-14", "val": 195.23, "auto": "T139433554", "loc": "ESTACIONAR EM DESACORDO COM A REGULAMENTACAO - ESTACIONAMENTO ROTATIVO", "prazo": "", "st": "p"}, {"id": "1773635608274_wodp", "mId": "m33", "data": "2026-01-09", "val": 130.16, "auto": "R007247265", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_ce4z", "mId": "m33", "data": "2025-12-23", "val": 130.16, "auto": "R007224536", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_qszn", "mId": "m33", "data": "2025-12-19", "val": 130.16, "auto": "R003902935", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_xmum", "mId": "m33", "data": "2025-12-05", "val": 130.16, "auto": "M000270960", "loc": "DIRIGIR O VEIC USANDO CALCADO QUE N SE FIRME NOS PES/COMPROMETA UTILIZ PEDAIS", "prazo": "", "st": "p"}, {"id": "1773635608274_48jc", "mId": "m33", "data": "2025-12-02", "val": 880.41, "auto": "M000270373", "loc": "TRANSITAR COM O VEICULO EM MARCAS DE CANALIZACAO", "prazo": "", "st": "p"}, {"id": "1773635608274_x132", "mId": "m33", "data": "2025-12-01", "val": 195.23, "auto": "RT00024467", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 20% ATE 50%", "prazo": "", "st": "p"}, {"id": "1773635608274_szu2", "mId": "m33", "data": "2025-12-02", "val": 130.16, "auto": "R007198654", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_bkft", "mId": "m33", "data": "2025-10-24", "val": 130.16, "auto": "R007148726", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_lpu6", "mId": "m33", "data": "2025-10-24", "val": 130.16, "auto": "R007148717", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_haoh", "mId": "m17", "data": "2026-01-20", "val": 130.16, "auto": "T396001305", "loc": "DIRIGIR O VEIC USANDO CALCADO QUE N SE FIRME NOS PES/COMPROMETA UTILIZ PEDAIS", "prazo": "", "st": "p"}, {"id": "1773635608274_27b3", "mId": "m17", "data": "2026-01-17", "val": 130.16, "auto": "T501200425", "loc": "DIRIGIR O VEIC USANDO CALCADO QUE N SE FIRME NOS PES/COMPROMETA UTILIZ PEDAIS", "prazo": "", "st": "p"}, {"id": "1773635608274_morr", "mId": "m17", "data": "2026-01-11", "val": 130.16, "auto": "R007250146", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_qtrh", "mId": "m17", "data": "2026-01-10", "val": 130.16, "auto": "DR00071691", "loc": "CONDUZIR MOTOC/MOTON/CICLOM C/ UTIL CAPACETE DE SEG C/ VISEIRA/OCULOS PROT EM DES C/ REGUL CONTRAN", "prazo": "", "st": "p"}, {"id": "1773635608274_gqn4", "mId": "m17", "data": "2025-11-23", "val": 293.47, "auto": "T493703957", "loc": "TRANSITAR PELA CONTRAMAO DE DIRECAO EM VIA C/ SINALIZACAO DE REGUL SENTIDO UNICO", "prazo": "", "st": "p"}, {"id": "1773635608274_vu71", "mId": "m17", "data": "2025-09-21", "val": 130.16, "auto": "T421512047", "loc": "DIRIGIR O VEIC USANDO CALCADO QUE N SE FIRME NOS PES/COMPROMETA UTILIZ PEDAIS", "prazo": "", "st": "p"}, {"id": "1773635608274_j03e", "mId": "m28", "data": "2025-10-30", "val": 130.16, "auto": "M000265416", "loc": "ESTACIONAR EM LOCAL/HORARIO PROIBIDO ESPECIFICAMENTE PELA SINALIZACAO", "prazo": "", "st": "p"}, {"id": "1773635608274_450o", "mId": "m34", "data": "2026-02-15", "val": 130.16, "auto": "M000282227", "loc": "PARAR EM LOCAL/HORARIO PROIBIDOS ESPECIFICAMENTE PELA SINALIZACAO", "prazo": "", "st": "p"}, {"id": "1773635608274_uh7o", "mId": "m34", "data": "2026-01-19", "val": 130.16, "auto": "R007257662", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_y83s", "mId": "m34", "data": "2025-12-04", "val": 130.16, "auto": "R007201795", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_6q53", "mId": "m11", "data": "2026-02-13", "val": 293.47, "auto": "F001547106", "loc": "TRANSITAR NA FAIXA OU VIA EXCLUSIVA REGULAM. P/ TRANSP. PUBL. COLETIVO PASSAG.", "prazo": "", "st": "p"}, {"id": "1773635608274_71ng", "mId": "m2", "data": "2025-11-28", "val": 2934.7, "auto": "EZ00001566", "loc": "UTILIZ VEIC DEMONST/EXIBIR MANOBRA PERIGOSA MEDIANTE ARRACADA BRUSCA", "prazo": "", "st": "p"}, {"id": "1773635608274_mafm", "mId": "m23", "data": "2025-11-01", "val": 880.41, "auto": "DR00061594", "loc": "DIRIGIR VEICULO SEM POSSUIR CNH/PPD/ACC", "prazo": "", "st": "p"}, {"id": "1773635608274_03v4", "mId": "m23", "data": "2025-11-04", "val": 195.23, "auto": "T139215805", "loc": "ESTACIONAR EM DESACORDO COM A REGULAMENTACAO - ESTACIONAMENTO ROTATIVO", "prazo": "", "st": "p"}, {"id": "1773635608274_m93p", "mId": "m23", "data": "2025-11-01", "val": 880.41, "auto": "DR00061595", "loc": "PERMITIR POSSE/CONDUCAO DO VEICULO A PESSOA SEM CNH/PPD/AAC", "prazo": "", "st": "p"}, {"id": "1773635608274_70e5", "mId": "m3", "data": "2025-12-25", "val": 195.23, "auto": "R007229024", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 20% ATE 50%", "prazo": "", "st": "p"}, {"id": "1773635608274_jzr2", "mId": "m3", "data": "2025-12-10", "val": 130.16, "auto": "R007210727", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}]');
-  localStorage.setItem('mg_e',    '[{"id": "e1", "nome": "Pneu Traseiro", "un": "un", "qtd": 4, "min": 2, "custo": 220}, {"id": "e2", "nome": "Pneu Dianteiro", "un": "un", "qtd": 3, "min": 2, "custo": 180}, {"id": "e3", "nome": "Lona de Freio", "un": "un", "qtd": 8, "min": 4, "custo": 45}, {"id": "e4", "nome": "Filtro de Ar", "un": "un", "qtd": 6, "min": 3, "custo": 28}, {"id": "e5", "nome": "Oleo de Bengala", "un": "L", "qtd": 5, "min": 2, "custo": 35}, {"id": "e6", "nome": "Graxa", "un": "kg", "qtd": 3, "min": 1, "custo": 22}, {"id": "e7", "nome": "Estopa", "un": "kg", "qtd": 2, "min": 1, "custo": 15}, {"id": "e8", "nome": "Oleo de Motor", "un": "L", "qtd": 12, "min": 4, "custo": 42}, {"id": "e9", "nome": "Pastilha de Freio", "un": "par", "qtd": 5, "min": 3, "custo": 65}, {"id": "e10", "nome": "Filtro de Oleo", "un": "un", "qtd": 7, "min": 3, "custo": 32}, {"id": "e11", "nome": "Vela de Ignicao", "un": "un", "qtd": 10, "min": 4, "custo": 18}, {"id": "e12", "nome": "Cabo de Embreagem", "un": "un", "qtd": 4, "min": 2, "custo": 38}]');
+  localStorage.setItem('mg_e',    '[{"id": "e1", "nome": "Pneu Traseiro", "un": "un", "qtd": 4, "min": 2, "custo": 220}, {"id": "e2", "nome": "Pneu Dianteiro", "un": "un", "qtd": 3, "min": 2, "custo": 180}, {"id": "e3", "nome": "Lona de Freio", "un": "un", "qtd": 6, "min": 4, "custo": 45}, {"id": "e4", "nome": "Filtro de Ar", "un": "un", "qtd": 6, "min": 3, "custo": 28}, {"id": "e5", "nome": "Oleo de Bengala", "un": "L", "qtd": 5, "min": 2, "custo": 35}, {"id": "e6", "nome": "Graxa", "un": "kg", "qtd": 3, "min": 1, "custo": 22}, {"id": "e7", "nome": "Estopa", "un": "kg", "qtd": 2, "min": 1, "custo": 15}, {"id": "e8", "nome": "Oleo de Motor", "un": "L", "qtd": 104, "min": 4, "custo": 42}, {"id": "e9", "nome": "Pastilha de Freio", "un": "par", "qtd": 63, "min": 3, "custo": 65}, {"id": "e10", "nome": "Filtro de Oleo", "un": "un", "qtd": 7, "min": 3, "custo": 32}, {"id": "e11", "nome": "Vela de Ignicao", "un": "un", "qtd": 10, "min": 4, "custo": 18}, {"id": "e12", "nome": "Cabo de Embreagem", "un": "un", "qtd": 83, "min": 2, "custo": 38}, {"id": "e13", "nome": "Cabo AB", "un": "un", "qtd": 38, "min": 5, "custo": 0}, {"id": "e14", "nome": "Oleo ATF", "un": "L", "qtd": 17, "min": 2, "custo": 0}, {"id": "e15", "nome": "Escova de Arranque", "un": "un", "qtd": 16, "min": 2, "custo": 0}, {"id": "e16", "nome": "Kit Transmissao", "un": "un", "qtd": 28, "min": 2, "custo": 0}, {"id": "e17", "nome": "Bucha da Coroa", "un": "un", "qtd": 15, "min": 2, "custo": 0}, {"id": "e18", "nome": "Cabo de Acelerador", "un": "un", "qtd": 30, "min": 2, "custo": 0}, {"id": "e19", "nome": "Pneu Matrix Dianteiro", "un": "un", "qtd": 10, "min": 2, "custo": 0}, {"id": "e20", "nome": "Pneu Matrix Traseiro", "un": "un", "qtd": 10, "min": 2, "custo": 0}]');
   localStorage.setItem('mg_mv',   '[]');
   localStorage.setItem('mg_os',   '[]');
   localStorage.setItem('mg_pg',   '[{"id": "1773371067361_vivm", "mId": "m36", "sem": "2026-03-08", "data": "2026-03-13", "valor": 414, "obs": "Importado do extrato"}, {"id": "1773371067361_bglm", "mId": "m46", "sem": "2026-03-08", "data": "2026-03-13", "valor": 543.7, "obs": "Importado do extrato"}, {"id": "1773371067361_ytau", "mId": "m76", "sem": "2026-03-08", "data": "2026-03-13", "valor": 500, "obs": "Importado do extrato"}, {"id": "1773371067361_i21y", "mId": "m51", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067361_3bv6", "mId": "m56", "sem": "2026-03-08", "data": "2026-03-13", "valor": 300, "obs": "Importado do extrato"}, {"id": "1773371067361_yirq", "mId": "m19", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067361_kw8u", "mId": "m32", "sem": "2026-03-08", "data": "2026-03-13", "valor": 100, "obs": "Importado do extrato"}, {"id": "1773371067361_iirb", "mId": "m22", "sem": "2026-03-08", "data": "2026-03-13", "valor": 363, "obs": "Importado do extrato"}, {"id": "1773371067361_rxio", "mId": "m79", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773371067361_10zz", "mId": "m88", "sem": "2026-03-08", "data": "2026-03-13", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773371067361_tp42", "mId": "m75", "sem": "2026-03-08", "data": "2026-03-13", "valor": 535.7, "obs": "Importado do extrato"}, {"id": "1773371067361_s3ro", "mId": "m49", "sem": "2026-03-08", "data": "2026-03-13", "valor": 500, "obs": "Importado do extrato"}, {"id": "1773371067361_h14g", "mId": "m29", "sem": "2026-03-08", "data": "2026-03-13", "valor": 497, "obs": "Importado do extrato"}, {"id": "1773371067361_x9hx", "mId": "m44", "sem": "2026-03-08", "data": "2026-03-13", "valor": 600, "obs": "Importado do extrato"}, {"id": "1773371067362_li0k", "mId": "m35", "sem": "2026-03-08", "data": "2026-03-13", "valor": 414.7, "obs": "Importado do extrato"}, {"id": "1773371067362_y552", "mId": "m1", "sem": "2026-03-08", "data": "2026-03-13", "valor": 414.65, "obs": "Importado do extrato"}, {"id": "1773371067362_ch99", "mId": "m27", "sem": "2026-03-08", "data": "2026-03-13", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773371067362_ruiu", "mId": "m59", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773371067362_oht1", "mId": "m90", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773371067362_06pt", "mId": "m84", "sem": "2026-03-08", "data": "2026-03-13", "valor": 536, "obs": "Importado do extrato"}, {"id": "1773371067362_ix5n", "mId": "m42", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067362_1mad", "mId": "m48", "sem": "2026-03-08", "data": "2026-03-13", "valor": 467, "obs": "Importado do extrato"}, {"id": "1773371067362_emqp", "mId": "m81", "sem": "2026-03-08", "data": "2026-03-13", "valor": 1000.38, "obs": "Importado do extrato"}, {"id": "1773371067362_64z4", "mId": "m10", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067362_c2ub", "mId": "m12", "sem": "2026-03-08", "data": "2026-03-13", "valor": 232.3, "obs": "Importado do extrato"}, {"id": "1773371067362_c61e", "mId": "m43", "sem": "2026-03-08", "data": "2026-03-13", "valor": 393, "obs": "Importado do extrato"}, {"id": "1773371067362_ip6e", "mId": "m86", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067362_yy8w", "mId": "m13", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067362_hbnl", "mId": "m38", "sem": "2026-03-08", "data": "2026-03-13", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773371067362_lq28", "mId": "m61", "sem": "2026-03-08", "data": "2026-03-13", "valor": 582.89, "obs": "Importado do extrato"}, {"id": "1773371067362_rr3s", "mId": "m55", "sem": "2026-03-08", "data": "2026-03-13", "valor": 423, "obs": "Importado do extrato"}, {"id": "1773371067362_mzyi", "mId": "m40", "sem": "2026-03-08", "data": "2026-03-13", "valor": 363, "obs": "Importado do extrato"}, {"id": "1773371067362_0d0m", "mId": "m54", "sem": "2026-03-08", "data": "2026-03-13", "valor": 352, "obs": "Importado do extrato"}, {"id": "1773371067362_r7hi", "mId": "m15", "sem": "2026-03-08", "data": "2026-03-13", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773371067362_202x", "mId": "m78", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773371067362_stw1", "mId": "m41", "sem": "2026-03-08", "data": "2026-03-13", "valor": 627, "obs": "Importado do extrato"}, {"id": "1773371067362_at9c", "mId": "m50", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067362_eymt", "mId": "m6", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067362_4try", "mId": "m58", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067362_6gmg", "mId": "m69", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773371067362_yxl8", "mId": "m2", "sem": "2026-03-08", "data": "2026-03-13", "valor": 400, "obs": "Importado do extrato"}, {"id": "1773371067363_hosf", "mId": "m85", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773371067363_a1oc", "mId": "m87", "sem": "2026-03-08", "data": "2026-03-13", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773371067363_98nk", "mId": "m5", "sem": "2026-03-08", "data": "2026-03-13", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773371067363_r64x", "mId": "m74", "sem": "2026-03-08", "data": "2026-03-13", "valor": 10, "obs": "Importado do extrato"}, {"id": "1773371067363_rdmw", "mId": "m45", "sem": "2026-03-08", "data": "2026-03-13", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773371067363_fi6i", "mId": "m68", "sem": "2026-03-08", "data": "2026-03-13", "valor": 987, "obs": "Importado do extrato"}, {"id": "1773371067363_pu0g", "mId": "m39", "sem": "2026-03-08", "data": "2026-03-13", "valor": 677, "obs": "Importado do extrato"}, {"id": "1773371067363_ck82", "mId": "m28", "sem": "2026-03-08", "data": "2026-03-13", "valor": 100, "obs": "Importado do extrato"}, {"id": "1773371067363_g4te", "mId": "m65", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_8jbz", "mId": "m89", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_n1tq", "mId": "m93", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_tmwo", "mId": "m73", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_ecgi", "mId": "m7", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_jm7h", "mId": "m21", "sem": "2026-03-08", "data": "2026-03-13", "valor": 150, "obs": "Importado do extrato"}, {"id": "1773371067363_y5as", "mId": "m26", "sem": "2026-03-08", "data": "2026-03-13", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773371067363_hwhq", "mId": "m9", "sem": "2026-03-08", "data": "2026-03-13", "valor": 513.4, "obs": "Importado do extrato"}, {"id": "1773371067363_dcl7", "mId": "m82", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773371067363_vj72", "mId": "m20", "sem": "2026-03-08", "data": "2026-03-13", "valor": 398, "obs": "Importado do extrato"}, {"id": "1773371067363_4iyv", "mId": "m91", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773371067363_zmiu", "mId": "m31", "sem": "2026-03-08", "data": "2026-03-13", "valor": 390, "obs": "Importado do extrato"}, {"id": "1773371067363_fc3u", "mId": "m37", "sem": "2026-03-08", "data": "2026-03-13", "valor": 393, "obs": "Importado do extrato"}, {"id": "1773371067363_hzcz", "mId": "m67", "sem": "2026-03-08", "data": "2026-03-13", "valor": 535, "obs": "Importado do extrato"}, {"id": "1773371067363_9bb0", "mId": "m60", "sem": "2026-03-08", "data": "2026-03-13", "valor": 600, "obs": "Importado do extrato"}, {"id": "1773371067363_qyb1", "mId": "m4", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_av9u", "mId": "m53", "sem": "2026-03-08", "data": "2026-03-13", "valor": 100, "obs": "Importado do extrato"}, {"id": "1773371067363_6vgb", "mId": "m24", "sem": "2026-03-08", "data": "2026-03-13", "valor": 393, "obs": "Importado do extrato"}, {"id": "1773371067363_ttab", "mId": "m66", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_z4n0", "mId": "m47", "sem": "2026-03-08", "data": "2026-03-13", "valor": 2400, "obs": "Importado do extrato"}, {"id": "1773371067363_6qam", "mId": "m33", "sem": "2026-03-08", "data": "2026-03-13", "valor": 432.3, "obs": "Importado do extrato"}, {"id": "1773371067363_olx8", "mId": "m25", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_ykeh", "mId": "m92", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_8e0y", "mId": "m62", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_yyhb", "mId": "m18", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_rqpo", "mId": "m70", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_69pb", "mId": "m17", "sem": "2026-03-08", "data": "2026-03-13", "valor": 135, "obs": "Importado do extrato"}, {"id": "1773371217163_hyjw", "mId": "m64", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": ""}, {"id": "1773372356297_p140", "mId": "m77", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": ""}, {"id": "1773373607514_g4v4", "mId": "m71", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773705799053_vexj", "mId": "m59", "sem": "2026-03-15", "data": "2026-03-17", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773705799053_j65d", "mId": "m84", "sem": "2026-03-15", "data": "2026-03-17", "valor": 536, "obs": "Importado do extrato"}, {"id": "1773705799054_agwa", "mId": "m55", "sem": "2026-03-15", "data": "2026-03-17", "valor": 423, "obs": "Importado do extrato"}, {"id": "1773705799054_1ddm", "mId": "m40", "sem": "2026-03-15", "data": "2026-03-17", "valor": 363, "obs": "Importado do extrato"}, {"id": "1773705799054_wwlt", "mId": "m71", "sem": "2026-03-15", "data": "2026-03-17", "valor": 457, "obs": "Importado do extrato"}, {"id": "1773705799054_e06i", "mId": "m15", "sem": "2026-03-15", "data": "2026-03-17", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773705799054_k1p8", "mId": "m41", "sem": "2026-03-15", "data": "2026-03-17", "valor": 627, "obs": "Importado do extrato"}, {"id": "1773705799054_6w8g", "mId": "m69", "sem": "2026-03-15", "data": "2026-03-17", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773705799054_ehc9", "mId": "m5", "sem": "2026-03-15", "data": "2026-03-17", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773705799054_qdp7", "mId": "m68", "sem": "2026-03-15", "data": "2026-03-17", "valor": 987, "obs": "Importado do extrato"}, {"id": "1773705799054_rzxg", "mId": "m28", "sem": "2026-03-15", "data": "2026-03-17", "valor": 100, "obs": "Importado do extrato"}, {"id": "1773705799054_im4q", "mId": "m73", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799054_p7hb", "mId": "m9", "sem": "2026-03-15", "data": "2026-03-17", "valor": 513.4, "obs": "Importado do extrato"}, {"id": "1773705799054_ajen", "mId": "m82", "sem": "2026-03-15", "data": "2026-03-17", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773705799054_eshb", "mId": "m31", "sem": "2026-03-15", "data": "2026-03-17", "valor": 390, "obs": "Importado do extrato"}, {"id": "1773705799054_p1zo", "mId": "m37", "sem": "2026-03-15", "data": "2026-03-17", "valor": 393, "obs": "Importado do extrato"}, {"id": "1773705799054_oe40", "mId": "m60", "sem": "2026-03-15", "data": "2026-03-17", "valor": 600, "obs": "Importado do extrato"}, {"id": "1773705799054_p1bx", "mId": "m24", "sem": "2026-03-15", "data": "2026-03-17", "valor": 393, "obs": "Importado do extrato"}, {"id": "1773705799054_5hte", "mId": "m66", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799054_vta0", "mId": "m95", "sem": "2026-03-15", "data": "2026-03-17", "valor": 2400, "obs": "Importado do extrato"}, {"id": "1773705799055_k3ca", "mId": "m46", "sem": "2026-03-15", "data": "2026-03-17", "valor": 513.7, "obs": "Importado do extrato"}, {"id": "1773705799055_0h43", "mId": "m10", "sem": "2026-03-15", "data": "2026-03-17", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773705799055_xa8l", "mId": "m36", "sem": "2026-03-15", "data": "2026-03-17", "valor": 414, "obs": "Importado do extrato"}, {"id": "1773705799055_rren", "mId": "m91", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799055_dang", "mId": "m45", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799055_9whi", "mId": "m42", "sem": "2026-03-15", "data": "2026-03-17", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773705799055_hvui", "mId": "m4", "sem": "2026-03-15", "data": "2026-03-17", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773705799055_n0bg", "mId": "m87", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799055_bqdj", "mId": "m85", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799055_2jbt", "mId": "m26", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799055_qpkt", "mId": "m77", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799055_qe7s", "mId": "m27", "sem": "2026-03-15", "data": "2026-03-17", "valor": 10, "obs": "Importado do extrato"}, {"id": "1773705799055_ht2z", "mId": "m39", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799055_kwub", "mId": "m35", "sem": "2026-03-15", "data": "2026-03-17", "valor": 414.7, "obs": "Importado do extrato"}, {"id": "1773705799055_8qyr", "mId": "m90", "sem": "2026-03-15", "data": "2026-03-17", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773705799055_829d", "mId": "m88", "sem": "2026-03-15", "data": "2026-03-17", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773705799055_x6li", "mId": "m25", "sem": "2026-03-15", "data": "2026-03-17", "valor": 67, "obs": "Importado do extrato"}, {"id": "1773705799055_6brz", "mId": "m51", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799055_q0h5", "mId": "m49", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799055_4zdi", "mId": "m1", "sem": "2026-03-15", "data": "2026-03-17", "valor": 414.65, "obs": "Importado do extrato"}, {"id": "1773705799056_6cwa", "mId": "m6", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799056_0z10", "mId": "m16", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799056_vjbn", "mId": "m7", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799056_9tez", "mId": "m22", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799056_3fl3", "mId": "m86", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799056_tlsd", "mId": "m44", "sem": "2026-03-15", "data": "2026-03-17", "valor": 450, "obs": "Importado do extrato"}, {"id": "1773705799056_mdeu", "mId": "m29", "sem": "2026-03-15", "data": "2026-03-17", "valor": 467, "obs": "Importado do extrato"}, {"id": "1773705799056_r2rl", "mId": "m92", "sem": "2026-03-15", "data": "2026-03-17", "valor": 120, "obs": "Importado do extrato"}, {"id": "1773705799056_epn9", "mId": "m19", "sem": "2026-03-15", "data": "2026-03-17", "valor": 250, "obs": "Importado do extrato"}, {"id": "1773705799056_mg7v", "mId": "m63", "sem": "2026-03-15", "data": "2026-03-17", "valor": 550, "obs": "Importado do extrato"}, {"id": "1773705799056_i3eq", "mId": "m62", "sem": "2026-03-15", "data": "2026-03-17", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773705799056_z1je", "mId": "m32", "sem": "2026-03-15", "data": "2026-03-17", "valor": 100, "obs": "Importado do extrato"}, {"id": "1773705799056_ii5k", "mId": "m79", "sem": "2026-03-15", "data": "2026-03-17", "valor": 535.7, "obs": "Importado do extrato"}, {"id": "1773705799056_owlj", "mId": "m43", "sem": "2026-03-15", "data": "2026-03-17", "valor": 393, "obs": "Importado do extrato"}, {"id": "1773705799056_vor4", "mId": "m11", "sem": "2026-03-15", "data": "2026-03-17", "valor": 400, "obs": "Importado do extrato"}, {"id": "1773705799056_pke6", "mId": "m21", "sem": "2026-03-15", "data": "2026-03-17", "valor": 200, "obs": "Importado do extrato"}, {"id": "1773705799056_zj68", "mId": "m47", "sem": "2026-03-15", "data": "2026-03-17", "valor": 400, "obs": "Importado do extrato"}, {"id": "1773705799056_j2qz", "mId": "m65", "sem": "2026-03-15", "data": "2026-03-17", "valor": 500, "obs": "Importado do extrato"}, {"id": "1773705799056_uazw", "mId": "m83", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799056_wzqc", "mId": "m53", "sem": "2026-03-15", "data": "2026-03-17", "valor": 50, "obs": "Importado do extrato"}, {"id": "1773705799056_rta4", "mId": "m56", "sem": "2026-03-15", "data": "2026-03-17", "valor": 860, "obs": "Importado do extrato"}, {"id": "1773705799056_ptqo", "mId": "m38", "sem": "2026-03-15", "data": "2026-03-17", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773705799056_nv9f", "mId": "m18", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799056_vxgr", "mId": "m33", "sem": "2026-03-15", "data": "2026-03-17", "valor": 120, "obs": "Importado do extrato"}, {"id": "1773705799056_mo9i", "mId": "m58", "sem": "2026-03-15", "data": "2026-03-17", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773705799056_m5fw", "mId": "m50", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799056_2ws9", "mId": "m13", "sem": "2026-03-15", "data": "2026-03-17", "valor": 432.3, "obs": "Importado do extrato"}, {"id": "1773705799056_8ufd", "mId": "m89", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799056_ydc3", "mId": "m70", "sem": "2026-03-15", "data": "2026-03-17", "valor": 350, "obs": "Importado do extrato"}, {"id": "1773705799056_34sq", "mId": "m81", "sem": "2026-03-15", "data": "2026-03-17", "valor": 500.38, "obs": "Importado do extrato"}, {"id": "1773705799056_e54x", "mId": "m48", "sem": "2026-03-15", "data": "2026-03-17", "valor": 467, "obs": "Importado do extrato"}, {"id": "1773709614336_irob", "mId": "m74", "sem": "2026-03-15", "data": "2026-03-17", "valor": 964, "obs": "Importado do extrato"}, {"id": "1773716136284_mej0", "mId": "m57", "sem": "2026-03-08", "data": "2026-03-17", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773716152832_hxvv", "mId": "m80", "sem": "2026-03-08", "data": "2026-03-17", "valor": 487, "obs": ""}]');
@@ -254,9 +266,10 @@ const DB={
   fotos:     S.get('mg_fts')||[],
   chats:     S.get('mg_chats')||[],
   solics:    S.get('mg_solics')||[],
+  intervencoes: S.get('mg_intv')||[],
 };
 function sv(k){
-  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos',chats:'chats',solics:'solics'};
+  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos',chats:'chats',solics:'solics',intv:'intervencoes'};
   const prop=map[k]||k;
   S.set('mg_'+k,DB[prop]);
 }
@@ -333,7 +346,28 @@ function mStatusBadge(s){
   return '<span class="badge" style="background:var(--blubg);color:var(--blu)">🔵 DISPONÍVEL</span>';
 }
 
-// ── Migração multas 15/03/2026 ────────────────────────────────────────────────
+// ── Migração estoque 26/03/2026 — atualiza qtds e adiciona novos itens ────────
+if(!localStorage.getItem('mg_mig_est_20260326')){
+  (()=>{
+    const qtdUpd={e3:6,e8:104,e9:63,e12:83};
+    const novos=[
+      {id:"e13",nome:"Cabo AB",un:"un",qtd:38,min:5,custo:0},
+      {id:"e14",nome:"Oleo ATF",un:"L",qtd:17,min:2,custo:0},
+      {id:"e15",nome:"Escova de Arranque",un:"un",qtd:16,min:2,custo:0},
+      {id:"e16",nome:"Kit Transmissao",un:"un",qtd:28,min:2,custo:0},
+      {id:"e17",nome:"Bucha da Coroa",un:"un",qtd:15,min:2,custo:0},
+      {id:"e18",nome:"Cabo de Acelerador",un:"un",qtd:30,min:2,custo:0},
+      {id:"e19",nome:"Pneu Matrix Dianteiro",un:"un",qtd:10,min:2,custo:0},
+      {id:"e20",nome:"Pneu Matrix Traseiro",un:"un",qtd:10,min:2,custo:0},
+    ];
+    DB.est.forEach(i=>{if(qtdUpd[i.id]!==undefined) i.qtd=qtdUpd[i.id];});
+    novos.forEach(n=>{if(!DB.est.find(i=>i.id===n.id)) DB.est.push(n);});
+    sv('e');
+    localStorage.setItem('mg_mig_est_20260326','1');
+    console.log('Migração estoque 26/03/2026 aplicada');
+  })();
+}
+
 if(!localStorage.getItem('mg_mig_mul_20260315c')){
   (()=>{
     const novas=[
@@ -416,8 +450,8 @@ function fD(d){return d?new Date(d+'T12:00').toLocaleDateString('pt-BR'):'—'}
 function fN(n){return Number(n||0).toLocaleString('pt-BR')}
 function fR(n){return Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function dTo(d){return d?Math.ceil((new Date(d+'T12:00')-new Date())/86400000):null}
-const OIL=1000,REV=10000,PNEU=10000;
-function ms(m){const ol=OIL-(m.odo-(m.loilKm||0)),rl=REV-(m.odo-(m.lrevKm||0)),pl=PNEU-(m.odo-(m.lpneuKm||0));const u=(ol<=0||rl<=0||pl<=0)?'ov':(ol<=100||rl<=500||pl<=500)?'cr':(ol<=200||rl<=1000||pl<=1000)?'wa':'ok';return{ol,rl,pl,u}}
+const OIL=1000,REV=10000,PNEU=10000,CORR=6000;
+function ms(m){const ol=OIL-(m.odo-(m.loilKm||0)),rl=REV-(m.odo-(m.lrevKm||0)),pl=PNEU-(m.odo-(m.lpneuKm||0)),cl=CORR-(m.odo-(m.lcorrKm||m.odo||0));const u=(ol<=0||rl<=0||pl<=0)?'ov':(ol<=100||rl<=500||pl<=500)?'cr':(ol<=200||rl<=1000||pl<=1000)?'wa':'ok';return{ol,rl,pl,cl,u}}
 function uc(u){return u==='ov'?'var(--red)':u==='cr'?'var(--acc)':u==='wa'?'var(--yel)':'var(--grn)'}
 
 // ── Router ──────────────────────────────────────────────────────────────────
@@ -430,6 +464,7 @@ const TABS=[
   {id:'mul',label:'🚨 Multas'},
   {id:'est',label:'📦 Estoque'},
   {id:'os',label:'🔩 OS'},
+  {id:'oficina',label:'🛠️ Oficina'},
   {id:'pag',label:'💰 Pagamentos'},
   {id:'rel',label:'📈 Relatórios'},
   {id:'mts',label:'🏍️ Motos'},
@@ -442,7 +477,7 @@ let TAB='dash';
 function go(t){TAB=t;render()}
 function render(){
   document.getElementById('tabs').innerHTML=TABS.map(t=>`<button class="tab${TAB===t.id?' active':''}" onclick="go('${t.id}')">${t.label}</button>`).join('');
-  const fn={dash:vDash,fin:vFin,odo:vOdo,mnt:vMnt,seg:vSeg,mul:vMul,est:vEst,os:vOs,pag:vPag,rel:vRel,mts:vMts,loc:vLoc,ind:vInd,docs:vDocs,portal:vPortal};
+  const fn={dash:vDash,fin:vFin,odo:vOdo,mnt:vMnt,seg:vSeg,mul:vMul,est:vEst,os:vOs,oficina:vOficina,pag:vPag,rel:vRel,mts:vMts,loc:vLoc,ind:vInd,docs:vDocs,portal:vPortal};
   document.getElementById('content').innerHTML=fn[TAB]();
 }
 function closeM(id){const e=document.getElementById(id);if(e)e.remove()}
@@ -802,6 +837,7 @@ function vMnt(){
         <button class="btn bx bs" onclick="mntModal('${m.id}','oil')" title="Registrar troca de óleo">🛢</button>
         <button class="btn bx bs" onclick="mntModal('${m.id}','rev')" title="Registrar revisão">🔧</button>
         <button class="btn bx bs" onclick="mntModal('${m.id}','pneu')" title="Registrar troca de pneu">🔵</button>
+        <button class="btn bx bs" onclick="mntModal('${m.id}','corr')" title="Registrar correia/kit">⛓️</button>
         <button class="btn bx bs" onclick="vHistMnt('${m.id}')" title="Ver histórico">📋</button>
       </td>
     </tr>`;
@@ -830,8 +866,8 @@ function vMnt(){
 
 function mntModal(id, tipo){
   const m=DB.motos.find(x=>x.id===id);if(!m)return;
-  const titles={oil:'Troca de Óleo',rev:'Revisão Geral',pneu:'Troca de Pneu'};
-  const keys={oil:'loilKm',rev:'lrevKm',pneu:'lpneuKm'};
+  const titles={oil:'Troca de Óleo',rev:'Revisão Geral',pneu:'Troca de Pneu',corr:'Correia/Kit Transmissão'};
+  const keys={oil:'loilKm',rev:'lrevKm',pneu:'lpneuKm',corr:'lcorrKm'};
   const cur=m[keys[tipo]]||0;
   const hist=DB.mhist.filter(h=>h.mId===id&&h.tipo===tipo).sort((a,b)=>b.km-a.km);
   const histRows=hist.slice(0,5).map(h=>`<tr>
@@ -872,7 +908,7 @@ function saveMnt(id,tipo){
   const km=parseInt(document.getElementById('mntKmInp').value)||0;
   const obs=document.getElementById('mntObsInp')?.value?.trim()||'';
   if(!km){alert('Digite o km da troca.');return;}
-  const keys={oil:'loilKm',rev:'lrevKm',pneu:'lpneuKm'};
+  const keys={oil:'loilKm',rev:'lrevKm',pneu:'lpneuKm',corr:'lcorrKm'};
   m[keys[tipo]]=km;
   if(km>m.odo) m.odo=km;
   DB.mhist.push({id:uid(),mId:id,tipo,km,obs,data:tod()});
@@ -951,27 +987,37 @@ function dSeg(id){if(confirm('Remover?')){DB.seg=DB.seg.filter(s=>s.id!==id);sv(
 
 // ── Multas ───────────────────────────────────────────────────────────────────
 function vMul(){
+  const pendVal=DB.multas.filter(m=>m.st==='p').reduce((a,m)=>a+Number(m.val||0),0);
+  const repassado=DB.multas.filter(m=>m.repasse==='repassado').length;
   const rows=DB.multas.map(m=>{
     const mo=DB.motos.find(x=>x.id===m.mId);
     const d=dTo(m.prazo);
+    const repBadge=m.repasse==='repassado'?'<span style="font-size:10px;color:var(--grn);font-weight:700">↩ Rep.</span>':m.repasse==='absorvido'?'<span style="font-size:10px;color:var(--sub)">AMS</span>':m.repasse==='pendente_loc'?'<span style="font-size:10px;color:var(--yel)">Loc⏳</span>':'<span style="font-size:10px;color:var(--mut)">—</span>';
     return`<tr>
       <td>${fD(m.data)}</td><td><b>${mo?mo.placa:'?'}</b></td>
-      <td style="font-size:11px;max-width:180px">${m.loc||'—'}</td>
+      <td style="font-size:11px;max-width:150px">${m.loc||'—'}</td>
       <td style="font-size:11px;color:var(--sub)">${m.auto||'—'}</td>
       <td>${fR(m.val)}</td>
       <td>${fD(m.prazo)}${d!==null&&d<=5&&m.st==='p'?' <span style="color:var(--red)">⚠️</span>':''}</td>
       <td><span class="badge" style="background:${m.st==='pg'?'var(--grnbg)':'var(--redbg)'};color:${m.st==='pg'?'var(--grn)':'var(--red)'}">${m.st==='pg'?'PAGO':'PENDENTE'}</span></td>
+      <td>${repBadge}</td>
       <td class="row" style="gap:4px">
         ${m.st==='p'?`<button class="btn bg bxs" onclick="pMul('${m.id}')">✓ Pago</button>`:''}
+        <button class="btn bx bxs" onclick="repassarMulta('${m.id}')" title="Repassar ao locatário">💸</button>
         <button class="btn br bxs" onclick="dMul('${m.id}')">✕</button>
       </td>
     </tr>`;
   }).join('');
-  return`<div class="card"><div class="ch"><span class="ct">Multas</span>
+  return`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+    <div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">PENDENTES</div><div style="font-size:22px;font-weight:800;color:var(--red)">${fR(pendVal)}</div></div>
+    <div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">REPASSADAS AO LOC.</div><div style="font-size:22px;font-weight:800;color:var(--grn)">${repassado}</div></div>
+    <div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">TOTAL</div><div style="font-size:22px;font-weight:800;color:var(--acc)">${DB.multas.length}</div></div>
+  </div>
+  <div class="card"><div class="ch"><span class="ct">Multas</span>
     <button class="btn ba" onclick="showAMul()">+ Nova Multa</button></div>
     <div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>Data</th><th>Placa</th><th>Descrição</th><th>Auto</th><th>Valor</th><th>Prazo</th><th>Status</th><th>Ação</th></tr></thead>
-      <tbody>${rows||'<tr><td colspan="8" class="empty">Nenhuma multa registrada</td></tr>'}</tbody>
+      <thead><tr><th>Data</th><th>Placa</th><th>Descrição</th><th>Auto</th><th>Valor</th><th>Prazo</th><th>Status</th><th>Repasse</th><th>Ação</th></tr></thead>
+      <tbody>${rows||'<tr><td colspan="9" class="empty">Nenhuma multa registrada</td></tr>'}</tbody>
     </table></div></div>`;
 }
 function showAMul(){
@@ -1027,39 +1073,476 @@ function movE(id,tipo){
 
 // ── OS ───────────────────────────────────────────────────────────────────────
 function vOs(){
-  const rows=DB.os.map(o=>{
+  const pendentes=DB.os.filter(o=>o.st==='pendente'||!o.st);
+  const totalPend=pendentes.reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0);
+  const totalPago=DB.os.filter(o=>o.st==='pago').reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0);
+  const rows=[...DB.os].sort((a,b)=>(b.data||'').localeCompare(a.data||'')).map(o=>{
     const m=DB.motos.find(x=>x.id===o.mId);
-    return`<tr>
+    const isPend=!o.st||o.st==='pendente';
+    const origem=o.origem==='oficina'?'<span style="font-size:10px;background:#ff6b0022;color:#ff6b00;border-radius:4px;padding:1px 5px;font-weight:700">🛠️ Oficina</span>':'';
+    return`<tr style="${isPend?'':'opacity:.6'}">
       <td>${fD(o.data)}</td><td><b>${m?m.placa:'?'}</b></td>
-      <td>${o.ofic||'—'}</td><td>${fR(o.pec)}</td><td>${fR(o.mao)}</td>
+      <td style="font-size:11px">${m?m.nome||'—':'—'}</td>
+      <td style="font-size:11px">${o.ofic||'—'} ${origem}</td>
+      <td>${fR(o.pec)}</td><td>${fR(o.mao)}</td>
       <td style="font-weight:700;color:var(--acc)">${fR(Number(o.pec||0)+Number(o.mao||0))}</td>
       <td>${o.nf||'—'}</td>
-      <td><button class="btn br bxs" onclick="dOs('${o.id}')">✕</button></td>
+      <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.obs||'—'}</td>
+      <td class="row" style="gap:4px">
+        ${isPend?`<button class="btn bg bxs" onclick="pagarOs('${o.id}')">✓ Pago</button>`:'<span style="font-size:10px;color:var(--grn);font-weight:700">✓ Pago</span>'}
+        <button class="btn br bxs" onclick="dOs('${o.id}')">✕</button>
+      </td>
     </tr>`;
   }).join('');
-  return`<div class="card"><div class="ch"><span class="ct">Ordens de Serviço</span>
+  return`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+    <div class="card" style="padding:14px;text-align:center">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">A PAGAR OFICINA</div>
+      <div style="font-size:22px;font-weight:800;color:var(--red)">${fR(totalPend)}</div>
+    </div>
+    <div class="card" style="padding:14px;text-align:center">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">JÁ PAGO</div>
+      <div style="font-size:22px;font-weight:800;color:var(--grn)">${fR(totalPago)}</div>
+    </div>
+    <div class="card" style="padding:14px;text-align:center">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">TOTAL OS</div>
+      <div style="font-size:22px;font-weight:800;color:var(--acc)">${DB.os.length}</div>
+    </div>
+  </div>
+  <div class="card"><div class="ch"><span class="ct">Ordens de Serviço</span>
     <button class="btn ba" onclick="showAOs()">+ Nova OS</button></div>
     <div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>Data</th><th>Placa</th><th>Oficina</th><th>Peças</th><th>Mão de Obra</th><th>Total</th><th>NF</th><th></th></tr></thead>
-      <tbody>${rows||'<tr><td colspan="8" class="empty">Nenhuma OS registrada</td></tr>'}</tbody>
+      <thead><tr><th>Data</th><th>Placa</th><th>Locatário</th><th>Oficina</th><th>Peças</th><th>M.O.</th><th>Total</th><th>NF</th><th>Obs</th><th>Ação</th></tr></thead>
+      <tbody>${rows||'<tr><td colspan="10" class="empty">Nenhuma OS registrada</td></tr>'}</tbody>
     </table></div></div>`;
 }
 function showAOs(){
   const opts=DB.motos.filter(m=>m.on).map(m=>`<option value="${m.id}">${m.placa} – ${m.nome||'sem nome'}</option>`).join('');
-  showM(mWrap('mOs',`<div class="modal"><h2>Nova Ordem de Serviço</h2>
+  const estOpts=DB.est.map(e=>`<option value="${e.id}">${e.nome} (${e.qtd} ${e.un})</option>`).join('');
+  showM(mWrap('mOs',`<div class="modal" style="max-width:520px"><h2>Nova Ordem de Serviço</h2>
     <div class="fr"><div class="fg"><label>Moto</label><select id="osM">${opts}</select></div>
     <div class="fg"><label>Data</label><input type="date" id="osD" value="${tod()}"></div></div>
-    <div class="fg"><label>Oficina</label><input id="osOf" placeholder="Nome da oficina"></div>
+    <div class="fg"><label>Oficina</label><input id="osOf" placeholder="Nome da oficina" value="Oficina Parceira"></div>
     <div class="fr"><div class="fg"><label>Peças (R$)</label><input type="number" id="osPc" value="0"></div>
     <div class="fg"><label>Mão de Obra (R$)</label><input type="number" id="osMo" value="0"></div></div>
     <div class="fg"><label>Nota Fiscal</label><input id="osNf" placeholder="NF-001"></div>
-    <div class="fg"><label>Observações</label><textarea id="osOb" rows="2" style="resize:vertical"></textarea></div>
+    <div class="fg"><label>Observações / Serviços</label><textarea id="osOb" rows="2" style="resize:vertical" placeholder="Ex: troca de óleo, pastilha, corrente..."></textarea></div>
+    <div class="fg" style="background:var(--sur);border-radius:8px;padding:10px;margin-top:8px">
+      <label>📦 Baixar do Estoque (opcional)</label>
+      <div class="fr" style="margin-top:6px">
+        <div class="fg"><select id="osEstItem" style="font-size:12px"><option value="">— Selecionar peça —</option>${estOpts}</select></div>
+        <div class="fg" style="max-width:80px"><input type="number" id="osEstQtd" placeholder="Qtd" min="1" value="1" style="font-size:12px"></div>
+        <button class="btn bg bxs" onclick="addOsEstItem()" style="white-space:nowrap">+ Add</button>
+      </div>
+      <div id="osEstList" style="margin-top:8px;font-size:11px;color:var(--sub)">Nenhuma peça adicionada</div>
+    </div>
     <div class="mact"><button class="btn bx" onclick="closeM('mOs')">Cancelar</button>
     <button class="btn ba" onclick="aOs()">Salvar</button></div>
   </div>`));
 }
-function aOs(){DB.os.push({id:uid(),mId:document.getElementById('osM').value,data:document.getElementById('osD').value,ofic:document.getElementById('osOf').value,pec:Number(document.getElementById('osPc').value),mao:Number(document.getElementById('osMo').value),nf:document.getElementById('osNf').value,obs:document.getElementById('osOb').value});sv('os');closeM('mOs');render()}
+let _osEstItens=[];
+function addOsEstItem(){
+  const sel=document.getElementById('osEstItem');
+  const qtd=parseInt(document.getElementById('osEstQtd').value)||1;
+  if(!sel.value)return;
+  const e=DB.est.find(x=>x.id===sel.value);if(!e)return;
+  if(qtd>e.qtd){alert('Estoque insuficiente! Disponível: '+e.qtd);return;}
+  const exist=_osEstItens.find(x=>x.eId===e.id);
+  if(exist){exist.qtd+=qtd;}else{_osEstItens.push({eId:e.id,nome:e.nome,un:e.un,qtd});}
+  const el=document.getElementById('osEstList');
+  if(el) el.innerHTML=_osEstItens.map(x=>`<span style="display:inline-flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:2px 8px;margin:2px">${x.nome} ×${x.qtd} <button onclick="rmOsEst('${x.eId}')" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:11px;padding:0 2px">✕</button></span>`).join('');
+}
+function rmOsEst(eId){_osEstItens=_osEstItens.filter(x=>x.eId!==eId);const el=document.getElementById('osEstList');if(el&&_osEstItens.length)el.innerHTML=_osEstItens.map(x=>`<span style="display:inline-flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:2px 8px;margin:2px">${x.nome} ×${x.qtd} <button onclick="rmOsEst('${x.eId}')" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:11px;padding:0 2px">✕</button></span>`).join('');else if(el)el.innerHTML='Nenhuma peça adicionada';}
+function aOs(){
+  const novaOs={id:uid(),mId:document.getElementById('osM').value,data:document.getElementById('osD').value,ofic:document.getElementById('osOf').value,pec:Number(document.getElementById('osPc').value),mao:Number(document.getElementById('osMo').value),nf:document.getElementById('osNf').value,obs:document.getElementById('osOb').value,st:'pendente',itens:_osEstItens.map(x=>({...x}))};
+  // Baixa estoque
+  _osEstItens.forEach(x=>{const e=DB.est.find(ei=>ei.id===x.eId);if(e){e.qtd=Math.max(0,e.qtd-x.qtd);DB.mov.push({id:uid(),eId:x.eId,tipo:'out',qtd:x.qtd,data:tod(),ref:'OS',obs:'OS moto '+novaOs.mId});}});
+  DB.os.push(novaOs);sv('os');sv('est');sv('mov');_osEstItens=[];closeM('mOs');render();
+}
+function pagarOs(id){const o=DB.os.find(x=>x.id===id);if(!o)return;o.st='pago';o.pgData=tod();sv('os');render();}
 function dOs(id){if(confirm('Remover OS?')){DB.os=DB.os.filter(o=>o.id!==id);sv('os');render()}}
+
+// ── MÓDULO OFICINA (Portal da Funcionária) ────────────────────────────────────
+// Armazena intervenções pendentes de confirmação da oficina
+if(!DB.intervencoes) DB.intervencoes=S.get('mg_intv')||[];
+
+function vOficina(){
+  const pend=DB.intervencoes.filter(i=>i.st==='pendente');
+  const conf=DB.intervencoes.filter(i=>i.st==='confirmado');
+  const totalPend=pend.reduce((a,i)=>a+Number(i.total||0),0);
+  const totalConf=conf.reduce((a,i)=>a+Number(i.total||0),0);
+  const pendRows=pend.map(i=>{
+    const m=DB.motos.find(x=>x.id===i.mId)||{placa:'?',nome:'?'};
+    return`<tr style="background:rgba(249,115,22,.05)">
+      <td>${fD(i.data)}</td>
+      <td><b>${m.placa}</b><br><span style="font-size:10px;color:var(--sub)">${m.nome||'—'}</span></td>
+      <td style="font-size:11px">${(i.servicos||[]).map(s=>`<div>• ${s.desc}${s.peca?' — <b>'+s.peca+'</b>':''}</div>`).join('')}</td>
+      <td>${fR(i.pecas||0)}</td><td>${fR(i.mao||0)}</td>
+      <td style="font-weight:700;color:var(--acc)">${fR(i.total||0)}</td>
+      <td class="row" style="gap:4px">
+        <button class="btn bg bxs" onclick="confirmarIntervencao('${i.id}')">✓ Confirmar → OS</button>
+        <button class="btn br bxs" onclick="rejeitarIntervencao('${i.id}')">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+  const confRows=[...conf].sort((a,b)=>(b.data||'').localeCompare(a.data||'')).slice(0,10).map(i=>{
+    const m=DB.motos.find(x=>x.id===i.mId)||{placa:'?'};
+    return`<tr style="opacity:.6">
+      <td>${fD(i.data)}</td><td><b>${m.placa}</b></td>
+      <td style="font-size:11px">${(i.servicos||[]).map(s=>s.desc).join(', ')}</td>
+      <td style="font-weight:700;color:var(--grn)">${fR(i.total||0)}</td>
+      <td><span style="font-size:10px;color:var(--grn)">✓ OS gerada</span></td>
+    </tr>`;
+  }).join('');
+  const fbCfg=getFbConfig();
+  const fbStatus=fbCfg&&window._fbConnected?`<span style="background:var(--grnbg);color:var(--grn);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700">🔥 Firebase ativo</span>`:`<span style="background:var(--yelbg);color:var(--yel);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700">⚠️ Firebase não configurado</span>`;
+  return`
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+    <div class="card" style="padding:14px;text-align:center;border-color:rgba(249,115,22,.3)">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">AGUARDANDO CONFIRMAÇÃO</div>
+      <div style="font-size:24px;font-weight:800;color:var(--acc)">${pend.length}</div>
+      <div style="font-size:11px;color:var(--red);margin-top:2px">${fR(totalPend)}</div>
+    </div>
+    <div class="card" style="padding:14px;text-align:center">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">CONFIRMADAS (HISTÓRICO)</div>
+      <div style="font-size:24px;font-weight:800;color:var(--grn)">${conf.length}</div>
+      <div style="font-size:11px;color:var(--grn);margin-top:2px">${fR(totalConf)}</div>
+    </div>
+    <div class="card" style="padding:14px;text-align:center">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">SINCRONIZAÇÃO</div>
+      <div style="margin-top:6px">${fbStatus}</div>
+      <button class="btn bx bxs" style="margin-top:8px;font-size:11px" onclick="openFirebaseConfig()">⚙️ Configurar Firebase</button>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:12px;background:linear-gradient(135deg,#0f172a,#1a1a2e);border-color:rgba(249,115,22,.3)">
+    <div class="ch"><span class="ct" style="color:var(--acc)">📱 Link do Portal da Oficina</span></div>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:10px">Envie este link para a funcionária da oficina. Ela registra as intervenções no celular e aparecem aqui automaticamente via Firebase.</p>
+    <div style="background:var(--sur);border-radius:8px;padding:10px 14px;font-size:12px;font-weight:700;word-break:break-all;margin-bottom:10px">${window.location.href.split('#')[0]}#portal-oficina</div>
+    <div class="row" style="gap:8px;flex-wrap:wrap">
+      <button class="btn bg bxs" onclick="abrirPortalOficina()">🛠️ Abrir Portal Oficina</button>
+      <button class="btn bx bxs" onclick="navigator.clipboard.writeText(window.location.href.split('#')[0]+'#portal-oficina').then(()=>alert('✅ Link copiado!'))">📋 Copiar Link</button>
+      <button class="btn ba bxs" onclick="showAIntervencao()">+ Registrar manualmente</button>
+    </div>
+  </div>
+  ${pend.length?`<div class="card" style="margin-bottom:12px;border-color:rgba(249,115,22,.3)">
+    <div class="ch"><span class="ct">⏳ Intervenções Pendentes de Confirmação</span></div>
+    <div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Data</th><th>Moto</th><th>Serviços</th><th>Peças R$</th><th>M.O. R$</th><th>Total</th><th>Ação</th></tr></thead>
+      <tbody>${pendRows}</tbody>
+    </table></div>
+  </div>`:''}
+  <div class="card">
+    <div class="ch"><span class="ct">✅ Histórico de Intervenções Confirmadas (últimas 10)</span></div>
+    ${conf.length?`<div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Data</th><th>Moto</th><th>Serviços</th><th>Total</th><th>Status</th></tr></thead>
+      <tbody>${confRows}</tbody>
+    </table></div>`:'<div class="empty">Nenhuma intervenção confirmada ainda</div>'}
+  </div>`;
+}
+
+function confirmarIntervencao(id){
+  const intv=DB.intervencoes.find(x=>x.id===id);if(!intv)return;
+  // Gera OS automaticamente
+  const novaOs={id:uid(),mId:intv.mId,data:intv.data,ofic:'Oficina Parceira',pec:Number(intv.pecas||0),mao:Number(intv.mao||0),nf:'',obs:(intv.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join('; '),st:'pendente',origem:'oficina',itens:[],intvId:id};
+  DB.os.push(novaOs);
+  intv.st='confirmado';intv.osId=novaOs.id;
+  sv('os');sv('intv');
+  if(window._fbRef) window._fbRef.child('intervencoes/'+id+'/st').set('confirmado');
+  alert('✅ OS gerada com sucesso!\nTotal: '+fR(intv.total||0));render();
+}
+function rejeitarIntervencao(id){
+  if(!confirm('Rejeitar esta intervenção?'))return;
+  DB.intervencoes=DB.intervencoes.filter(x=>x.id!==id);
+  sv('intv');
+  if(window._fbRef) window._fbRef.child('intervencoes/'+id).remove();
+  render();
+}
+function showAIntervencao(){
+  const opts=DB.motos.filter(m=>m.on).map(m=>`<option value="${m.id}">${m.placa} – ${m.nome||'sem nome'}</option>`).join('');
+  showM(mWrap('mIntv',`<div class="modal" style="max-width:500px">
+    <h2>🛠️ Registrar Intervenção</h2>
+    <div class="fr"><div class="fg"><label>Moto</label><select id="intvM">${opts}</select></div>
+    <div class="fg"><label>Data</label><input type="date" id="intvD" value="${tod()}"></div></div>
+    <div class="fg"><label>Serviços realizados</label>
+      <div id="intvServList" style="margin-bottom:6px;display:flex;flex-direction:column;gap:4px"></div>
+      <div class="fr">
+        <input id="intvServDesc" placeholder="Descrição (ex: Troca de óleo)" style="flex:2">
+        <input id="intvServPeca" placeholder="Peça usada (opcional)" style="flex:1">
+        <button class="btn bg bxs" onclick="addIntvServ()">+</button>
+      </div>
+    </div>
+    <div class="fr" style="margin-top:10px">
+      <div class="fg"><label>Peças (R$)</label><input type="number" id="intvPec" value="0" step="0.01"></div>
+      <div class="fg"><label>Mão de Obra (R$)</label><input type="number" id="intvMao" value="0" step="0.01" oninput="atualizarTotalIntv()"></div>
+    </div>
+    <div style="background:var(--accbg);border-radius:8px;padding:10px 14px;margin-top:10px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;color:var(--sub)">Total</span>
+      <span id="intvTotal" style="font-size:20px;font-weight:800;color:var(--acc)">R$ 0,00</span>
+    </div>
+    <div class="mact"><button class="btn bx" onclick="closeM('mIntv')">Cancelar</button>
+    <button class="btn ba" onclick="salvarIntervencao()">✓ Salvar</button></div>
+  </div>`));
+  window._intvServs=[];
+}
+let _intvServs=[];
+function addIntvServ(){
+  const desc=document.getElementById('intvServDesc')?.value?.trim();
+  const peca=document.getElementById('intvServPeca')?.value?.trim();
+  if(!desc)return;
+  _intvServs.push({desc,peca});
+  document.getElementById('intvServDesc').value='';
+  document.getElementById('intvServPeca').value='';
+  const el=document.getElementById('intvServList');
+  if(el) el.innerHTML=_intvServs.map((s,i)=>`<div style="display:flex;gap:6px;align-items:center;background:var(--sur);border-radius:6px;padding:4px 8px;font-size:12px"><span style="flex:1">• ${s.desc}${s.peca?' — <b>'+s.peca+'</b>':''}</span><button onclick="_intvServs.splice(${i},1);addIntvServ();_intvServs.pop()" style="background:none;border:none;color:var(--sub);cursor:pointer">✕</button></div>`).join('');
+}
+function atualizarTotalIntv(){
+  const pec=Number(document.getElementById('intvPec')?.value||0);
+  const mao=Number(document.getElementById('intvMao')?.value||0);
+  const el=document.getElementById('intvTotal');
+  if(el) el.textContent=fR(pec+mao);
+}
+function salvarIntervencao(){
+  const mId=document.getElementById('intvM').value;
+  const data=document.getElementById('intvD').value;
+  const pecas=Number(document.getElementById('intvPec').value||0);
+  const mao=Number(document.getElementById('intvMao').value||0);
+  if(!mId||!_intvServs.length){alert('Selecione a moto e adicione ao menos um serviço.');return;}
+  const intv={id:uid(),mId,data,servicos:[..._intvServs],pecas,mao,total:pecas+mao,st:'pendente',ts:Date.now()};
+  DB.intervencoes.push(intv);
+  sv('intv');
+  if(window._fbRef) window._fbRef.child('intervencoes/'+intv.id).set(intv);
+  closeM('mIntv');render();
+  alert('✅ Intervenção registrada!');
+}
+function abrirPortalOficina(){
+  const fbCfg=getFbConfig();
+  if(!fbCfg){alert('Configure o Firebase primeiro para que a funcionária possa sincronizar em tempo real.\n\nClique em 🔥 Sync no topo para configurar.');return;}
+  // Abre versão mobile do portal
+  const w=window.open('','_blank','width=420,height=800');
+  const motosJson=JSON.stringify(DB.motos.filter(m=>m.on).map(m=>({id:m.id,placa:m.placa,nome:m.nome})));
+  const fbJson=JSON.stringify(fbCfg);
+  w.document.write(gerarHtmlPortalOficina(motosJson,fbJson));
+  w.document.close();
+}
+function gerarHtmlPortalOficina(motosJson,fbJson){
+  return`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>🛠️ Portal Oficina – AMS Motos</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"><\/script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"><\/script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f172a;--card:#1e293b;--bor:#334155;--acc:#f97316;--grn:#22c55e;--red:#ef4444;--txt:#f1f5f9;--sub:#94a3b8}
+body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;padding:16px}
+input,select,textarea{background:var(--card);border:1px solid var(--bor);color:var(--txt);border-radius:8px;padding:10px 12px;width:100%;font-size:15px;font-family:inherit;outline:none}
+input:focus,select:focus{border-color:var(--acc)}
+button{cursor:pointer;border:none;border-radius:8px;padding:12px 20px;font-size:15px;font-weight:700;transition:opacity .2s}
+button:active{opacity:.7}
+.btn-acc{background:var(--acc);color:#000;width:100%;margin-top:12px}
+.btn-grn{background:var(--grn);color:#000;width:100%;margin-top:8px}
+.btn-out{background:var(--card);color:var(--sub);border:1px solid var(--bor);padding:8px 14px;font-size:13px}
+.card{background:var(--card);border:1px solid var(--bor);border-radius:12px;padding:16px;margin-bottom:12px}
+label{display:block;font-size:12px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px}
+.fg{margin-bottom:12px}
+.row{display:flex;gap:8px;align-items:center}
+.badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700}
+.serv-item{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;font-size:13px}
+h1{font-size:20px;font-weight:800;color:var(--acc);margin-bottom:4px}
+.total-box{background:linear-gradient(135deg,#1a1a2e,#1e293b);border:1px solid rgba(249,115,22,.3);border-radius:10px;padding:14px;text-align:center;margin:12px 0}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#22c55e;color:#000;padding:10px 24px;border-radius:20px;font-weight:700;font-size:14px;display:none;z-index:999}
+</style></head><body>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+  <div><h1>🛠️ AMS Motos</h1><div style="font-size:12px;color:var(--sub)">Portal da Oficina</div></div>
+  <span id="fbStatus" style="font-size:11px;background:#052010;color:#22c55e;padding:4px 10px;border-radius:20px;font-weight:700">⏳ Conectando...</span>
+</div>
+<div class="card">
+  <div class="fg"><label>Moto</label>
+    <select id="pMoto"><option value="">— Selecionar moto —</option></select>
+  </div>
+  <div class="fg"><label>Data</label><input type="date" id="pData"></div>
+  <div class="fg">
+    <label>Serviço realizado</label>
+    <div class="row" style="gap:6px">
+      <input id="pServDesc" placeholder="Descrição (ex: Troca de óleo)" style="flex:2">
+      <input id="pServPeca" placeholder="Peça (opcional)" style="flex:1">
+    </div>
+    <button class="btn-out" style="margin-top:6px;width:auto" onclick="addServ()">+ Adicionar serviço</button>
+    <div id="pServList" style="margin-top:8px"></div>
+  </div>
+  <div class="row">
+    <div style="flex:1"><label>Peças (R$)</label><input type="number" id="pPec" value="0" step="0.01" oninput="calcTotal()"></div>
+    <div style="flex:1"><label>Mão de Obra (R$)</label><input type="number" id="pMao" value="0" step="0.01" oninput="calcTotal()"></div>
+  </div>
+  <div class="total-box">
+    <div style="font-size:11px;color:var(--sub);margin-bottom:4px">TOTAL A COBRAR</div>
+    <div id="pTotal" style="font-size:28px;font-weight:800;color:var(--acc)">R$ 0,00</div>
+  </div>
+  <button class="btn-acc" onclick="enviarIntervencao()">✅ Enviar para AMS Motos</button>
+</div>
+<div class="card">
+  <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--sub)">📋 Registros de hoje</div>
+  <div id="pHistList"><div style="font-size:12px;color:var(--sub);text-align:center;padding:16px">Carregando...</div></div>
+</div>
+<div id="toast"></div>
+<script>
+const MOTOS=${motosJson};
+const FB_CFG=${fbJson};
+let _servs=[];
+let db=null;
+
+// Preenche select de motos
+const sel=document.getElementById('pMoto');
+MOTOS.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.placa+(m.nome?' – '+m.nome.split(' ').slice(0,2).join(' '):'');sel.appendChild(o);});
+
+// Data de hoje
+document.getElementById('pData').value=new Date().toISOString().split('T')[0];
+
+// Firebase init
+try{
+  firebase.initializeApp(FB_CFG);
+  db=firebase.database();
+  document.getElementById('fbStatus').textContent='🔥 Conectado';
+  // Escuta intervenções de hoje
+  const hoje=new Date().toISOString().split('T')[0];
+  db.ref('intervencoes').orderByChild('data').equalTo(hoje).on('value',snap=>{
+    const list=document.getElementById('pHistList');
+    const items=[];snap.forEach(s=>items.push(s.val()));
+    if(!items.length){list.innerHTML='<div style="font-size:12px;color:var(--sub);text-align:center;padding:16px">Nenhum registro hoje ainda</div>';return;}
+    list.innerHTML=items.sort((a,b)=>b.ts-a.ts).map(i=>{
+      const m=MOTOS.find(x=>x.id===i.mId)||{placa:'?'};
+      const st=i.st==='confirmado'?'<span class="badge" style="background:#052010;color:#22c55e">✓ Confirmado</span>':'<span class="badge" style="background:#1a1500;color:#eab308">⏳ Aguardando</span>';
+      return '<div class="serv-item"><div><b>'+m.placa+'</b> — '+(i.servicos||[]).map(s=>s.desc).join(', ')+'<br><span style="font-size:11px;color:#94a3b8">R$ '+Number(i.total||0).toLocaleString('pt-BR',{minimumFractionDigits:2})+'</span></div>'+st+'</div>';
+    }).join('');
+  });
+}catch(e){document.getElementById('fbStatus').textContent='❌ Erro Firebase';}
+
+function calcTotal(){
+  const p=Number(document.getElementById('pPec').value||0);
+  const m=Number(document.getElementById('pMao').value||0);
+  document.getElementById('pTotal').textContent='R\$ '+(p+m).toLocaleString('pt-BR',{minimumFractionDigits:2});
+}
+function addServ(){
+  const desc=document.getElementById('pServDesc').value.trim();
+  const peca=document.getElementById('pServPeca').value.trim();
+  if(!desc){document.getElementById('pServDesc').focus();return;}
+  _servs.push({desc,peca});
+  document.getElementById('pServDesc').value='';
+  document.getElementById('pServPeca').value='';
+  renderServs();
+}
+function renderServs(){
+  document.getElementById('pServList').innerHTML=_servs.map((s,i)=>
+    '<div class="serv-item"><span>• '+s.desc+(s.peca?' — <b>'+s.peca+'</b>':'')+'</span><button onclick="_servs.splice('+i+',1);renderServs()" style="background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;padding:0 4px">✕</button></div>'
+  ).join('');
+}
+function uid(){return Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,6);}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',2500);}
+function enviarIntervencao(){
+  const mId=document.getElementById('pMoto').value;
+  const data=document.getElementById('pData').value;
+  if(!mId){alert('Selecione a moto!');return;}
+  if(!_servs.length){alert('Adicione ao menos um serviço!');return;}
+  const pecas=Number(document.getElementById('pPec').value||0);
+  const mao=Number(document.getElementById('pMao').value||0);
+  const intv={id:uid(),mId,data,servicos:[..._servs],pecas,mao,total:pecas+mao,st:'pendente',ts:Date.now()};
+  if(db){
+    db.ref('intervencoes/'+intv.id).set(intv).then(()=>{
+      toast('✅ Enviado com sucesso!');
+      _servs=[];renderServs();
+      document.getElementById('pPec').value='0';
+      document.getElementById('pMao').value='0';
+      calcTotal();
+    }).catch(e=>alert('Erro: '+e.message));
+  } else {alert('Firebase não conectado. Configure o Firebase na AMS para sincronizar.');}
+}
+<\/script></body></html>`;
+}
+
+// ── Firebase Sync ─────────────────────────────────────────────────────────────
+function getFbConfig(){
+  try{return JSON.parse(localStorage.getItem('mg_fb_cfg')||'null');}catch{return null;}
+}
+function saveFbConfig(cfg){localStorage.setItem('mg_fb_cfg',JSON.stringify(cfg));}
+
+function openFirebaseConfig(){
+  const cfg=getFbConfig()||{};
+  showM(mWrap('mFbCfg',`<div class="modal" style="max-width:540px">
+    <div class="mh"><span class="ct">🔥 Configurar Firebase (Sincronização)</span><button class="btn bx" onclick="closeM('mFbCfg')">✕</button></div>
+    <div style="background:var(--blubg);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--blu);margin-bottom:14px">
+      ℹ️ O Firebase permite que a funcionária da oficina registre intervenções no celular e apareçam aqui em tempo real. É gratuito para o volume de dados da AMS.<br><br>
+      <b>Como obter:</b> acesse <a href="https://console.firebase.google.com" target="_blank" style="color:var(--blu)">console.firebase.google.com</a> → Novo projeto → Realtime Database → Copie as configurações.
+    </div>
+    <div class="fg"><label>API Key</label><input id="fbApiKey" value="${cfg.apiKey||''}" placeholder="AIzaSy..."></div>
+    <div class="fg"><label>Database URL</label><input id="fbDbUrl" value="${cfg.databaseURL||''}" placeholder="https://seu-projeto.firebaseio.com"></div>
+    <div class="fg"><label>Project ID</label><input id="fbProjId" value="${cfg.projectId||''}" placeholder="seu-projeto"></div>
+    <div class="fg"><label>App ID</label><input id="fbAppId" value="${cfg.appId||''}" placeholder="1:123:web:abc..."></div>
+    <div id="fbTestResult" style="min-height:20px;font-size:12px;margin-bottom:8px"></div>
+    <div class="row" style="gap:8px;justify-content:flex-end">
+      ${cfg.apiKey?`<button class="btn br bxs" onclick="limparFbConfig()">🗑️ Remover</button>`:''}
+      <button class="btn bx" onclick="closeM('mFbCfg')">Cancelar</button>
+      <button class="btn bg" onclick="testarFb()">🔌 Testar</button>
+      <button class="btn ba" onclick="salvarFbConfig()">✓ Salvar</button>
+    </div>
+  </div>`));
+}
+function salvarFbConfig(){
+  const cfg={apiKey:document.getElementById('fbApiKey').value.trim(),databaseURL:document.getElementById('fbDbUrl').value.trim(),projectId:document.getElementById('fbProjId').value.trim(),appId:document.getElementById('fbAppId').value.trim(),authDomain:(document.getElementById('fbProjId').value.trim())+'.firebaseapp.com',storageBucket:(document.getElementById('fbProjId').value.trim())+'.appspot.com',messagingSenderId:'0'};
+  if(!cfg.apiKey||!cfg.databaseURL){alert('Preencha API Key e Database URL!');return;}
+  saveFbConfig(cfg);
+  initFirebase(cfg);
+  closeM('mFbCfg');
+  alert('✅ Firebase configurado! A sincronização foi iniciada.');
+  render();
+}
+function limparFbConfig(){if(confirm('Remover configuração Firebase?')){localStorage.removeItem('mg_fb_cfg');window._fbConnected=false;window._fbRef=null;closeM('mFbCfg');render();}}
+function testarFb(){
+  const el=document.getElementById('fbTestResult');
+  el.textContent='⏳ Testando conexão...';el.style.color='var(--sub)';
+  const cfg={apiKey:document.getElementById('fbApiKey').value.trim(),databaseURL:document.getElementById('fbDbUrl').value.trim(),projectId:document.getElementById('fbProjId').value.trim(),appId:document.getElementById('fbAppId').value.trim()||'1:0:web:test',authDomain:(document.getElementById('fbProjId').value.trim())+'.firebaseapp.com',storageBucket:'',messagingSenderId:'0'};
+  try{
+    let app;try{app=firebase.app('test');}catch{app=firebase.initializeApp(cfg,'test');}
+    const testDb=firebase.database(app);
+    testDb.ref('.info/connected').once('value').then(s=>{
+      el.textContent='✅ Conexão bem-sucedida!';el.style.color='var(--grn)';
+    }).catch(e=>{el.textContent='❌ Erro: '+e.message;el.style.color='var(--red)';});
+  }catch(e){el.textContent='❌ Configuração inválida: '+e.message;el.style.color='var(--red)';}
+}
+function initFirebase(cfg){
+  if(!cfg||!cfg.apiKey||!cfg.databaseURL)return;
+  try{
+    let app;
+    try{app=firebase.app();}
+    catch{app=firebase.initializeApp(cfg);}
+    const db=firebase.database(app);
+    window._fbRef=db.ref('ams_motos');
+    window._fbConnected=true;
+    // Escuta intervenções novas
+    window._fbRef.child('intervencoes').on('child_added',snap=>{
+      const intv=snap.val();if(!intv||!intv.id)return;
+      if(!DB.intervencoes) DB.intervencoes=[];
+      if(!DB.intervencoes.find(x=>x.id===intv.id)){
+        DB.intervencoes.push(intv);
+        sv('intv');
+        // Notificação visual
+        const btn=document.getElementById('fbBtn');
+        if(btn){btn.textContent='🔥 Nova! ('+DB.intervencoes.filter(x=>x.st==='pendente').length+')';btn.style.background='#ef4444';}
+      }
+    });
+    window._fbRef.child('intervencoes').on('child_changed',snap=>{
+      const intv=snap.val();if(!intv||!intv.id)return;
+      if(!DB.intervencoes)DB.intervencoes=[];
+      const idx=DB.intervencoes.findIndex(x=>x.id===intv.id);
+      if(idx>=0){DB.intervencoes[idx]=intv;sv('intv');}
+    });
+    // Atualiza ícone
+    const btn=document.getElementById('fbBtn');
+    if(btn){btn.textContent='🔥 Sync ✓';btn.style.background='#22c55e';btn.style.color='#000';}
+    console.log('Firebase AMS conectado.');
+  }catch(e){console.error('Firebase init error:',e);}
+}
+// Inicia Firebase automaticamente se configurado
+(function(){
+  const cfg=getFbConfig();
+  if(cfg&&cfg.apiKey) setTimeout(()=>initFirebase(cfg),2000);
+})();
 
 // ── Pagamentos ───────────────────────────────────────────────────────────────
 let pSem=tod();
@@ -3075,6 +3558,8 @@ function editM(id){
       <option value="">— Selecione —</option>
       ${['SEG','TER','QUA','QUI','SEX','SAB','DOM'].map(d=>`<option${m.dia===d?' selected':''}>${d}</option>`).join('')}
     </select></div>
+    <div class="fr"><div class="fg"><label>CPF do Locatário</label><input id="emCpf" value="${m.cpfLoc||''}" placeholder="000.000.000-00"></div>
+    <div class="fg"><label>Validade CNH</label><input type="date" id="emCnh" value="${m.cnhValidade||''}"></div></div>
     <div class="fg"><label>Disponibilidade</label>
       <select id="emSt">
         <option value="alugada">🟢 Alugada</option>
@@ -3096,6 +3581,8 @@ function svM(id){
   m.odo=Number(document.getElementById('emOd').value);
   m.val=Number(document.getElementById('emVl').value);
   m.dia=document.getElementById('emDi').value;
+  const cpf=document.getElementById('emCpf')?.value?.trim();if(cpf)m.cpfLoc=cpf;
+  const cnh=document.getElementById('emCnh')?.value?.trim();if(cnh)m.cnhValidade=cnh;
   if(stSel==='inativa'){m.status='inativa';m.on=false;}
   else{m.status=novoNome.trim()?'alugada':'disponivel';m.on=true;}
   sv('m');closeM('mEM');render();
@@ -3337,6 +3824,7 @@ if(sessionStorage.getItem('mg_auth')==='1'){
 function saveAll(){
   ['m','l','s','mu','e','mv','os','pg','mhist'].forEach(k=>sv(k));
   exportBackup();
+  localStorage.setItem('mg_last_backup',Date.now().toString());
   const btn=document.getElementById('saveBtn');
   if(btn){btn.textContent='✅ Salvo!';btn.style.background='#16a34a';
     setTimeout(()=>{btn.textContent='💾 Salvar';btn.style.background='#22c55e';},2000);}
@@ -3377,6 +3865,72 @@ function importBackup(evt){
   };
   reader.readAsText(file);evt.target.value='';
 }
+
+// ── Busca Global ──────────────────────────────────────────────────────────────
+function openGlobalSearch(){
+  showM(mWrap('mGSearch',`<div class="modal" style="max-width:600px">
+    <div class="mh"><span class="ct">🔍 Busca Global</span><button class="btn bx" onclick="closeM('mGSearch')">✕</button></div>
+    <input id="gSearchInp" class="inp" placeholder="Placa, nome, auto de infração, NF..." style="font-size:15px;margin-bottom:12px" oninput="runGlobalSearch(this.value)">
+    <div id="gSearchResults"><div style="text-align:center;color:var(--sub);padding:20px;font-size:13px">Digite para buscar…</div></div>
+  </div>`));
+  setTimeout(()=>document.getElementById('gSearchInp')?.focus(),80);
+}
+function runGlobalSearch(q){
+  const el=document.getElementById('gSearchResults');if(!el)return;
+  if(!q||q.length<2){el.innerHTML='<div style="text-align:center;color:var(--sub);padding:20px;font-size:13px">Digite para buscar…</div>';return;}
+  const t=q.toUpperCase().trim();const results=[];
+  DB.motos.forEach(m=>{if(!m.on)return;if(m.placa.includes(t)||(m.nome||'').toUpperCase().includes(t)||(m.chassi||'').toUpperCase().includes(t)||(m.cpfLoc||'').includes(t)) results.push({tipo:'moto',icon:'🏍️',titulo:m.placa,sub:(m.nome||'Sem locatário')+' · Odo: '+fN(m.odo)+' km · '+fR(m.val||0)+'/sem',onclick:`closeM('mGSearch');go('mts')`});});
+  DB.multas.forEach(mu=>{const m=DB.motos.find(x=>x.id===mu.mId);if((mu.auto||'').toUpperCase().includes(t)||(mu.loc||'').toUpperCase().includes(t)||(m&&m.placa.includes(t))) results.push({tipo:'multa',icon:'🚨',titulo:mu.auto||'—',sub:(m?m.placa:'?')+' · '+fR(mu.val)+' · '+fD(mu.data)+' · '+(mu.st==='pg'?'PAGO':'PENDENTE'),onclick:`closeM('mGSearch');go('mul')`});});
+  DB.os.forEach(o=>{const m=DB.motos.find(x=>x.id===o.mId);if((o.nf||'').toUpperCase().includes(t)||(o.obs||'').toUpperCase().includes(t)||(m&&m.placa.includes(t))) results.push({tipo:'os',icon:'🔩',titulo:'OS '+(o.nf||fD(o.data)),sub:(m?m.placa:'?')+' · '+fR(Number(o.pec||0)+Number(o.mao||0))+' · '+(o.ofic||'—'),onclick:`closeM('mGSearch');go('os')`});});
+  DB.pg.forEach(p=>{const m=DB.motos.find(x=>x.id===p.mId);if(m&&(m.placa.includes(t)||(m.nome||'').toUpperCase().includes(t)||(p.obs||'').toUpperCase().includes(t))) results.push({tipo:'pag',icon:'💰',titulo:'Pag. '+fD(p.sem),sub:(m.nome||m.placa)+' · '+fR(p.valor||m.val),onclick:`closeM('mGSearch');go('pag')`});});
+  if(!results.length){el.innerHTML='<div style="text-align:center;color:var(--sub);padding:20px;font-size:13px">Nenhum resultado para "<b>'+q+'</b>"</div>';return;}
+  const cores={moto:'var(--acc)',multa:'var(--red)',os:'var(--blu)',pag:'var(--grn)'};
+  el.innerHTML=`<div style="font-size:11px;color:var(--sub);margin-bottom:8px">${results.length} resultado(s)</div>`+results.slice(0,30).map(r=>`<div onclick="${r.onclick}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;margin-bottom:4px;background:var(--sur);border:1px solid var(--bor)" onmouseover="this.style.background='var(--card)'" onmouseout="this.style.background='var(--sur)'"><span style="font-size:20px">${r.icon}</span><div style="flex:1"><div style="font-weight:700;font-size:13px">${r.titulo}</div><div style="font-size:11px;color:var(--sub)">${r.sub}</div></div><span style="font-size:10px;font-weight:700;color:${cores[r.tipo]||'var(--sub)'};background:${cores[r.tipo]||'var(--sur)'}22;padding:2px 6px;border-radius:4px">${r.tipo.toUpperCase()}</span></div>`).join('');
+}
+
+// ── Repasse de Multa ao Locatário ─────────────────────────────────────────────
+function repassarMulta(id){
+  const mu=DB.multas.find(x=>x.id===id);if(!mu)return;
+  const m=DB.motos.find(x=>x.id===mu.mId);if(!m){alert('Moto não encontrada.');return;}
+  const msg=`🚨 *AMS Motos — Multa de Trânsito*\n\nOlá ${m.nome?m.nome.split(' ')[0]:''}!\n\nIdentificamos uma multa em seu nome na moto *${m.placa}*.\n\n📋 Auto: ${mu.auto||'—'}\n📍 Infração: ${mu.loc||'—'}\n📅 Data: ${fD(mu.data)}\n💸 Valor: *${fR(mu.val)}*\n\nA multa é de sua responsabilidade conforme contrato. Entre em contato para regularizar.\n\n_AMS Motos 🏍️_`;
+  showM(mWrap('mRepasse',`<div class="modal">
+    <div class="mh"><span class="ct">💸 Repasse de Multa — ${m.placa}</span><button class="btn bx" onclick="closeM('mRepasse')">✕</button></div>
+    <div style="background:var(--redbg);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px">
+      <b>${m.nome||'—'}</b> · <span style="color:var(--sub)">${mu.auto||'—'}</span><br>
+      <span style="font-size:11px;color:var(--sub)">${mu.loc||'—'}</span><br>
+      <span style="font-size:18px;font-weight:800;color:var(--red)">${fR(mu.val)}</span>
+    </div>
+    <div class="fg"><label>Status do Repasse</label>
+      <select id="repasseSt" class="inp">
+        <option value="repassado">✅ Repassado ao locatário</option>
+        <option value="absorvido">❌ Absorvido pela AMS</option>
+        <option value="pendente_loc">⏳ Pendente cobrança ao locatário</option>
+      </select>
+    </div>
+    <div class="fg"><label>Observação</label><input id="repasseObs" class="inp" placeholder="Ex: locatário ciente, prazo de pagamento..."></div>
+    <div class="row" style="gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="btn bx" onclick="closeM('mRepasse')">Cancelar</button>
+      <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="navigator.clipboard.writeText(${JSON.stringify(msg)}).then(()=>alert('✅ Mensagem copiada!'))">📱 Copiar WA</button>
+      <button class="btn ba" onclick="salvarRepasse('${id}')">✓ Registrar</button>
+    </div>
+  </div>`));
+}
+function salvarRepasse(id){
+  const mu=DB.multas.find(x=>x.id===id);if(!mu)return;
+  mu.repasse=document.getElementById('repasseSt').value;
+  mu.repasseObs=document.getElementById('repasseObs').value;
+  mu.repasseData=tod();
+  sv('multas');closeM('mRepasse');render();
+  alert('✅ Repasse registrado!');
+}
+
+// ── Backup automático (lembrete semanal) ──────────────────────────────────────
+(function(){
+  const ult=localStorage.getItem('mg_last_backup');
+  if(ult){const dias=Math.floor((Date.now()-parseInt(ult))/86400000);if(dias>=7)setTimeout(()=>{const btn=document.getElementById('saveBtn');if(btn){btn.textContent='💾 Backup! ('+dias+'d)';btn.style.background='#ef4444';}},3000);}
+  else localStorage.setItem('mg_last_backup',Date.now().toString());
+})();
+
 render();
 
 // ── PWA Install ──────────────────────────────────────────────────────────────
