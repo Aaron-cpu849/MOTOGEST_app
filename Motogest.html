@@ -1835,7 +1835,6 @@ function savePagador(mId,sem){
   p.pagoPor=document.getElementById('pagadorSel').value||null;
   sv('pg');closeM('mPagador');render();
 }
-function uPg(mId,sem){DB.pg=DB.pg.filter(p=>!(p.mId===mId&&p.sem===sem));sv('pg');render()}
 
 // ── Lançar Pagamento (modal) ──────────────────────────────────────────────────
 function openPgModal(mId,sem){
