@@ -267,9 +267,10 @@ const DB={
   chats:     S.get('mg_chats')||[],
   solics:    S.get('mg_solics')||[],
   intervencoes: S.get('mg_intv')||[],
+  histLoc: S.get('mg_histloc')||[],
 };
 function sv(k){
-  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos',chats:'chats',solics:'solics',intv:'intervencoes'};
+  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos',chats:'chats',solics:'solics',intv:'intervencoes',histloc:'histLoc'};
   const prop=map[k]||k;
   S.set('mg_'+k,DB[prop]);
 }
@@ -648,6 +649,8 @@ function vDash(){
   const _avisosHoje=(DB.avisos&&DB.avisos[tod()])||0;
   const _btnsAcao=`<div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px;padding:0 2px">
     <button class="btn bxs" style="background:#25d366;color:#fff;border:none;font-size:12px;display:flex;align-items:center;gap:5px" onclick="waAlertaGeral()">⚡ Alerta Geral WA${_avisosHoje?` <span style='background:rgba(255,255,255,.3);border-radius:10px;padding:0 6px;font-size:10px'>${_avisosHoje}x hoje</span>`:''}</button>
+    <button class="btn bxs" style="font-size:12px" onclick="vPrevisaoReceita()">📈 Previsão Semana</button>
+    <button class="btn bxs" style="font-size:12px" onclick="waMotosParadas()">🏍️ Alertar Paradas</button>
     <button class="btn bxs" style="font-size:12px" onclick="vRanking()">🏆 Ranking</button>
     <button class="btn bxs" style="font-size:12px" onclick="vAgendaRevisoes()">📅 Agenda Manutenção</button>
     <button class="btn bxs" style="font-size:12px" onclick="vMotoParada()">🏍️ Motos Paradas</button>
@@ -1176,6 +1179,7 @@ function vOficina(){
       <td>${fD(i.data)}</td>
       <td><b>${m.placa}</b><br><span style="font-size:10px;color:var(--sub)">${m.nome||'—'}</span></td>
       <td style="font-size:11px">${(i.servicos||[]).map(s=>`<div>• ${s.desc}${s.peca?' — <b>'+s.peca+'</b>':''}</div>`).join('')}</td>
+      <td style="font-size:12px;font-weight:700;color:var(--blu)">${i.km?fN(i.km)+' km':'—'}</td>
       <td>${fR(i.pecas||0)}</td><td>${fR(i.mao||0)}</td>
       <td style="font-weight:700;color:var(--acc)">${fR(i.total||0)}</td>
       <td class="row" style="gap:4px">
@@ -1226,7 +1230,7 @@ function vOficina(){
   ${pend.length?`<div class="card" style="margin-bottom:12px;border-color:rgba(249,115,22,.3)">
     <div class="ch"><span class="ct">⏳ Intervenções Pendentes de Confirmação</span></div>
     <div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>Data</th><th>Moto</th><th>Serviços</th><th>Peças R$</th><th>M.O. R$</th><th>Total</th><th>Ação</th></tr></thead>
+      <thead><tr><th>Data</th><th>Moto</th><th>Serviços</th><th>KM</th><th>Peças R$</th><th>M.O. R$</th><th>Total</th><th>Ação</th></tr></thead>
       <tbody>${pendRows}</tbody>
     </table></div>
   </div>`:''}
@@ -1241,13 +1245,37 @@ function vOficina(){
 
 function confirmarIntervencao(id){
   const intv=DB.intervencoes.find(x=>x.id===id);if(!intv)return;
+  const m=DB.motos.find(x=>x.id===intv.mId);
+  // Atualiza km de manutenção da moto se informado no registro
+  if(m && intv.km && intv.km>0){
+    const km=Number(intv.km);
+    // Atualiza odômetro se for maior
+    if(km>m.odo) m.odo=km;
+    // Atualiza km de manutenção conforme tipos de serviço registrados
+    const servDescs=(intv.servicos||[]).map(s=>(s.desc||'').toLowerCase()).join(' ');
+    if(/\bóleo\b|oleo|oil/.test(servDescs)){ m.loilKm=km; }
+    if(/revisão|revisao|revis/.test(servDescs)){ m.lrevKm=km; }
+    if(/pneu|borracha/.test(servDescs)){ m.lpneuKm=km; }
+    if(/correia|corrente|kit transmiss/.test(servDescs)){ m.lcorrKm=km; }
+    // Adiciona ao histórico de manutenção
+    if(/\bóleo\b|oleo|oil/.test(servDescs)) DB.mhist.push({id:uid(),mId:intv.mId,tipo:'oil',km,obs:'Via Oficina: '+(intv.servicos||[]).map(s=>s.desc).join(', '),data:intv.data});
+    if(/revisão|revisao|revis/.test(servDescs)) DB.mhist.push({id:uid(),mId:intv.mId,tipo:'rev',km,obs:'Via Oficina',data:intv.data});
+    if(/pneu|borracha/.test(servDescs)) DB.mhist.push({id:uid(),mId:intv.mId,tipo:'pneu',km,obs:'Via Oficina',data:intv.data});
+    sv('m');sv('mhist');
+    // Re-publica lista de motos com km atualizado
+    publicarMotosFirebase();
+  }
   // Gera OS automaticamente
-  const novaOs={id:uid(),mId:intv.mId,data:intv.data,ofic:'Oficina Parceira',pec:Number(intv.pecas||0),mao:Number(intv.mao||0),nf:'',obs:(intv.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join('; '),st:'pendente',origem:'oficina',itens:[],intvId:id};
+  const novaOs={id:uid(),mId:intv.mId,data:intv.data,ofic:'Oficina Parceira',pec:Number(intv.pecas||0),mao:Number(intv.mao||0),nf:'',obs:(intv.km?'KM: '+intv.km+' — ':'')+((intv.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join('; ')),st:'pendente',origem:'oficina',itens:[],intvId:id};
   DB.os.push(novaOs);
   intv.st='confirmado';intv.osId=novaOs.id;
   sv('os');sv('intv');
-  if(window._fbRef) window._fbRef.child('intervencoes/'+id+'/st').set('confirmado');
-  alert('✅ OS gerada com sucesso!\nTotal: '+fR(intv.total||0));render();
+  if(window._fbRef){
+    window._fbRef.child('intervencoes/'+id+'/st').set('confirmado');
+    window._fbRef.child('intervencoes/'+id+'/osId').set(novaOs.id);
+  }
+  alert('✅ OS gerada!\nTotal: '+fR(intv.total||0)+(intv.km?'\nKM registrado: '+fN(intv.km)+' km':''));
+  render();
 }
 function rejeitarIntervencao(id){
   if(!confirm('Rejeitar esta intervenção?'))return;
@@ -1514,6 +1542,8 @@ function initFirebase(cfg){
     const db=firebase.database(app);
     window._fbRef=db.ref('ams_motos');
     window._fbConnected=true;
+    // Publica lista de motos para o portal da oficina poder carregar as placas
+    publicarMotosFirebase();
     // Escuta intervenções novas
     window._fbRef.child('intervencoes').on('child_added',snap=>{
       const intv=snap.val();if(!intv||!intv.id)return;
@@ -1521,7 +1551,6 @@ function initFirebase(cfg){
       if(!DB.intervencoes.find(x=>x.id===intv.id)){
         DB.intervencoes.push(intv);
         sv('intv');
-        // Notificação visual
         const btn=document.getElementById('fbBtn');
         if(btn){btn.textContent='🔥 Nova! ('+DB.intervencoes.filter(x=>x.st==='pendente').length+')';btn.style.background='#ef4444';}
       }
@@ -1532,11 +1561,19 @@ function initFirebase(cfg){
       const idx=DB.intervencoes.findIndex(x=>x.id===intv.id);
       if(idx>=0){DB.intervencoes[idx]=intv;sv('intv');}
     });
-    // Atualiza ícone
     const btn=document.getElementById('fbBtn');
     if(btn){btn.textContent='🔥 Sync ✓';btn.style.background='#22c55e';btn.style.color='#000';}
     console.log('Firebase AMS conectado.');
   }catch(e){console.error('Firebase init error:',e);}
+}
+function publicarMotosFirebase(){
+  if(!window._fbRef)return;
+  // Publica lista simplificada de motos (placa + nome + id + odo) para a oficina
+  const lista=DB.motos.filter(m=>m.on).map(m=>({
+    id:m.id, placa:m.placa, nome:m.nome||'', odo:m.odo||0,
+    loilKm:m.loilKm||0, lrevKm:m.lrevKm||0, lpneuKm:m.lpneuKm||0, lcorrKm:m.lcorrKm||0
+  }));
+  window._fbRef.child('motos_lista').set(lista).catch(e=>console.warn('Erro ao publicar motos:',e));
 }
 // Inicia Firebase automaticamente se configurado
 (function(){
@@ -2763,30 +2800,85 @@ function vRel(){
   const rows=ativ.map(m=>{
     const osM=DB.os.filter(o=>o.mId===m.id&&(o.data||'').startsWith(rMes));
     const mulM=DB.multas.filter(x=>x.mId===m.id&&(x.data||'').startsWith(rMes));
+    const pgM=DB.pg.filter(p=>p.mId===m.id&&(p.sem||p.data||'').slice(0,7)===rMes);
     const cOs=osM.reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0);
-    const cMu=mulM.reduce((a,m)=>a+Number(m.val||0),0);
+    const cMu=mulM.reduce((a,x)=>a+Number(x.val||0),0);
+    const cPec=osM.reduce((a,o)=>a+Number(o.pec||0),0);
+    const cMao=osM.reduce((a,o)=>a+Number(o.mao||0),0);
     const tot=cOs+cMu;
+    const rec=pgM.reduce((a,p)=>a+(p.valor!=null?Number(p.valor):Number(m.val||0)),0);
+    const lucro=rec-tot;
     const lM=DB.leit.filter(l=>l.mId===m.id&&(l.data||'').startsWith(rMes));
     const kmR=lM.length?Math.max(...lM.map(l=>l.km))-Math.min(...lM.map(l=>l.km)):0;
-    return{placa:m.placa,nome:m.nome,cOs,cMu,tot,kmR};
-  }).filter(r=>r.tot>0||r.kmR>0).sort((a,b)=>b.tot-a.tot);
+    const mulRep=mulM.filter(x=>x.repasse==='repassado').length;
+    return{m,placa:m.placa,nome:m.nome,cOs,cPec,cMao,cMu,tot,rec,lucro,kmR,mulRep,osQtd:osM.length,mulQtd:mulM.length};
+  }).filter(r=>r.tot>0||r.rec>0||r.kmR>0).sort((a,b)=>b.lucro-a.lucro);
+
+  const totRec=rows.reduce((a,r)=>a+r.rec,0);
+  const totCus=rows.reduce((a,r)=>a+r.tot,0);
+  const totLuc=totRec-totCus;
+
   const trs=rows.map(r=>`<tr>
-    <td><b>${r.placa}</b></td><td>${r.nome||'—'}</td>
-    <td>${fR(r.cOs)}</td><td>${fR(r.cMu)}</td>
-    <td style="font-weight:700;color:var(--acc)">${fR(r.tot)}</td>
-    <td>${fN(r.kmR)} km</td>
+    <td><b>${r.placa}</b><br><span style="font-size:10px;color:var(--sub)">${r.nome?r.nome.split(' ')[0]:'—'}</span></td>
+    <td style="color:var(--grn)">${fR(r.rec)}</td>
+    <td style="font-size:11px">
+      ${r.cOs?`<div>🔧 OS: ${fR(r.cOs)} <span style="color:var(--sub);font-size:10px">(${r.osQtd}x)</span></div>`:''}
+      ${r.cMu?`<div>🚨 Multas: ${fR(r.cMu)} <span style="color:var(--sub);font-size:10px">(${r.mulQtd}x${r.mulRep?' | '+r.mulRep+' rep.':''})</span></div>`:''}
+      ${!r.cOs&&!r.cMu?'<span style="color:var(--mut)">—</span>':''}
+    </td>
+    <td style="font-weight:700;color:${r.lucro>=0?'var(--grn)':'var(--red)'}">${fR(r.lucro)}</td>
+    <td style="font-size:11px;color:var(--sub)">${r.kmR?fN(r.kmR)+' km':'—'}</td>
+    <td><button class="btn bx bxs" onclick="verDetalhesMoto('${r.m.id}','${rMes}')">Ver</button></td>
   </tr>`).join('');
-  return`<div class="card" style="margin-bottom:12px"><div class="ch">
-    <span class="ct">Relatório de Custos</span>
+
+  return`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+    <div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">RECEITA</div><div style="font-size:22px;font-weight:800;color:var(--grn)">${fR(totRec)}</div></div>
+    <div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">CUSTOS</div><div style="font-size:22px;font-weight:800;color:var(--red)">${fR(totCus)}</div></div>
+    <div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">LUCRO</div><div style="font-size:22px;font-weight:800;color:${totLuc>=0?'var(--grn)':'var(--red)'}">${fR(totLuc)}</div></div>
+  </div>
+  <div class="card"><div class="ch">
+    <span class="ct">📊 Relatório Completo por Moto</span>
     <div class="row">
       <input type="month" value="${rMes}" onchange="rMes=this.value;render()" style="width:150px">
-      <button class="btn ba" onclick="expCsv()">📥 Exportar CSV</button>
-    </div></div></div>
-  <div class="card"><div style="overflow-x:auto"><table class="tbl">
-    <thead><tr><th>Placa</th><th>Locatário</th><th>OS</th><th>Multas</th><th>Total</th><th>Km Rodados</th></tr></thead>
-    <tbody>${trs||'<tr><td colspan="6" class="empty">Nenhum custo neste mês</td></tr>'}</tbody>
+      <button class="btn ba" onclick="expCsv()">📥 CSV</button>
+    </div></div>
+  <div style="overflow-x:auto"><table class="tbl">
+    <thead><tr><th>Moto</th><th>Receita</th><th>Custos</th><th>Lucro</th><th>Km Rod.</th><th></th></tr></thead>
+    <tbody>${trs||'<tr><td colspan="6" class="empty">Nenhum dado neste mês</td></tr>'}</tbody>
   </table></div></div>`;
 }
+
+function verDetalhesMoto(mId, mes){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const osM=DB.os.filter(o=>o.mId===mId&&(o.data||'').startsWith(mes));
+  const mulM=DB.multas.filter(x=>x.mId===mId&&(x.data||'').startsWith(mes));
+  const pgM=DB.pg.filter(p=>p.mId===mId&&(p.sem||p.data||'').slice(0,7)===mes);
+  const rec=pgM.reduce((a,p)=>a+(p.valor!=null?Number(p.valor):Number(m.val||0)),0);
+  const cOs=osM.reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0);
+  const cMu=mulM.reduce((a,x)=>a+Number(x.val||0),0);
+  const osRows=osM.map(o=>`<tr><td>${fD(o.data)}</td><td style="font-size:11px">${o.obs||o.ofic||'—'}</td><td>${fR(o.pec)}</td><td>${fR(o.mao)}</td><td>${fR(Number(o.pec||0)+Number(o.mao||0))}</td></tr>`).join('');
+  const mulRows=mulM.map(x=>`<tr><td>${fD(x.data)}</td><td style="font-size:11px">${x.loc||'—'}</td><td>${fR(x.val)}</td><td>${x.repasse==='repassado'?'<span style="color:var(--grn)">✓ Repassado</span>':x.repasse==='absorvido'?'AMS':'<span style="color:var(--yel)">Pendente</span>'}</td></tr>`).join('');
+  showM(mWrap('mDetMoto',`<div class="modal" style="max-width:560px">
+    <div class="mh"><span class="ct">📊 ${m.placa} — ${m.nome||'—'} — ${mes}</span><button class="btn bx" onclick="closeM('mDetMoto')">✕</button></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+      <div style="background:var(--grnbg);border-radius:8px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--sub)">RECEITA</div><div style="font-weight:800;color:var(--grn)">${fR(rec)}</div></div>
+      <div style="background:var(--redbg);border-radius:8px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--sub)">CUSTOS</div><div style="font-weight:800;color:var(--red)">${fR(cOs+cMu)}</div></div>
+      <div style="background:${rec-cOs-cMu>=0?'var(--grnbg)':'var(--redbg)'};border-radius:8px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--sub)">LUCRO</div><div style="font-weight:800;color:${rec-cOs-cMu>=0?'var(--grn)':'var(--red)'}">${fR(rec-cOs-cMu)}</div></div>
+    </div>
+    ${osM.length?`<div style="font-size:12px;font-weight:700;margin-bottom:6px">🔧 Ordens de Serviço (${osM.length})</div>
+    <div style="overflow-x:auto;margin-bottom:14px"><table class="tbl" style="font-size:11px">
+      <thead><tr><th>Data</th><th>Serviço</th><th>Peças</th><th>M.O.</th><th>Total</th></tr></thead>
+      <tbody>${osRows}</tbody>
+    </table></div>`:''}
+    ${mulM.length?`<div style="font-size:12px;font-weight:700;margin-bottom:6px">🚨 Multas (${mulM.length})</div>
+    <div style="overflow-x:auto"><table class="tbl" style="font-size:11px">
+      <thead><tr><th>Data</th><th>Infração</th><th>Valor</th><th>Repasse</th></tr></thead>
+      <tbody>${mulRows}</tbody>
+    </table></div>`:''}
+    <div style="text-align:right;margin-top:12px"><button class="btn bx" onclick="closeM('mDetMoto')">Fechar</button></div>
+  </div>`));
+}
+
 function expCsv(){
   const ativ=DB.motos.filter(m=>m.on);
   const rows=ativ.map(m=>{
@@ -3501,6 +3593,7 @@ function vMts(){
     const g=GPS[m.placa];
     const gc=g?gpsC(g.e):'var(--mut)';
     const gi=g?gpsI(g.e):'⚫';
+    const histLoc=(DB.histLoc||[]).filter(h=>h.placa===m.placa);
     return`<tr style="${!m.on?'opacity:.5':''}">
     <td><b>${m.placa}</b></td>
     <td>${m.nome||'<span style="color:var(--mut)">—</span>'}</td>
@@ -3510,6 +3603,7 @@ function vMts(){
     <td><span style="color:${gc};font-size:12px" title="${g?g.e+' – '+g.u+(g.end?' – '+g.end:''): 'Sem dados'}">${gi} ${g?g.e:'—'}</span>${g&&g.end?`<br><span style="font-size:10px;color:var(--mut)">${g.end.split(',').slice(0,2).join(',')}</span>`:''}</td>
     <td class="row" style="gap:4px">
       <button class="btn bx bxs" onclick="editM('${m.id}')">✏️</button>
+      <button class="btn bx bxs" onclick="verHistLocatario('${m.placa}')" title="Histórico de locatários"${histLoc.length?'':' style="opacity:.4"'}>👥${histLoc.length?` <span style="background:var(--acc);color:#000;border-radius:8px;padding:0 4px;font-size:9px">${histLoc.length}</span>`:''}</button>
       <label class="btn bx bxs" title="Importar CRLV-e (PDF)" style="cursor:pointer">📄 CRLV<input type="file" accept=".pdf" style="display:none" onchange="parseCrlv(this.files[0],'${m.id}');this.value=''"></label>
       <button class="btn bx bxs" onclick="togM('${m.id}')">${m.on?'Inativar':'Ativar'}</button>
     </td>
@@ -3574,8 +3668,17 @@ function editM(id){
 }
 function svM(id){
   const m=DB.motos.find(x=>x.id===id);
-  const novoNome=document.getElementById('emNm').value;
+  const novoNome=document.getElementById('emNm').value.trim();
+  const nomeAnterior=m.nome||'';
   const stSel=document.getElementById('emSt')?document.getElementById('emSt').value:'';
+  // Registra histórico se locatário mudou
+  if(nomeAnterior && nomeAnterior!==novoNome){
+    registrarHistLocatario(m.placa, nomeAnterior, m.odo, novoNome?'Substituído por '+novoNome.split(' ')[0]:'Saída');
+  }
+  if(!nomeAnterior && novoNome){
+    // Novo locatário entrando — registra entrada
+    setTimeout(()=>registrarHistLocatario(m.placa, novoNome, m.odo, 'Entrada'),100);
+  }
   m.nome=novoNome;
   m.odo=Number(document.getElementById('emOd').value);
   m.val=Number(document.getElementById('emVl').value);
@@ -3583,10 +3686,129 @@ function svM(id){
   const cpf=document.getElementById('emCpf')?.value?.trim();if(cpf)m.cpfLoc=cpf;
   const cnh=document.getElementById('emCnh')?.value?.trim();if(cnh)m.cnhValidade=cnh;
   if(stSel==='inativa'){m.status='inativa';m.on=false;}
-  else{m.status=novoNome.trim()?'alugada':'disponivel';m.on=true;}
-  sv('m');closeM('mEM');render();
+  else{m.status=novoNome?'alugada':'disponivel';m.on=true;}
+  sv('m');sv('histloc');closeM('mEM');render();
 }
-function togM(id){const m=DB.motos.find(x=>x.id===id);m.on=!m.on;sv('m');render()}
+function togM(id){
+  const m=DB.motos.find(x=>x.id===id);
+  // Se está inativando e tem locatário, salva no histórico
+  if(m.on && m.nome && m.nome.trim()){
+    registrarHistLocatario(m.placa, m.nome, m.odo, 'Inativação');
+  }
+  m.on=!m.on;sv('m');render();
+}
+
+// ── Histórico de Locatários por Moto ──────────────────────────────────────────
+if(!DB.histLoc) DB.histLoc=S.get('mg_histloc')||[];
+
+function registrarHistLocatario(placa, nome, odo, motivo){
+  if(!DB.histLoc) DB.histLoc=[];
+  DB.histLoc.push({id:uid(),placa,nome,odo,motivo:motivo||'',data:tod(),ts:Date.now()});
+  S.set('mg_histloc', DB.histLoc);
+}
+
+function verHistLocatario(placa){
+  const hist=(DB.histLoc||[]).filter(h=>h.placa===placa).sort((a,b)=>b.ts-a.ts);
+  const m=DB.motos.find(x=>x.placa===placa);
+  const rows=hist.map(h=>`<tr>
+    <td>${fD(h.data)}</td>
+    <td style="font-size:12px;font-weight:600">${h.nome}</td>
+    <td style="font-size:11px;color:var(--sub)">${h.motivo||'—'}</td>
+    <td>${fN(h.odo)} km</td>
+  </tr>`).join('');
+  showM(mWrap('mHistLoc',`<div class="modal" style="max-width:520px">
+    <div class="mh"><span class="ct">👥 Histórico de Locatários — ${placa}</span><button class="btn bx" onclick="closeM('mHistLoc')">✕</button></div>
+    ${m&&m.nome?`<div style="background:var(--grnbg);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--grn);margin-bottom:12px">🟢 Locatário atual: <b>${m.nome}</b></div>`:''}
+    ${hist.length?`<div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Data</th><th>Locatário</th><th>Motivo</th><th>KM</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`:'<div class="empty">Nenhum histórico registrado ainda.<br><small>O histórico é salvo automaticamente quando um locatário é trocado.</small></div>'}
+    <div style="text-align:right;margin-top:12px">
+      <button class="btn bx" onclick="closeM('mHistLoc')">Fechar</button>
+    </div>
+  </div>`));
+}
+
+// ── Previsão de Receita Semanal ───────────────────────────────────────────────
+function vPrevisaoReceita(){
+  const hoje2=new Date();hoje2.setHours(12,0,0,0);
+  const semAtual=wS(tod());
+  const diaJS={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
+  const diaLabel={'SEG':'Segunda','TER':'Terça','QUA':'Quarta','QUI':'Quinta','SEX':'Sexta','SAB':'Sábado','DOM':'Domingo'};
+  const ativ=DB.motos.filter(m=>m.on&&m.val>0&&m.nome);
+  const psSem=DB.pg.filter(p=>p.sem===semAtual);
+  const DIAS=['SEG','TER','QUA','QUI','SEX','SAB','DOM'];
+  let totalPrev=0,totalRec=0,totalPend=0;
+  const blocos=DIAS.map(dia=>{
+    const motos=ativ.filter(m=>m.dia===dia);
+    if(!motos.length)return'';
+    const prevDia=motos.reduce((a,m)=>a+Number(m.val||0),0);
+    const recDia=motos.filter(m=>psSem.find(p=>p.mId===m.id)).reduce((a,m)=>{const p=psSem.find(x=>x.mId===m.id);return a+(p.valor!=null?Number(p.valor):Number(m.val));},0);
+    const pgos=motos.filter(m=>psSem.find(p=>p.mId===m.id)).length;
+    totalPrev+=prevDia;totalRec+=recDia;totalPend+=(prevDia-recDia);
+    const pct=Math.round(pgos/motos.length*100);
+    const cor=pgos===motos.length?'var(--grn)':pgos===0?'var(--red)':'var(--acc)';
+    // Verifica se é dia de hoje
+    const diaHojeNum=hoje2.getDay();
+    const ehHoje=diaJS[dia]===diaHojeNum;
+    return`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--bor)">
+      <div style="width:70px;font-size:12px;font-weight:700;color:${ehHoje?'var(--acc)':'var(--txt)'}">${diaLabel[dia]}${ehHoje?' 📍':''}</div>
+      <div style="flex:1">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+          <span style="color:var(--sub)">${pgos}/${motos.length} pagos</span>
+          <span style="color:${cor};font-weight:700">${fR(recDia)} / ${fR(prevDia)}</span>
+        </div>
+        <div style="background:var(--bor);border-radius:4px;height:6px">
+          <div style="width:${pct}%;height:100%;background:${cor};border-radius:4px;transition:width .3s"></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  showM(mWrap('mPrevRec',`<div class="modal" style="max-width:500px">
+    <div class="mh"><span class="ct">📈 Previsão de Receita — Semana Atual</span><button class="btn bx" onclick="closeM('mPrevRec')">✕</button></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+      <div style="background:var(--blubg);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--sub);margin-bottom:4px">PREVISTO</div>
+        <div style="font-size:18px;font-weight:800;color:var(--blu)">${fR(totalPrev)}</div>
+      </div>
+      <div style="background:var(--grnbg);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--sub);margin-bottom:4px">RECEBIDO</div>
+        <div style="font-size:18px;font-weight:800;color:var(--grn)">${fR(totalRec)}</div>
+      </div>
+      <div style="background:var(--redbg);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--sub);margin-bottom:4px">PENDENTE</div>
+        <div style="font-size:18px;font-weight:800;color:var(--red)">${fR(totalPend)}</div>
+      </div>
+    </div>
+    <div>${blocos}</div>
+    <div style="text-align:right;margin-top:12px"><button class="btn bx" onclick="closeM('mPrevRec')">Fechar</button></div>
+  </div>`));
+}
+
+// ── Alerta WA para motos paradas ──────────────────────────────────────────────
+function waMotosParadas(){
+  const hoje2=new Date();hoje2.setHours(12,0,0,0);
+  const ativ=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim()&&m.odo>0);
+  const paradas=ativ.map(m=>{
+    const lts=DB.leit.filter(l=>l.mId===m.id).sort((a,b)=>b.data.localeCompare(a.data));
+    if(!lts.length)return null;
+    const dias=Math.ceil((hoje2-new Date(lts[0].data+'T12:00'))/86400000);
+    return dias>=3?{m,dias}:null;
+  }).filter(Boolean).sort((a,b)=>b.dias-a.dias);
+  if(!paradas.length){alert('✅ Nenhuma moto parada há 3+ dias!');return;}
+  const lista=paradas.map(x=>`• ${x.m.nome.split(' ')[0]} (${x.m.placa}) — ${x.dias} dias parada`).join('\n');
+  const msg=`🏍️ *AMS Motos — Motos Paradas*\n\nIdentificamos motos sem leitura de odômetro há 3+ dias:\n\n${lista}\n\nPor favor, informe a situação destas motos. Precisa de algum suporte?\n\n_AMS Motos 🏍️_`;
+  showM(mWrap('mWAP',`<div class="modal">
+    <div class="mh"><span class="ct">🏍️ Alertar Motos Paradas (${paradas.length})</span><button class="btn bx" onclick="closeM('mWAP')">✕</button></div>
+    <div style="background:var(--sur);border-radius:8px;padding:12px;font-size:12px;white-space:pre-wrap;line-height:1.7;max-height:50vh;overflow-y:auto;margin-bottom:14px">${msg}</div>
+    <div class="row" style="gap:8px;justify-content:flex-end">
+      <button class="btn bx" onclick="navigator.clipboard.writeText(${JSON.stringify(msg)}).then(()=>alert('✅ Copiado!'))">📋 Copiar</button>
+      <button class="btn bx" onclick="closeM('mWAP')">Fechar</button>
+      <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="window.open('https://wa.me/?text='+encodeURIComponent(${JSON.stringify(msg)}),'_blank')">📱 WhatsApp</button>
+    </div>
+  </div>`));
+}
+
 
 // ── Locatários ────────────────────────────────────────────────────────────────
 let locBusca='';
