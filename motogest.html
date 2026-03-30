@@ -268,9 +268,10 @@ const DB={
   solics:    S.get('mg_solics')||[],
   intervencoes: S.get('mg_intv')||[],
   histLoc: S.get('mg_histloc')||[],
+  agenda: S.get('mg_agenda')||[],
 };
 function sv(k){
-  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos',chats:'chats',solics:'solics',intv:'intervencoes',histloc:'histLoc'};
+  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos',chats:'chats',solics:'solics',intv:'intervencoes',histloc:'histLoc',agenda:'agenda'};
   const prop=map[k]||k;
   S.set('mg_'+k,DB[prop]);
 }
@@ -452,6 +453,31 @@ function fN(n){return Number(n||0).toLocaleString('pt-BR')}
 function fR(n){return Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function dTo(d){return d?Math.ceil((new Date(d+'T12:00')-new Date())/86400000):null}
 const OIL=1000,REV=10000,PNEU=10000,CORR=6000;
+
+// ── Cálculo central de semanas em atraso ─────────────────────────────────────
+// Respeita dataInicio: semanas antes da retirada não são cobradas
+const _diaJS_GLOBAL={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
+function wLateCalc(m, paidByMMap){
+  if(!m.dia||!_diaJS_GLOBAL.hasOwnProperty(m.dia)) return 0;
+  const paid=new Set((paidByMMap?paidByMMap[m.id]:null)||DB.pg.filter(p=>p.mId===m.id).map(p=>p.sem));
+  const hoje=new Date();hoje.setHours(12,0,0,0);
+  // Semana de início da cobrança (semana da retirada)
+  const semInicio=m.dataInicio?wS(m.dataInicio):null;
+  let ref=new Date(hoje);
+  ref.setDate(ref.getDate()-((ref.getDay()-_diaJS_GLOBAL[m.dia]+7)%7));
+  let late=0;
+  let check=new Date(ref);
+  for(let i=0;i<52;i++){
+    const sem=wS(check.toISOString().split('T')[0]);
+    // Para se chegou antes da data de início
+    if(semInicio && sem < semInicio) break;
+    if(!paid.has(sem)) late++;
+    else break;
+    check.setDate(check.getDate()-7);
+  }
+  return late;
+}
+
 function ms(m){const ol=OIL-(m.odo-(m.loilKm||0)),rl=REV-(m.odo-(m.lrevKm||0)),pl=PNEU-(m.odo-(m.lpneuKm||0)),cl=CORR-(m.odo-(m.lcorrKm||m.odo||0));const u=(ol<=0||rl<=0||pl<=0)?'ov':(ol<=100||rl<=500||pl<=500)?'cr':(ol<=200||rl<=1000||pl<=1000)?'wa':'ok';return{ol,rl,pl,cl,u}}
 function uc(u){return u==='ov'?'var(--red)':u==='cr'?'var(--acc)':u==='wa'?'var(--yel)':'var(--grn)'}
 
@@ -461,6 +487,7 @@ const TABS=[
   {id:'fin',label:'💹 Financeiro'},
   {id:'odo',label:'📏 Odômetro'},
   {id:'mnt',label:'🔧 Manutenção'},
+  {id:'agenda',label:'📅 Agenda Revisões'},
   {id:'seg',label:'🛡️ Seguros'},
   {id:'mul',label:'🚨 Multas'},
   {id:'est',label:'📦 Estoque'},
@@ -478,7 +505,7 @@ let TAB='dash';
 function go(t){TAB=t;render()}
 function render(){
   document.getElementById('tabs').innerHTML=TABS.map(t=>`<button class="tab${TAB===t.id?' active':''}" onclick="go('${t.id}')">${t.label}</button>`).join('');
-  const fn={dash:vDash,fin:vFin,odo:vOdo,mnt:vMnt,seg:vSeg,mul:vMul,est:vEst,os:vOs,oficina:vOficina,pag:vPag,rel:vRel,mts:vMts,loc:vLoc,ind:vInd,docs:vDocs,portal:vPortal};
+  const fn={dash:vDash,fin:vFin,odo:vOdo,mnt:vMnt,agenda:vAgendaTab,seg:vSeg,mul:vMul,est:vEst,os:vOs,oficina:vOficina,pag:vPag,rel:vRel,mts:vMts,loc:vLoc,ind:vInd,docs:vDocs,portal:vPortal};
   document.getElementById('content').innerHTML=fn[TAB]();
 }
 function closeM(id){const e=document.getElementById(id);if(e)e.remove()}
@@ -492,43 +519,218 @@ async function pasteGps(){
   try{
     const txt = await navigator.clipboard.readText();
     let data;
-    try{ data=JSON.parse(txt); }catch{ 
-      alert('Nenhum dado GPS na area de transferencia.\nUse primeiro o bookmarklet no Rastrear System.');
+    try{ data=JSON.parse(txt); }catch{
+      alert('Nenhum dado GPS na área de transferência.\nUse primeiro o bookmarklet no Rastrear System.');
       return;
     }
-    if(!Array.isArray(data)||!data[0]?.km){
-      alert('Dados invalidos. Use o bookmarklet no Rastrear System primeiro.');
+    if(!Array.isArray(data)||!data.length){
+      alert('Dados inválidos. Use o bookmarklet no Rastrear System primeiro.');
       return;
     }
-    let updated=0, notMatched=[];
-    for(const item of data){
-      const uid=(item.uid||'').replace(/[^A-Z0-9]/g,'');
-      const nome=(item.nome||'').toUpperCase();
-      let matched=null;
-      // Try matching by plate inside uniqueId or name
-      for(const m of DB.motos){
-        const pl=m.placa.replace(/[^A-Z0-9]/g,'');
-        if(uid.includes(pl)||(nome&&nome.includes(pl))){matched=m;break;}
-      }
-      if(matched){
-        if(item.km>matched.odo){matched.odo=item.km;updated++;}
-      } else {
-        notMatched.push((item.nome||item.uid||'?')+' ('+item.km+' km)');
-      }
-    }
-    if(updated>0) sv('m');
-    let msg='GPS atualizado!\n'+updated+' moto(s) atualizada(s) de '+data.length+' veiculos.';
-    if(notMatched.length) msg+='\n\nSem correspondencia ('+notMatched.length+'):\n'+notMatched.slice(0,6).join('\n');
-    alert(msg);
-    render();
+    processarDadosGps(data);
   }catch(e){
     if(e.name==='NotAllowedError'){
-      alert('Permissao de area de transferencia negada.\nClique em "Permitir" quando o navegador solicitar, ou cole manualmente.');
+      // Abre modal com campo de colagem manual
+      showM(mWrap('mGpsPaste',`<div class="modal" style="max-width:500px">
+        <div class="mh"><span class="ct">📋 Colar dados GPS manualmente</span><button class="btn bx" onclick="closeM('mGpsPaste')">✕</button></div>
+        <p style="font-size:12px;color:var(--sub);margin-bottom:10px">Permissão de área de transferência negada. Cole o JSON do GPS abaixo:</p>
+        <textarea id="gpsManualTxt" rows="6" style="resize:vertical;font-size:11px;font-family:monospace" placeholder='[{"nome":"TGX0J77","uid":"TGX0J77","km":33618},...]'></textarea>
+        <div class="row" style="gap:8px;justify-content:flex-end;margin-top:12px">
+          <button class="btn bx" onclick="closeM('mGpsPaste')">Cancelar</button>
+          <button class="btn ba" onclick="processarGpsManual()">Processar</button>
+        </div>
+      </div>`));
     } else {
       alert('Erro: '+e.message);
     }
   }
 }
+function processarGpsManual(){
+  try{
+    const txt=document.getElementById('gpsManualTxt').value.trim();
+    const data=JSON.parse(txt);
+    closeM('mGpsPaste');
+    processarDadosGps(data);
+  }catch(e){ alert('JSON inválido: '+e.message); }
+}
+
+function processarDadosGps(data){
+  let updated=0;
+  const matched=[], notMatched=[];
+  for(const item of data){
+    const uid=(item.uid||item.uniqueId||'').replace(/[^A-Z0-9]/g,'').toUpperCase();
+    const nome=(item.nome||item.name||'').toUpperCase();
+    let moto=null;
+    // 1. Tenta match por placa no uid ou nome
+    for(const m of DB.motos){
+      const pl=m.placa.replace(/[^A-Z0-9]/g,'').toUpperCase();
+      if(uid.includes(pl)||(nome&&nome.includes(pl))){moto=m;break;}
+    }
+    const km=Number(item.km||item.totalDistance||0);
+    if(moto){
+      const kmAtualizado=km>moto.odo;
+      if(kmAtualizado){moto.odo=km;updated++;}
+      matched.push({item,moto,kmAtualizado});
+    } else {
+      notMatched.push(item);
+    }
+  }
+  if(updated>0) sv('m');
+
+  if(notMatched.length===0){
+    alert('✅ GPS atualizado!\n'+updated+' moto(s) com odômetro atualizado de '+data.length+' veículos.');
+    render();
+    return;
+  }
+
+  // Mostra painel de revisão com não-encontrados
+  mostrarPainelGps(matched, notMatched, updated, data.length);
+}
+
+function mostrarPainelGps(matched, notMatched, updated, total){
+  const DIAS=['SEG','TER','QUA','QUI','SEX','SAB','DOM'];
+  const rowsNaoEnc=notMatched.map((item,i)=>{
+    const uid=(item.uid||item.uniqueId||'').toUpperCase();
+    const nome=item.nome||item.name||'';
+    const km=Number(item.km||0);
+    // Tenta extrair placa do nome/uid automaticamente
+    const placaGuess=uid.match(/[A-Z]{3}\d[A-Z\d]\d{2}/)?.[0]||nome.match(/[A-Z]{3}\d[A-Z\d]\d{2}/)?.[0]||'';
+    return`<tr style="background:rgba(239,68,68,.04)">
+      <td>
+        <div style="font-weight:700;font-size:13px">${nome||uid||'—'}</div>
+        <div style="font-size:10px;color:var(--sub)">uid: ${uid||'—'}</div>
+      </td>
+      <td><b>${fN(km)} km</b></td>
+      <td>
+        <input id="gpsPl_${i}" placeholder="Placa" value="${placaGuess}"
+          style="width:90px;font-size:12px;text-transform:uppercase;padding:5px 8px"
+          oninput="this.value=this.value.toUpperCase();atualizarMatchGps(${i})">
+        <div id="gpsMatchInfo_${i}" style="font-size:10px;color:var(--sub);margin-top:3px"></div>
+      </td>
+      <td>
+        <select id="gpsDia_${i}" style="font-size:11px;padding:4px 6px;width:70px">
+          <option value="">Dia</option>
+          ${DIAS.map(d=>`<option>${d}</option>`).join('')}
+        </select>
+      </td>
+      <td>
+        <input id="gpsVal_${i}" type="number" placeholder="R$ plano" value="0"
+          style="width:80px;font-size:12px;padding:5px 8px">
+      </td>
+      <td>
+        <select id="gpsAcao_${i}" style="font-size:11px;padding:4px 6px">
+          <option value="cadastrar">+ Cadastrar</option>
+          <option value="vincular">→ Vincular existente</option>
+          <option value="ignorar">✕ Ignorar</option>
+        </select>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const rowsEnc=matched.slice(0,5).map(({item,moto,kmAtualizado})=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bor);font-size:12px">
+      <span><b>${moto.placa}</b> <span style="color:var(--sub);font-size:11px">${moto.nome||'—'}</span></span>
+      <span style="color:${kmAtualizado?'var(--grn)':'var(--sub)'}">${kmAtualizado?'↑ '+fN(item.km)+' km':'sem alteração'}</span>
+    </div>`).join('');
+
+  showM(mWrap('mGpsPanel',`<div class="modal" style="max-width:750px">
+    <div class="mh"><span class="ct">📡 Resultado da Sincronização GPS</span><button class="btn bx" onclick="closeM('mGpsPanel');render()">✕</button></div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+      <div style="background:var(--grnbg);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--sub);margin-bottom:4px">ATUALIZADAS</div>
+        <div style="font-size:22px;font-weight:800;color:var(--grn)">${updated}</div>
+      </div>
+      <div style="background:var(--blubg);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--sub);margin-bottom:4px">ENCONTRADAS</div>
+        <div style="font-size:22px;font-weight:800;color:var(--blu)">${matched.length}</div>
+      </div>
+      <div style="background:var(--redbg);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--sub);margin-bottom:4px">NÃO ENCONTRADAS</div>
+        <div style="font-size:22px;font-weight:800;color:var(--red)">${notMatched.length}</div>
+      </div>
+    </div>
+
+    ${matched.length?`<div class="card" style="margin-bottom:12px;padding:12px">
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--grn)">✅ Reconhecidas (${matched.length})</div>
+      ${rowsEnc}
+      ${matched.length>5?`<div style="font-size:11px;color:var(--sub);margin-top:6px">...e mais ${matched.length-5}</div>`:''}
+    </div>`:''}
+
+    <div class="card" style="border-color:rgba(239,68,68,.3)">
+      <div style="font-size:12px;font-weight:700;margin-bottom:4px;color:var(--red)">⚠️ Não encontradas no cadastro — O que fazer com cada uma?</div>
+      <p style="font-size:11px;color:var(--sub);margin-bottom:12px">Para cada veículo abaixo, confirme a placa, preencha os dados e escolha a ação.</p>
+      <div style="overflow-x:auto"><table class="tbl">
+        <thead><tr><th>Dispositivo GPS</th><th>KM</th><th>Placa</th><th>Dia Pag.</th><th>Plano R$</th><th>Ação</th></tr></thead>
+        <tbody id="gpsNaoEncTbody">${rowsNaoEnc}</tbody>
+      </table></div>
+    </div>
+
+    <div class="row" style="gap:8px;justify-content:flex-end;margin-top:14px">
+      <button class="btn bx" onclick="closeM('mGpsPanel');render()">Fechar</button>
+      <button class="btn ba" onclick="confirmarImportacaoGps(${notMatched.length})">✓ Aplicar ações selecionadas</button>
+    </div>
+  </div>`));
+
+  // Inicializa verificação de placas existentes
+  setTimeout(()=>{ for(let i=0;i<notMatched.length;i++) atualizarMatchGps(i); }, 100);
+  window._gpsNotMatched = notMatched;
+}
+
+function atualizarMatchGps(i){
+  const pl=(document.getElementById('gpsPl_'+i)?.value||'').toUpperCase().trim();
+  const el=document.getElementById('gpsMatchInfo_'+i);
+  if(!el)return;
+  if(!pl){el.textContent='';return;}
+  const existe=DB.motos.find(m=>m.placa===pl);
+  if(existe){
+    el.innerHTML=`<span style="color:var(--grn)">✓ Já cadastrada — ${existe.nome||'sem locatário'}</span>`;
+    const sel=document.getElementById('gpsAcao_'+i);
+    if(sel) sel.value='vincular';
+  } else {
+    el.innerHTML=`<span style="color:var(--sub)">Nova moto — será cadastrada</span>`;
+  }
+}
+
+function confirmarImportacaoGps(count){
+  const notMatched=window._gpsNotMatched||[];
+  let cadastradas=0,vinculadas=0,ignoradas=0;
+  for(let i=0;i<count;i++){
+    const pl=(document.getElementById('gpsPl_'+i)?.value||'').toUpperCase().trim();
+    const dia=document.getElementById('gpsDia_'+i)?.value||'';
+    const val=Number(document.getElementById('gpsVal_'+i)?.value||0);
+    const acao=document.getElementById('gpsAcao_'+i)?.value||'ignorar';
+    const item=notMatched[i];
+    const km=Number(item?.km||0);
+    if(acao==='ignorar'||!pl){ignoradas++;continue;}
+    if(acao==='vincular'){
+      const existe=DB.motos.find(m=>m.placa===pl);
+      if(existe){if(km>existe.odo){existe.odo=km;}vinculadas++;}
+      continue;
+    }
+    if(acao==='cadastrar'){
+      // Verifica se já existe
+      if(DB.motos.find(m=>m.placa===pl)){
+        const m=DB.motos.find(m=>m.placa===pl);
+        if(km>m.odo) m.odo=km;
+        vinculadas++;continue;
+      }
+      const od=km||0;
+      DB.motos.push({
+        id:uid(), placa:pl,
+        nome:'', odo:od, loilKm:od, lrevKm:0,
+        val:val, dia:dia, on:true,
+        dataInicio:tod()
+      });
+      cadastradas++;
+    }
+  }
+  sv('m');
+  closeM('mGpsPanel');
+  alert(`✅ Concluído!\n• ${cadastradas} moto(s) cadastrada(s)\n• ${vinculadas} moto(s) vinculada(s)\n• ${ignoradas} ignorada(s)\n\nEdite as novas motos para preencher o locatário.`);
+  render();
+}
+
 function setupBookmarklet(){
   const el=document.getElementById('bmLink');
   if(!el) return;
@@ -578,37 +780,30 @@ async function syncGps(verbose=false){
     const sessRes=await fetch(GPS_CFG.url+'/api/session',{headers:hdr,credentials:'include'});
     if(!sessRes.ok) throw new Error('Login falhou ('+sessRes.status+'). Verifique usuário e senha.');
     const posRes=await fetch(GPS_CFG.url+'/api/positions',{headers:hdr,credentials:'include'});
-    if(!posRes.ok) throw new Error('Falha ao buscar posicoes ('+posRes.status+').');
+    if(!posRes.ok) throw new Error('Falha ao buscar posições ('+posRes.status+').');
     const positions=await posRes.json();
     const devRes=await fetch(GPS_CFG.url+'/api/devices',{headers:hdr,credentials:'include'});
     const devices=devRes.ok?await devRes.json():[];
-    const devMap={};
-    devices.forEach(d=>{devMap[d.id]=d;});
-    let updated=0,notMatched=[];
-    for(const pos of positions){
-      const dev=devMap[pos.deviceId];
-      if(!dev) continue;
+    const devMap={};devices.forEach(d=>{devMap[d.id]=d;});
+    // Monta array no mesmo formato do bookmarklet
+    const gpsData=positions.map(pos=>{
+      const dev=devMap[pos.deviceId]||{};
       const distM=pos.attributes?.totalDistance||pos.attributes?.odometer||0;
       const km=Math.round(distM/1000);
-      if(km<1) continue;
-      const devStr=(dev.name+' '+dev.uniqueId).toUpperCase().replace(/[^A-Z0-9]/g,'');
-      let matched=DB.motos.find(m=>{
-        const pl=m.placa.toUpperCase().replace(/[^A-Z0-9]/g,'');
-        return devStr.includes(pl);
-      });
-      if(matched){
-        if(km>matched.odo){matched.odo=km;updated++;}
-      } else {
-        notMatched.push(dev.name+' ('+km+' km)');
-      }
-    }
-    if(updated>0) sv('m');
-    let msg='GPS sincronizado!\n'+updated+' moto(s) atualizada(s).';
-    if(notMatched.length) msg+='\n\nSem correspondencia ('+notMatched.length+'):\n'+notMatched.slice(0,8).join('\n');
-    if(verbose||updated>0) alert(msg);
-    render();
+      return{
+        nome:dev.name||'',
+        uid:(dev.uniqueId||'').toUpperCase(),
+        km,
+        status:dev.status||'',
+        lastUpdate:pos.fixTime||pos.serverTime||'',
+        address:pos.address||'',
+        lat:pos.latitude||0,
+        lng:pos.longitude||0
+      };
+    }).filter(x=>x.km>0);
+    processarDadosGps(gpsData);
   }catch(e){
-    alert('Erro na sincronizacao:\n'+e.message+'\n\nO servidor pode estar bloqueando requisicoes externas (CORS).');
+    alert('Erro na sincronização:\n'+e.message+'\n\nO servidor pode estar bloqueando requisições externas (CORS).\nUse o bookmarklet como alternativa.');
   }finally{
     if(btn){btn.textContent='Sincronizar GPS';btn.disabled=false;}
   }
@@ -649,6 +844,7 @@ function vDash(){
   const _avisosHoje=(DB.avisos&&DB.avisos[tod()])||0;
   const _btnsAcao=`<div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px;padding:0 2px">
     <button class="btn bxs" style="background:#25d366;color:#fff;border:none;font-size:12px;display:flex;align-items:center;gap:5px" onclick="waAlertaGeral()">⚡ Alerta Geral WA${_avisosHoje?` <span style='background:rgba(255,255,255,.3);border-radius:10px;padding:0 6px;font-size:10px'>${_avisosHoje}x hoje</span>`:''}</button>
+    <button class="btn bxs" style="font-size:12px" onclick="waResumoDiario()">📱 Resumo do Dia WA</button>
     <button class="btn bxs" style="font-size:12px" onclick="vPrevisaoReceita()">📈 Previsão Semana</button>
     <button class="btn bxs" style="font-size:12px" onclick="waMotosParadas()">🏍️ Alertar Paradas</button>
     <button class="btn bxs" style="font-size:12px" onclick="vRanking()">🏆 Ranking</button>
@@ -672,20 +868,7 @@ function vDash(){
   DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.sem);});
   const diaJS2={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
   const todayD=new Date();todayD.setHours(12,0,0,0);
-  function wLate(m){
-    if(!m.dia||!diaJS2.hasOwnProperty(m.dia))return 0;
-    const paid=new Set(paidByM[m.id]||[]);
-    let ref=new Date(todayD);
-    ref.setDate(ref.getDate()-((ref.getDay()-diaJS2[m.dia]+7)%7));
-    let late=0;
-    let check=new Date(ref);
-    for(let i=0;i<12;i++){
-      const sem=wS(check.toISOString().split('T')[0]);
-      if(!paid.has(sem))late++;else break;
-      check.setDate(check.getDate()-7);
-    }
-    return late;
-  }
+  function wLate(m){ return wLateCalc(m, paidByM); }
   const ativPg=DB.motos.filter(m=>m.on&&m.val>0&&m.nome);
   const indAll=ativPg.map(m=>({m,w:wLate(m)})).filter(x=>x.w>=1);
   const ind1=indAll.filter(x=>x.w===1).length;
@@ -708,7 +891,15 @@ function vDash(){
     ${sc('Estoque Baixo',eb.length,eb.length?'var(--yel)':'var(--grn)')}
   </div>
   <div class="card" style="margin-bottom:12px">
-    <div class="ch"><span class="ct">📡 GPS / Rastreadores</span><div class="row" style="gap:6px"><button id="btnSyncGps" class="btn bg bs" onclick="pasteGps()">📋 Colar GPS</button><a class="btn bx bs" href="javascript:(async()=>{try{const [posR,devR]=await Promise.all([fetch('/api/positions',{headers:{'Accept':'application/json'},credentials:'include'}),fetch('/api/devices',{headers:{'Accept':'application/json'},credentials:'include'})]);if(!posR.ok||!devR.ok){alert('Erro: verifique se esta logado no Rastrear System.');return;}const pos=await posR.json();const dev=await devR.json();const devMap={};dev.forEach(d=>{devMap[d.id]=d;});const result=pos.map(p=>{const d=devMap[p.deviceId]||{};const km=Math.round((p.attributes&&(p.attributes.totalDistance||p.attributes.odometer)||0)/1000);return{nome:d.name||'',uid:(d.uniqueId||'').toUpperCase(),km};}).filter(x=>x.km>0);const txt=JSON.stringify(result);await navigator.clipboard.writeText(txt);alert('✅ '+result.length+' veiculos copiados!\nAgora va ao MotoGest e clique em Colar GPS.');}catch(e){alert('Erro: '+e.message);}})();" title="Arraste para a barra de favoritos" style="text-decoration:none" onclick="return false" id="bmLink">🔖 Bookmarklet</a></div><span style="font-size:11px;color:var(--sub)">atualizado 10/03/2026</span></div>
+    <div class="ch"><span class="ct">📡 GPS / Rastreadores</span>
+      <div class="row" style="gap:6px;flex-wrap:wrap">
+        <button id="btnSyncGps" class="btn bg bs" onclick="pasteGps()">📋 Colar GPS</button>
+        <button class="btn bx bs" onclick="syncGps(true)" title="Sincronizar diretamente via API (requer credenciais)">🔄 Sync Direto</button>
+        <a class="btn bx bs" href="javascript:(async()=>{try{const[posR,devR]=await Promise.all([fetch('/api/positions',{headers:{'Accept':'application/json'},credentials:'include'}),fetch('/api/devices',{headers:{'Accept':'application/json'},credentials:'include'})]);if(!posR.ok||!devR.ok){alert('Erro: verifique se está logado.');return;}const pos=await posR.json();const dev=await devR.json();const devMap={};dev.forEach(d=>{devMap[d.id]=d;});const result=pos.map(p=>{const d=devMap[p.deviceId]||{};const km=Math.round(((p.attributes&&(p.attributes.totalDistance||p.attributes.odometer))||0)/1000);return{nome:d.name||'',uid:(d.uniqueId||'').toUpperCase(),km,status:d.status||'',lastUpdate:p.fixTime||'',address:p.address||''};}).filter(x=>x.km>0);await navigator.clipboard.writeText(JSON.stringify(result));alert('✅ '+result.length+' veículos copiados!\nAgora vá ao MotoGest e clique em Colar GPS.');}catch(e){alert('Erro: '+e.message);}})();"
+           title="Arraste para a barra de favoritos do navegador" style="text-decoration:none" onclick="return false" id="bmLink">🔖 Bookmarklet</a>
+        <button class="btn bx bs" onclick="openGpsSettings()">⚙️ Config</button>
+      </div>
+    </div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
       <div style="background:var(--grnbg);border-radius:8px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800;color:var(--grn)">${gCon}</div><div style="font-size:11px;color:var(--sub);margin-top:3px">🟢 Conectados</div></div>
       <div style="background:var(--yelbg);border-radius:8px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800;color:var(--yel)">${gDsc}</div><div style="font-size:11px;color:var(--sub);margin-top:3px">🟡 Desconhecidos</div></div>
@@ -1763,6 +1954,7 @@ function vPag(){
   const DIAS_LABEL={'DOM':'Domingo','SEG':'Segunda-feira','TER':'Terça-feira','QUA':'Quarta-feira','QUI':'Quinta-feira','SEX':'Sexta-feira','SAB':'Sábado'};
   const semDia=ativ.filter(m=>!m.dia||!DIAS.includes(m.dia));
   function mkRows(motos){
+    const paidByMLocal={};DB.pg.forEach(p=>{if(!paidByMLocal[p.mId])paidByMLocal[p.mId]=[];paidByMLocal[p.mId].push(p.sem);});
     return motos.map(m=>{
       const p=ps.find(x=>x.mId===m.id);
       const valPago=p?(p.valor!=null?p.valor:m.val):0;
@@ -1770,14 +1962,18 @@ function vPag(){
       const diff=p?(valPago-m.val):0;
       const diffStr=diff>0?`<span style="color:var(--grn);font-size:10px"> +${fR(diff)}</span>`:diff<0?`<span style="color:var(--acc);font-size:10px"> ${fR(diff)}</span>`:'';
       const pagoPor=p&&p.pagoPor?`<div style="font-size:10px;color:var(--acc);margin-top:2px">↳ pago por: ${p.pagoPor}</div>`:'';
-      const statusDot=p?`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--grn);margin-right:5px"></span>PAGO`:`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-right:5px"></span>PEND.`;
-      return`<tr>
+      // Semáforo de inadimplência
+      const semAtrasadas=wLateCalc(m,paidByMLocal);
+      const semCor=p?'var(--grn)':semAtrasadas>=3?'var(--red)':semAtrasadas>=2?'var(--acc)':semAtrasadas>=1?'var(--yel)':'var(--sub)';
+      const semLabel=p?'PAGO':semAtrasadas>=3?`🔴 ${semAtrasadas}s atraso`:semAtrasadas>=2?`🟠 ${semAtrasadas}s`:semAtrasadas>=1?`🟡 ${semAtrasadas}s`:'PEND.';
+      const rowBg=!p&&semAtrasadas>=3?'background:rgba(239,68,68,.05)':!p&&semAtrasadas>=2?'background:rgba(249,115,22,.05)':'';
+      return`<tr style="${rowBg}">
         <td style="font-weight:700;font-size:12px;letter-spacing:.5px">${m.placa}</td>
         <td style="font-size:12px"><div>${m.nome||'—'}</div>${pagoPor}</td>
         <td style="font-size:12px">${fR(m.val)}</td>
         <td style="font-size:12px">${p?`${fR(valPago)}${diffStr}`:'—'}</td>
         <td style="font-size:12px">${saldo>0?`<span style="color:var(--red);font-weight:700">${fR(saldo)}</span>`:'<span style="color:var(--grn)">—</span>'}</td>
-        <td><span style="font-size:11px;display:flex;align-items:center;color:${p?'var(--grn)':'var(--red)'}">${statusDot}</span></td>
+        <td><span style="font-size:11px;display:flex;align-items:center;color:${semCor};font-weight:700">${semLabel}</span></td>
         <td class="row" style="gap:4px">${p
           ?`<button class="btn bx bxs" title="Editar" onclick="openPgModal('${m.id}','${ws}')">✏️</button><button class="btn bx bxs" title="Alterar pagador" onclick="openPagadorModal('${m.id}','${ws}')">👤</button><button class="btn br bxs" title="Desfazer" onclick="uPg('${m.id}','${ws}')">✕</button>`
           :`<button class="btn bg bxs" onclick="sPg('${m.id}','${ws}')">✓ Pagar</button>`
@@ -2551,6 +2747,7 @@ function vInd(){
         <td><b>${m.placa}</b></td>
         <td>${m.nome}</td>
         <td>${fR(m.val)}</td>
+        <td style="font-size:11px;color:var(--sub)">${m.dataInicio?fD(m.dataInicio):'<span style="color:var(--yel)">⚠️ não def.</span>'}</td>
         <td><span class="badge" style="background:${corBg};color:${cor};font-weight:700">${w} sem${w>1?'anas':'ana'}</span></td>
         <td style="color:${cor};font-weight:700">${fR(w*Number(m.val||0))}</td>
         <td style="color:var(--red);font-weight:700">${saldo>0?fR(saldo):'—'}</td>
@@ -2566,7 +2763,7 @@ function vInd(){
         </div>
       </div>
       <div style="overflow-x:auto"><table class="tbl">
-        <thead><tr><th>Placa</th><th>Locatário</th><th>Plano</th><th>Atraso</th><th>Total Dev.</th><th>Saldo Dev.</th><th>Ação</th></tr></thead>
+        <thead><tr><th>Placa</th><th>Locatário</th><th>Plano</th><th>Retirada</th><th>Atraso</th><th>Total Dev.</th><th>Saldo Dev.</th><th>Ação</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
     </div>`;
@@ -2613,8 +2810,8 @@ function waAlertaGeral(){
   const hoje2=new Date();hoje2.setHours(12,0,0,0);
   const diasP2=d=>d?Math.ceil((new Date(d+'T12:00')-hoje2)/86400000):null;
   const diaJS2={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
-  const paidByM={};DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.sem);});
-  function wL(m){if(!m.dia||!diaJS2.hasOwnProperty(m.dia))return 0;const paid=new Set(paidByM[m.id]||[]);let ref=new Date(hoje2);ref.setDate(ref.getDate()-((ref.getDay()-diaJS2[m.dia]+7)%7));let late=0,check=new Date(ref);for(let i=0;i<12;i++){const sem=wS(check.toISOString().split('T')[0]);if(!paid.has(sem))late++;else break;check.setDate(check.getDate()-7);}return late;}
+  const paidByM={};DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=new Set();paidByM[p.mId].add(p.sem);});
+  function wL(m){ return wLateCalc(m, Object.fromEntries(Object.entries(paidByM).map(([k,v])=>[k,[...v]]))); }
   const ativ=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim());
   const inadim=ativ.filter(m=>m.val>0&&wL(m)>=1);
   const oleovenc=ativ.filter(m=>m.odo>0&&(m.odo-m.loilKm)>=OIL);
@@ -2650,9 +2847,7 @@ function gerarRelatorioSemanal(){
   const semStr=domSem.toLocaleDateString('pt-BR')+' a '+sabSem.toLocaleDateString('pt-BR');
   const diaJS2={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
   const paidByM={};DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.sem);});
-  function wL(m){if(!m.dia||!diaJS2.hasOwnProperty(m.dia))return 0;const paid=new Set(paidByM[m.id]||[]);let ref=new Date(hoje);ref.setDate(ref.getDate()-((ref.getDay()-diaJS2[m.dia]+7)%7));let late=0,check=new Date(ref);for(let i=0;i<12;i++){const sem=wS(check.toISOString().split('T')[0]);if(!paid.has(sem))late++;else break;check.setDate(check.getDate()-7);}return late;}
-  const ativ=DB.motos.filter(m=>m.on&&m.val>0&&m.nome);
-  const indAll=ativ.map(m=>({m,w:wL(m)})).filter(x=>x.w>=1);
+  function wL(m){ return wLateCalc(m, paidByM); }
   const oleovenc=DB.motos.filter(m=>m.on&&m.nome&&m.odo>0&&(m.odo-m.loilKm)>=OIL);
   const semSt=wS(domSem.toISOString().split('T')[0]);
   const semPgs=DB.pg.filter(p=>p.sem===semSt||(p.data&&wS(p.data)===semSt));
@@ -2668,7 +2863,7 @@ function gerarRelatorioSemanal(){
 function vRanking(){
   const diaJS2={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
   const paidByM={};DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.sem);});
-  function wL(m){if(!m.dia||!diaJS2.hasOwnProperty(m.dia))return 0;const paid=new Set(paidByM[m.id]||[]);const ref=new Date();ref.setHours(12,0,0,0);ref.setDate(ref.getDate()-((ref.getDay()-diaJS2[m.dia]+7)%7));let late=0,check=new Date(ref);for(let i=0;i<12;i++){const sem=wS(check.toISOString().split('T')[0]);if(!paid.has(sem))late++;else break;check.setDate(check.getDate()-7);}return late;}
+  function wL(m){ return wLateCalc(m, paidByM); }
   const ativ=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim()&&m.val>0);
   const ranked=ativ.map(m=>{const pags=(paidByM[m.id]||[]).length;const atrasado=wL(m);return{m,pags,atrasado,score:pags*10-atrasado*25};}).sort((a,b)=>b.score-a.score);
   const rows=ranked.map((r,i)=>{const emoji=i<3?['🥇','🥈','🥉'][i]:i>=ranked.length-3?'⚠️':'';const cor=r.atrasado===0?'var(--grn)':r.atrasado<=1?'var(--yel)':'var(--red)';return`<tr><td style="font-weight:700">${emoji} ${i+1}º</td><td><b>${r.m.placa}</b></td><td>${r.m.nome.split(' ').slice(0,2).join(' ')}</td><td style="color:var(--grn)">${r.pags}</td><td style="color:${cor}">${r.atrasado}</td><td style="font-weight:700;color:${cor}">${r.score}</td><td>${r.atrasado>=3?`<button class="btn bxs" style="font-size:10px;padding:2px 7px;background:#25d366;color:#fff;border:none" onclick="abrirWhatsApp('${r.m.id}')">📱</button>`:''}</td></tr>`;}).join('');
@@ -2716,17 +2911,7 @@ function gerarMsgCobranca(mId){
   const m=DB.motos.find(x=>x.id===mId);if(!m)return'';
   const paidByM={};
   DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.sem);});
-  const diaJS={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
-  function wLateM(m){
-    if(!m.dia||!diaJS.hasOwnProperty(m.dia))return 0;
-    const paid=new Set(paidByM[m.id]||[]);
-    let ref=new Date();ref.setHours(12,0,0,0);
-    ref.setDate(ref.getDate()-((ref.getDay()-diaJS[m.dia]+7)%7));
-    let late=0,check=new Date(ref);
-    for(let i=0;i<12;i++){const sem=wS(check.toISOString().split('T')[0]);if(!paid.has(sem))late++;else break;check.setDate(check.getDate()-7);}
-    return late;
-  }
-  const semanas=wLateM(m);
+  const semanas=wLateCalc(m, paidByM);
   const saldo=calcSaldo(m.id);
   const totalDev=semanas*Number(m.val||0);
   const primeiroNome=m.nome.split(' ')[0];
@@ -2768,15 +2953,7 @@ function abrirWhatsAppGrupo(dia){
   const diaJS={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
   const paidByM={};
   DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.sem);});
-  function wL(m){
-    if(!m.dia||!diaJS.hasOwnProperty(m.dia))return 0;
-    const paid=new Set(paidByM[m.id]||[]);
-    let ref=new Date();ref.setHours(12,0,0,0);
-    ref.setDate(ref.getDate()-((ref.getDay()-diaJS[m.dia]+7)%7));
-    let late=0,check=new Date(ref);
-    for(let i=0;i<12;i++){const sem=wS(check.toISOString().split('T')[0]);if(!paid.has(sem))late++;else break;check.setDate(check.getDate()-7);}
-    return late;
-  }
+  function wL(m){ return wLateCalc(m, paidByM); }
   const inadDia=DB.motos.filter(m=>m.on&&m.val>0&&m.nome&&m.dia===dia&&wL(m)>=1);
   if(!inadDia.length){alert('Nenhum inadimplente neste dia.');return;}
   const lista=inadDia.map(m=>`• ${m.nome.split(' ').slice(0,2).join(' ')} (${m.placa}) — ${wL(m)} sem.`).join('\n');
@@ -3626,10 +3803,16 @@ function showAM(){
     <div class="fg"><label>Locatário</label><input id="amNm" placeholder="Nome"></div></div>
     <div class="fr"><div class="fg"><label>Odômetro (km)</label><input type="number" id="amOd" value="0"></div>
     <div class="fg"><label>Valor Plano (R$)</label><input type="number" id="amVl" value="0"></div></div>
-    <div class="fg"><label>Dia de Pagamento</label><select id="amDi">
-      <option value="">— Selecione —</option>
-      <option>SEG</option><option>TER</option><option>QUA</option><option>QUI</option><option>SEX</option><option>SAB</option><option>DOM</option>
-    </select></div>
+    <div class="fr">
+      <div class="fg"><label>Dia de Pagamento</label><select id="amDi">
+        <option value="">— Selecione —</option>
+        <option>SEG</option><option>TER</option><option>QUA</option><option>QUI</option><option>SEX</option><option>SAB</option><option>DOM</option>
+      </select></div>
+      <div class="fg"><label>📅 Data de Retirada</label>
+        <input type="date" id="amDataInicio" value="${tod()}">
+        <div style="font-size:10px;color:var(--sub);margin-top:3px">Cobrança começa desta semana</div>
+      </div>
+    </div>
     <div class="mact"><button class="btn bx" onclick="closeM('mAM')">Cancelar</button>
     <button class="btn ba" onclick="aM()">Salvar</button></div>
   </div>`));
@@ -3638,7 +3821,9 @@ function aM(){
   const pl=document.getElementById('amPl').value.toUpperCase().trim();
   if(!pl){alert('Informe a placa!');return}
   const od=Number(document.getElementById('amOd').value);
-  DB.motos.push({id:uid(),placa:pl,nome:document.getElementById('amNm').value,odo:od,loilKm:od,lrevKm:0,val:Number(document.getElementById('amVl').value),dia:document.getElementById('amDi').value,on:true});
+  const nome=document.getElementById('amNm').value.trim();
+  const dataInicio=document.getElementById('amDataInicio')?.value||tod();
+  DB.motos.push({id:uid(),placa:pl,nome,odo:od,loilKm:od,lrevKm:0,val:Number(document.getElementById('amVl').value),dia:document.getElementById('amDi').value,on:true,dataInicio:nome?dataInicio:''});
   sv('m');closeM('mAM');render();
 }
 function editM(id){
@@ -3653,6 +3838,10 @@ function editM(id){
     </select></div>
     <div class="fr"><div class="fg"><label>CPF do Locatário</label><input id="emCpf" value="${m.cpfLoc||''}" placeholder="000.000.000-00"></div>
     <div class="fg"><label>Validade CNH</label><input type="date" id="emCnh" value="${m.cnhValidade||''}"></div></div>
+    <div class="fg"><label>📅 Data de Retirada (início da cobrança)</label>
+      <input type="date" id="emDataInicio" value="${m.dataInicio||''}">
+      <div style="font-size:11px;color:var(--sub);margin-top:3px">⚡ A cobrança só começa na semana desta data</div>
+    </div>
     <div class="fg"><label>Disponibilidade</label>
       <select id="emSt">
         <option value="alugada">🟢 Alugada</option>
@@ -3685,6 +3874,15 @@ function svM(id){
   m.dia=document.getElementById('emDi').value;
   const cpf=document.getElementById('emCpf')?.value?.trim();if(cpf)m.cpfLoc=cpf;
   const cnh=document.getElementById('emCnh')?.value?.trim();if(cnh)m.cnhValidade=cnh;
+  const dataInicio=document.getElementById('emDataInicio')?.value?.trim();
+  // Salva data de início: se está sendo atribuído novo locatário e não tinha, usa hoje
+  if(novoNome && !nomeAnterior && !dataInicio){
+    m.dataInicio=tod();
+  } else if(dataInicio){
+    m.dataInicio=dataInicio;
+  }
+  // Se locatário foi removido, limpa data de início
+  if(!novoNome) m.dataInicio='';
   if(stSel==='inativa'){m.status='inativa';m.on=false;}
   else{m.status=novoNome?'alugada':'disponivel';m.on=true;}
   sv('m');sv('histloc');closeM('mEM');render();
@@ -4151,6 +4349,201 @@ function salvarRepasse(id){
   if(ult){const dias=Math.floor((Date.now()-parseInt(ult))/86400000);if(dias>=7)setTimeout(()=>{const btn=document.getElementById('saveBtn');if(btn){btn.textContent='💾 Backup! ('+dias+'d)';btn.style.background='#ef4444';}},3000);}
   else localStorage.setItem('mg_last_backup',Date.now().toString());
 })();
+
+// ── AGENDA DE REVISÕES ────────────────────────────────────────────────────────
+function vAgendaTab(){
+  const agenda=(DB.agenda||[]).sort((a,b)=>a.data.localeCompare(b.data));
+  const vencidas=agenda.filter(a=>a.data<tod()&&a.st!=='feito');
+  const hoje3=agenda.filter(a=>a.data===tod()&&a.st!=='feito');
+  const proximas=agenda.filter(a=>a.data>tod()&&a.st!=='feito');
+  const feitas=agenda.filter(a=>a.st==='feito').sort((a,b)=>b.data.localeCompare(a.data)).slice(0,10);
+  function cardAg(lista,titulo,corBorda){
+    if(!lista.length)return'';
+    const rows=lista.map(a=>{
+      const m=DB.motos.find(x=>x.id===a.mId)||{placa:'?',nome:''};
+      const vencida=a.data<tod()&&a.st!=='feito';
+      const ehHoje=a.data===tod();
+      const stBg=a.st==='feito'?'var(--grnbg)':vencida?'var(--redbg)':ehHoje?'var(--blubg)':'var(--sur)';
+      const stCor=a.st==='feito'?'var(--grn)':vencida?'var(--red)':ehHoje?'var(--blu)':'var(--sub)';
+      const stLabel=a.st==='feito'?'✓ Feita':vencida?'⚠️ Vencida':ehHoje?'📍 Hoje':'⏰ Agendada';
+      return`<tr>
+        <td style="white-space:nowrap">${fD(a.data)}</td>
+        <td><b>${m.placa}</b><br><span style="font-size:10px;color:var(--sub)">${m.nome?m.nome.split(' ').slice(0,2).join(' '):'—'}</span></td>
+        <td style="font-size:12px">${a.tipo||'—'}</td>
+        <td style="font-size:11px;color:var(--sub);max-width:140px">${a.obs||'—'}</td>
+        <td><span class="badge" style="background:${stBg};color:${stCor}">${stLabel}</span></td>
+        <td class="row" style="gap:4px">
+          ${a.st!=='feito'?`<button class="btn bg bxs" onclick="marcarAgendaFeita('${a.id}')">✓</button>`:''}
+          <button class="btn bx bxs" onclick="editarAgenda('${a.id}')">✏️</button>
+          <button class="btn br bxs" onclick="deletarAgenda('${a.id}')">✕</button>
+        </td>
+      </tr>`;
+    }).join('');
+    return`<div class="card" style="margin-bottom:12px;border-color:${corBorda}">
+      <div class="ch" style="margin-bottom:10px"><span class="ct">${titulo} (${lista.length})</span></div>
+      <div style="overflow-x:auto"><table class="tbl">
+        <thead><tr><th>Data</th><th>Moto</th><th>Tipo</th><th>Obs</th><th>Status</th><th>Ação</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>`;
+  }
+  return`<div class="card" style="margin-bottom:12px">
+    <div class="ch">
+      <span class="ct">📅 Agenda de Revisões</span>
+      <div class="row" style="gap:6px;flex-wrap:wrap">
+        <button class="btn ba bs" onclick="novaAgenda()">+ Agendar</button>
+        <button class="btn bx bs" onclick="agendarProximas()" title="Agenda motos próximas da manutenção">🤖 Auto-agendar</button>
+        <button class="btn bx bs" onclick="publicarAgendaFirebase()">🔥 Publicar para Oficina</button>
+      </div>
+    </div>
+    ${vencidas.length?`<div style="background:var(--redbg);border-radius:8px;padding:8px 14px;margin-bottom:8px;font-size:12px;color:var(--red)">⚠️ <b>${vencidas.length}</b> revisão(ões) vencida(s) — marque como feita ou reagende</div>`:''}
+    ${hoje3.length?`<div style="background:var(--blubg);border-radius:8px;padding:8px 14px;margin-bottom:8px;font-size:12px;color:var(--blu)">📍 <b>${hoje3.length}</b> revisão(ões) para hoje</div>`:''}
+  </div>
+  ${cardAg(vencidas,'⚠️ Vencidas','rgba(239,68,68,.3)')}
+  ${cardAg(hoje3,'📍 Hoje','rgba(59,130,246,.4)')}
+  ${cardAg(proximas,'⏰ Próximas agendadas','var(--bor)')}
+  ${cardAg(feitas,'✅ Realizadas (últimas 10)','rgba(34,197,94,.2)')}
+  ${!agenda.length?`<div class="card"><div class="empty">Nenhuma revisão agendada.<br><br>
+    <button class="btn ba" onclick="agendarProximas()">🤖 Auto-agendar motos próximas da manutenção</button>
+  </div></div>`:''}`;
+}
+function novaAgenda(mIdPre){
+  const opts=DB.motos.filter(m=>m.on).map(m=>`<option value="${m.id}" ${mIdPre===m.id?'selected':''}>${m.placa} — ${m.nome||'sem locatário'}</option>`).join('');
+  showM(mWrap('mAgN',`<div class="modal">
+    <div class="mh"><span class="ct">📅 Agendar Revisão</span><button class="btn bx" onclick="closeM('mAgN')">✕</button></div>
+    <div class="fg"><label>Moto</label><select id="agM">${opts}</select></div>
+    <div class="fr">
+      <div class="fg"><label>Data</label><input type="date" id="agD" value="${tod()}"></div>
+      <div class="fg"><label>Tipo de Serviço</label>
+        <select id="agT">
+          <option>Revisão geral</option><option>Troca de óleo</option>
+          <option>Troca de corrente/kit</option><option>Troca de pneu</option>
+          <option>Troca de pastilha</option><option>Freios</option><option>Outro</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg"><label>Observação</label><textarea id="agO" rows="2" placeholder="Ex: trazer às 8h, checar freio traseiro..." style="resize:none"></textarea></div>
+    <div class="mact"><button class="btn bx" onclick="closeM('mAgN')">Cancelar</button>
+    <button class="btn ba" onclick="salvarAgenda()">✓ Agendar</button></div>
+  </div>`));
+}
+function salvarAgenda(){
+  const mId=document.getElementById('agM').value;
+  const data=document.getElementById('agD').value;
+  if(!mId||!data){alert('Preencha moto e data.');return;}
+  DB.agenda.push({id:uid(),mId,data,tipo:document.getElementById('agT').value,obs:document.getElementById('agO').value.trim(),st:'pendente',criado:tod()});
+  sv('agenda');publicarAgendaFirebase();closeM('mAgN');render();
+}
+function editarAgenda(id){
+  const a=DB.agenda.find(x=>x.id===id);if(!a)return;
+  const opts=DB.motos.filter(m=>m.on).map(m=>`<option value="${m.id}" ${a.mId===m.id?'selected':''}>${m.placa} — ${m.nome||'—'}</option>`).join('');
+  showM(mWrap('mAgE',`<div class="modal">
+    <div class="mh"><span class="ct">✏️ Editar Revisão</span><button class="btn bx" onclick="closeM('mAgE')">✕</button></div>
+    <div class="fg"><label>Moto</label><select id="agEM">${opts}</select></div>
+    <div class="fr">
+      <div class="fg"><label>Data</label><input type="date" id="agED" value="${a.data}"></div>
+      <div class="fg"><label>Tipo</label>
+        <select id="agET">${['Revisão geral','Troca de óleo','Troca de corrente/kit','Troca de pneu','Troca de pastilha','Freios','Outro'].map(t=>`<option ${a.tipo===t?'selected':''}>${t}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="fg"><label>Obs</label><textarea id="agEO" rows="2" style="resize:none">${a.obs||''}</textarea></div>
+    <div class="mact"><button class="btn bx" onclick="closeM('mAgE')">Cancelar</button>
+    <button class="btn ba" onclick="atualizarAgenda('${id}')">✓ Salvar</button></div>
+  </div>`));
+}
+function atualizarAgenda(id){
+  const a=DB.agenda.find(x=>x.id===id);if(!a)return;
+  a.mId=document.getElementById('agEM').value;
+  a.data=document.getElementById('agED').value;
+  a.tipo=document.getElementById('agET').value;
+  a.obs=document.getElementById('agEO').value.trim();
+  sv('agenda');publicarAgendaFirebase();closeM('mAgE');render();
+}
+function marcarAgendaFeita(id){
+  const a=DB.agenda.find(x=>x.id===id);if(!a)return;
+  a.st='feito';a.feitoEm=tod();
+  sv('agenda');publicarAgendaFirebase();render();
+}
+function deletarAgenda(id){
+  if(!confirm('Remover agendamento?'))return;
+  DB.agenda=DB.agenda.filter(x=>x.id!==id);
+  sv('agenda');publicarAgendaFirebase();render();
+}
+function agendarProximas(){
+  const ativ=DB.motos.filter(m=>m.on);
+  let count=0;
+  ativ.forEach(m=>{
+    const{ol,rl}=ms(m);
+    const kmDia=50; // estimativa km/dia
+    const diasOil=ol>0?Math.round(ol/kmDia):0;
+    const diasRev=rl>0?Math.round(rl/kmDia):0;
+    const jaTemOil=DB.agenda.find(a=>a.mId===m.id&&a.st!=='feito'&&(a.tipo||'').includes('óleo'));
+    const jaTemRev=DB.agenda.find(a=>a.mId===m.id&&a.st!=='feito'&&(a.tipo||'').includes('Revisão'));
+    if(!jaTemOil&&ol<=200){
+      const dt=new Date();dt.setDate(dt.getDate()+Math.max(1,diasOil));
+      DB.agenda.push({id:uid(),mId:m.id,data:dt.toISOString().split('T')[0],tipo:'Troca de óleo',obs:'Auto — '+fN(ol)+' km rest.',st:'pendente',criado:tod()});
+      count++;
+    }
+    if(!jaTemRev&&rl<=1000){
+      const dt=new Date();dt.setDate(dt.getDate()+Math.max(1,diasRev));
+      DB.agenda.push({id:uid(),mId:m.id,data:dt.toISOString().split('T')[0],tipo:'Revisão geral',obs:'Auto — '+fN(rl)+' km rest.',st:'pendente',criado:tod()});
+      count++;
+    }
+  });
+  if(count>0){sv('agenda');publicarAgendaFirebase();alert('✅ '+count+' revisão(ões) agendada(s)!');}
+  else alert('Nenhuma moto precisa de agendamento urgente agora.');
+  render();
+}
+function publicarAgendaFirebase(){
+  if(!window._fbRef)return;
+  const pub=(DB.agenda||[]).filter(a=>a.st!=='feito').map(a=>{
+    const m=DB.motos.find(x=>x.id===a.mId)||{placa:'?',nome:''};
+    return{...a,placa:m.placa,nomeLocatario:m.nome||''};
+  });
+  window._fbRef.child('agenda').set(pub).catch(e=>console.warn('Erro agenda Firebase:',e));
+}
+
+// ── Resumo Diário WhatsApp ────────────────────────────────────────────────────
+function waResumoDiario(){
+  const hoje2=new Date();hoje2.setHours(12,0,0,0);
+  const diaJS={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
+  const diaHojeNum=hoje2.getDay();
+  const diaHoje=Object.keys(diaJS).find(k=>diaJS[k]===diaHojeNum)||'';
+  const paidByM={};DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.sem);});
+  const ws=wS(tod());
+  const pagamHoje=DB.motos.filter(m=>m.on&&m.val>0&&m.nome&&m.dia===diaHoje);
+  const jaPagei=pagamHoje.filter(m=>DB.pg.find(p=>p.mId===m.id&&p.sem===ws));
+  const naoPagei=pagamHoje.filter(m=>!DB.pg.find(p=>p.mId===m.id&&p.sem===ws));
+  const inadGrave=DB.motos.filter(m=>m.on&&m.val>0&&m.nome).map(m=>({m,w:wLateCalc(m,paidByM)})).filter(x=>x.w>=2).sort((a,b)=>b.w-a.w);
+  const revisHoje=(DB.agenda||[]).filter(a=>a.data===tod()&&a.st!=='feito');
+  let msg=`🏍️ *AMS Motos — ${hoje2.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit'})}*\n\n`;
+  if(pagamHoje.length){
+    msg+=`💰 *Pagamentos de hoje (${diaHoje}):*\n`;
+    msg+=`✅ Pagos: ${jaPagei.length}/${pagamHoje.length}\n`;
+    if(naoPagei.length) msg+=`❌ Pendentes: ${naoPagei.map(m=>m.nome.split(' ')[0]+' ('+m.placa+')').join(', ')}\n`;
+  } else {
+    msg+=`💰 *Nenhum pagamento previsto para hoje (${diaHoje||'—'})*\n`;
+  }
+  if(inadGrave.length){
+    msg+=`\n🚨 *Inadimplentes graves (2+ semanas):*\n`;
+    inadGrave.slice(0,8).forEach(x=>{msg+=`• ${x.m.nome.split(' ').slice(0,2).join(' ')} (${x.m.placa}) — ${x.w} sem. — ${fR(x.w*Number(x.m.val||0))}\n`;});
+    if(inadGrave.length>8)msg+=`...e mais ${inadGrave.length-8}\n`;
+  }
+  if(revisHoje.length){
+    msg+=`\n🔧 *Revisões de hoje:*\n`;
+    revisHoje.forEach(a=>{const m2=DB.motos.find(x=>x.id===a.mId);msg+=`• ${m2?m2.placa:'?'} — ${a.tipo}${a.obs?' ('+a.obs+')':''}\n`;});
+  }
+  msg+=`\n_AMS Motos 🏍️_`;
+  showM(mWrap('mReDia',`<div class="modal">
+    <div class="mh"><span class="ct">📱 Resumo do Dia</span><button class="btn bx" onclick="closeM('mReDia')">✕</button></div>
+    <div style="background:var(--sur);border-radius:8px;padding:14px;font-size:12px;white-space:pre-wrap;line-height:1.7;max-height:55vh;overflow-y:auto">${msg}</div>
+    <div class="row" style="gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="btn bx" onclick="navigator.clipboard.writeText(${JSON.stringify(msg)}).then(()=>alert('✅ Copiado!'))">📋 Copiar</button>
+      <button class="btn bx" onclick="closeM('mReDia')">Fechar</button>
+      <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="window.open('https://wa.me/?text='+encodeURIComponent(${JSON.stringify(msg)}),'_blank')">📱 Abrir WA</button>
+    </div>
+  </div>`));
+}
 
 render();
 
