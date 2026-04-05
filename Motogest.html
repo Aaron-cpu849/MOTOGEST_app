@@ -1572,9 +1572,9 @@ function vOficina(){
       <input type="month" id="oficMes" value="${hoje2.slice(0,7)}" onchange="render()" style="width:140px">
     </div>
     ${(()=>{
-      const mes=document.getElementById('oficMes')?.value||hoje2.slice(0,7);
+      const mes=hoje2.slice(0,7);
       const doMes=todas.filter(i=>(i.data||'').startsWith(mes)&&i.data!==hoje2);
-      if(!doMes.length)return'<div class="empty">Nenhum registro neste mês</div>';
+      if(!doMes.length)return'<div class="empty">Nenhum registro neste mês (além de hoje)</div>';
       return`<div style="overflow-x:auto"><table class="tbl">
         <thead><tr><th>Moto</th><th>Serviços</th><th>KM</th><th>Peças</th><th>M.O.</th><th>Total</th><th>Foto/OS</th><th></th></tr></thead>
         <tbody>${doMes.map(rowIntv).join('')}</tbody>
@@ -1589,7 +1589,6 @@ function deletarIntervencao(id){
   sv('intv');
   if(window._fbRef)window._fbRef.child('intervencoes/'+id).remove();
   render();
-}
 }
 
 function confirmarIntervencao(id){
