@@ -1028,11 +1028,14 @@ function vMnt(){
       </td>
       <td><span class="badge" style="background:${cor}22;color:${cor};font-weight:700">${tag}</span></td>
       <td class="row" style="gap:3px;flex-wrap:wrap">
-        <button class="btn bx bs" onclick="mntModal('${m.id}','oil')" title="Registrar troca de óleo">🛢</button>
-        <button class="btn bx bs" onclick="mntModal('${m.id}','rev')" title="Registrar revisão">🔧</button>
-        <button class="btn bx bs" onclick="mntModal('${m.id}','pneu')" title="Registrar troca de pneu">🔵</button>
-        <button class="btn bx bs" onclick="mntModal('${m.id}','corr')" title="Registrar correia/kit">⛓️</button>
-        <button class="btn bx bs" onclick="vHistMnt('${m.id}')" title="Ver histórico">📋</button>
+        <button class="btn bx bs" onclick="mntModal('${m.id}','oil')" title="Troca de óleo">🛢️</button>
+        <button class="btn bx bs" onclick="mntModal('${m.id}','rev')" title="Revisão geral">🔧</button>
+        <button class="btn bx bs" onclick="mntModal('${m.id}','pneu')" title="Pneu">🔵</button>
+        <button class="btn bx bs" onclick="mntModal('${m.id}','corr')" title="Correia/kit">⛓️</button>
+        <button class="btn bx bs" onclick="mntModal('${m.id}','past')" title="Pastilha">🔴</button>
+        <button class="btn bx bs" onclick="mntModal('${m.id}','vela')" title="Vela">🔥</button>
+        <button class="btn bx bs" onclick="mntModal('${m.id}','outro')" title="Outro">🔩</button>
+        <button class="btn bx bs" onclick="vHistMnt('${m.id}')" title="Histórico completo">📋</button>
       </td>
     </tr>`;
   }).join('');
@@ -1058,81 +1061,212 @@ function vMnt(){
   </table></div></div>`;
 }
 
+const TIPOS_MNT={
+  oil:{label:'🛢️ Troca de Óleo',key:'loilKm',intervalo:OIL},
+  rev:{label:'🔧 Revisão Geral',key:'lrevKm',intervalo:REV},
+  pneu:{label:'🔵 Troca de Pneu',key:'lpneuKm',intervalo:PNEU},
+  corr:{label:'⛓️ Correia/Kit Transmissão',key:'lcorrKm',intervalo:CORR},
+  past:{label:'🔴 Troca de Pastilha',key:'lpastKm',intervalo:8000},
+  vela:{label:'🔥 Troca de Vela',key:'lvelaKm',intervalo:8000},
+  filtrar:{label:'🌪️ Filtro de Ar',key:'lfiltArKm',intervalo:5000},
+  filtoleo:{label:'🫙 Filtro de Óleo',key:'lfiltOlKm',intervalo:OIL},
+  escova:{label:'⚡ Escova de Arranque',key:'lescovaKm',intervalo:15000},
+  freio:{label:'🛑 Cabo de Freio',key:'lfreioKm',intervalo:10000},
+  embreia:{label:'🔗 Cabo de Embreagem',key:'lembKm',intervalo:10000},
+  bucha:{label:'⚙️ Bucha da Coroa',key:'lbuchaKm',intervalo:10000},
+  outro:{label:'🔩 Outro Serviço',key:null,intervalo:0},
+};
+
 function mntModal(id, tipo){
   const m=DB.motos.find(x=>x.id===id);if(!m)return;
-  const titles={oil:'Troca de Óleo',rev:'Revisão Geral',pneu:'Troca de Pneu',corr:'Correia/Kit Transmissão'};
-  const keys={oil:'loilKm',rev:'lrevKm',pneu:'lpneuKm',corr:'lcorrKm'};
-  const cur=m[keys[tipo]]||0;
+  const t=TIPOS_MNT[tipo]||TIPOS_MNT.outro;
+  const cur=t.key?m[t.key]||0:0;
+  const prox=cur+t.intervalo;
   const hist=DB.mhist.filter(h=>h.mId===id&&h.tipo===tipo).sort((a,b)=>b.km-a.km);
-  const histRows=hist.slice(0,5).map(h=>`<tr>
+  const histRows=hist.slice(0,4).map(h=>`<tr>
     <td style="font-size:11px">${h.data||'—'}</td>
-    <td style="font-size:11px">${fN(h.km)} km</td>
-    <td style="font-size:11px;color:var(--sub)">${h.obs||''}</td>
+    <td style="font-size:11px"><b>${fN(h.km)} km</b></td>
+    <td style="font-size:11px;color:${h.custo?'var(--acc)':'var(--sub)'}">${h.custo?fR(h.custo):'—'}</td>
+    <td style="font-size:11px;color:var(--sub)">${h.obs||'—'}</td>
   </tr>`).join('');
-  showM(mWrap('mMntM',`<div class="modal" style="max-width:500px">
-    <div class="mh"><span class="ct">${titles[tipo]} — ${m.placa}</span><button class="btn bx" onclick="closeM('mMntM')">✕</button></div>
-    <div style="font-size:12px;color:var(--sub);margin-bottom:14px">${m.nome||'—'} · Odo atual: <b>${fN(m.odo)} km</b></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-      <div style="background:var(--sur);border-radius:8px;padding:10px">
-        <div style="font-size:10px;color:var(--sub)">ÚLTIMA TROCA</div>
-        <div style="font-size:16px;font-weight:700">${fN(cur)} km</div>
+
+  // Peças relacionadas ao tipo
+  const pecasRelac={
+    oil:['Oleo de Motor','Filtro de Oleo'],
+    rev:['Filtro de Ar','Vela de Ignicao'],
+    pneu:['Pneu Traseiro','Pneu Dianteiro','Pneu Matrix Dianteiro','Pneu Matrix Traseiro'],
+    corr:['Kit Transmissao'],
+    past:['Pastilha de Freio'],
+    vela:['Vela de Ignicao'],
+    filtrar:['Filtro de Ar'],
+    filtoleo:['Filtro de Oleo'],
+    escova:['Escova de Arranque'],
+    embreia:['Cabo de Embreagem'],
+    bucha:['Bucha da Coroa'],
+  };
+  const pecasSug=(pecasRelac[tipo]||[]).map(nome=>{
+    const e=DB.est.find(x=>x.nome===nome||x.nome.toLowerCase().includes(nome.toLowerCase()));
+    if(!e)return'';
+    return`<button onclick="addMntPeca('${e.id}')" style="background:var(--card2);border:1px solid var(--bor);color:var(--txt);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer" title="${e.qtd} em estoque">${e.nome} (${e.qtd})</button>`;
+  }).join('');
+  const estOpts=DB.est.map(e=>`<option value="${e.id}">${e.nome} (${e.qtd} ${e.un})</option>`).join('');
+
+  showM(mWrap('mMntM',`<div class="modal" style="max-width:520px">
+    <div class="mh"><span class="ct">${t.label} — ${m.placa}</span><button class="btn bx" onclick="closeM('mMntM')">✕</button></div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:12px">${m.nome||'—'} · Odo atual: <b>${fN(m.odo)} km</b></div>
+    ${t.key?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div style="background:var(--sur);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--sub);margin-bottom:2px">ÚLTIMA VEZ</div>
+        <div style="font-size:15px;font-weight:700">${cur?fN(cur)+' km':'—'}</div>
       </div>
-      <div style="background:var(--sur);border-radius:8px;padding:10px">
-        <div style="font-size:10px;color:var(--sub)">PRÓXIMA TROCA</div>
-        <div style="font-size:16px;font-weight:700;color:var(--acc)">${fN(cur+(tipo==='oil'?OIL:tipo==='rev'?REV:PNEU))} km</div>
+      <div style="background:var(--sur);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--sub);margin-bottom:2px">PRÓXIMA</div>
+        <div style="font-size:15px;font-weight:700;color:var(--acc)">${cur?fN(prox)+' km':'—'}</div>
+      </div>
+    </div>`:''}
+    <div class="fr">
+      <div class="fg" style="flex:2">
+        <label>KM em que foi realizado</label>
+        <input id="mntKmInp" class="inp" type="number" placeholder="Ex: ${m.odo}" style="font-size:16px;font-weight:700;text-align:center">
+      </div>
+      <div class="fg">
+        <label>Data</label>
+        <input id="mntDataInp" class="inp" type="date" value="${tod()}">
       </div>
     </div>
-    <label style="font-size:12px;color:var(--sub)">KM em que foi feita a troca</label>
-    <input id="mntKmInp" class="inp" type="number" placeholder="Ex: ${m.odo}" style="margin:4px 0 8px">
-    <label style="font-size:12px;color:var(--sub)">Observação (opcional)</label>
-    <input id="mntObsInp" class="inp" type="text" placeholder="Ex: troca de filtro, pastilhas..." style="margin:4px 0 14px">
-    ${hist.length?`<div style="font-size:11px;font-weight:600;margin-bottom:6px;color:var(--sub)">HISTÓRICO</div>
-    <div style="overflow-x:auto;max-height:140px;overflow-y:auto;margin-bottom:14px">
-    <table class="tbl"><thead><tr><th>Data</th><th>KM</th><th>Obs</th></tr></thead><tbody>${histRows}</tbody></table></div>`:''}
+    <div class="fr">
+      <div class="fg">
+        <label>💰 Custo Total (R$)</label>
+        <input id="mntCustoInp" class="inp" type="number" placeholder="0,00" step="0.01" value="0">
+      </div>
+      <div class="fg">
+        <label>Oficina</label>
+        <input id="mntOficInp" class="inp" placeholder="Oficina Parceira" value="Oficina Parceira">
+      </div>
+    </div>
+    <div class="fg">
+      <label>📦 Peças do Estoque (opcional)</label>
+      ${pecasSug?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${pecasSug}</div>`:''}
+      <div id="mntPecasList" style="margin-bottom:6px"></div>
+      <div class="fr" style="gap:6px">
+        <div style="flex:2"><select id="mntPecaSel" class="inp" style="font-size:12px"><option value="">— Selecionar peça do estoque —</option>${estOpts}</select></div>
+        <div style="flex:0 0 70px"><input type="number" id="mntPecaQtd" class="inp" value="1" min="1" style="font-size:12px"></div>
+        <button class="btn bg bxs" onclick="addMntPecaFromSel()" style="white-space:nowrap">+ Add</button>
+      </div>
+    </div>
+    <div class="fg">
+      <label>Observação</label>
+      <input id="mntObsInp" class="inp" type="text" placeholder="Ex: também verificado freio traseiro...">
+    </div>
+    ${hist.length?`<div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:6px;text-transform:uppercase">Histórico</div>
+    <div style="overflow-x:auto;max-height:120px;overflow-y:auto;margin-bottom:14px">
+    <table class="tbl"><thead><tr><th>Data</th><th>KM</th><th>Custo</th><th>Obs</th></tr></thead><tbody>${histRows}</tbody></table></div>`:''}
     <div class="row" style="gap:8px;justify-content:flex-end">
       <button class="btn bx" onclick="closeM('mMntM')">Cancelar</button>
       <button class="btn bg" onclick="saveMnt('${id}','${tipo}')">✓ Registrar</button>
     </div>
   </div>`));
-  setTimeout(()=>{const el=document.getElementById('mntKmInp');if(el){el.focus();}},50);
+  window._mntPecas=[];
+  setTimeout(()=>document.getElementById('mntKmInp')?.focus(),50);
+}
+
+function addMntPeca(eId){
+  const e=DB.est.find(x=>x.id===eId);if(!e)return;
+  if(!window._mntPecas)window._mntPecas=[];
+  const exist=window._mntPecas.find(x=>x.eId===eId);
+  if(exist){exist.qtd++;}else{window._mntPecas.push({eId,nome:e.nome,un:e.un,qtd:1});}
+  renderMntPecas();
+}
+function addMntPecaFromSel(){
+  const sel=document.getElementById('mntPecaSel');
+  const qtd=parseInt(document.getElementById('mntPecaQtd').value)||1;
+  if(!sel?.value)return;
+  const e=DB.est.find(x=>x.id===sel.value);if(!e)return;
+  if(qtd>e.qtd){alert('Estoque insuficiente! Disponível: '+e.qtd);return;}
+  addMntPeca(e.id);
+  // Adjust quantity
+  const item=window._mntPecas.find(x=>x.eId===e.id);
+  if(item&&qtd>1){item.qtd=qtd;}
+  renderMntPecas();
+}
+function renderMntPecas(){
+  const el=document.getElementById('mntPecasList');if(!el)return;
+  const lista=window._mntPecas||[];
+  el.innerHTML=lista.map((x,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;background:var(--card2);border:1px solid var(--bor);border-radius:6px;padding:3px 8px;margin:2px;font-size:11px">
+    ${x.nome} ×${x.qtd}
+    <button onclick="window._mntPecas.splice(${i},1);renderMntPecas()" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:12px;padding:0 2px">✕</button>
+  </span>`).join('');
 }
 
 function saveMnt(id,tipo){
   const m=DB.motos.find(x=>x.id===id);if(!m)return;
   const km=parseInt(document.getElementById('mntKmInp').value)||0;
   const obs=document.getElementById('mntObsInp')?.value?.trim()||'';
-  if(!km){alert('Digite o km da troca.');return;}
-  const keys={oil:'loilKm',rev:'lrevKm',pneu:'lpneuKm',corr:'lcorrKm'};
-  m[keys[tipo]]=km;
+  const custo=parseFloat(document.getElementById('mntCustoInp')?.value||0)||0;
+  const ofic=document.getElementById('mntOficInp')?.value?.trim()||'';
+  const data=document.getElementById('mntDataInp')?.value||tod();
+  if(!km){alert('Digite o km em que foi realizado.');return;}
+  const t=TIPOS_MNT[tipo]||TIPOS_MNT.outro;
+  if(t.key){m[t.key]=km;}
   if(km>m.odo) m.odo=km;
-  DB.mhist.push({id:uid(),mId:id,tipo,km,obs,data:tod()});
-  sv('m');sv('mhist');closeM('mMntM');render();
+  // Baixa peças do estoque
+  const pecas=window._mntPecas||[];
+  pecas.forEach(p=>{
+    const e=DB.est.find(x=>x.eId===p.eId||x.id===p.eId);
+    if(e){e.qtd=Math.max(0,e.qtd-p.qtd);DB.mov.push({id:uid(),eId:e.id,tipo:'out',qtd:p.qtd,data,ref:'MNT',obs:t.label+' '+m.placa});}
+  });
+  DB.mhist.push({id:uid(),mId:id,tipo,km,obs,custo,ofic,data,itens:pecas.map(x=>({...x}))});
+  // Se custo > 0, gera OS automaticamente
+  if(custo>0){
+    DB.os.push({id:uid(),mId:id,data,ofic:ofic||'Oficina Parceira',pec:0,mao:custo,nf:'',obs:t.label+(obs?' — '+obs:''),st:'pendente',origem:'manutencao'});
+    sv('os');
+  }
+  sv('m');sv('mhist');sv('est');sv('mov');
+  window._mntPecas=[];
+  closeM('mMntM');render();
+  alert('✅ Registrado!\n'+t.label+' em '+fN(km)+' km'+(custo?' — '+fR(custo):''));
 }
 
 function vHistMnt(id){
   const m=DB.motos.find(x=>x.id===id);if(!m)return;
   const hist=DB.mhist.filter(h=>h.mId===id).sort((a,b)=>b.km-a.km);
-  const tipoLabel={oil:'🛢 Óleo',rev:'🔧 Revisão',pneu:'🔵 Pneu'};
-  const rows=hist.map(h=>`<tr>
-    <td>${tipoLabel[h.tipo]||h.tipo}</td>
-    <td>${h.data||'—'}</td>
-    <td><b>${fN(h.km)} km</b></td>
-    <td style="font-size:11px;color:var(--sub)">${h.obs||'—'}</td>
-    <td><button class="btn br bxs" onclick="delMnt('${h.id}')">✕</button></td>
-  </tr>`).join('');
-  showM(mWrap('mHistM',`<div class="modal" style="max-width:520px">
-    <div class="mh"><span class="ct">📋 Histórico — ${m.placa}</span><button class="btn bx" onclick="closeM('mHistM')">✕</button></div>
-    <div style="font-size:12px;color:var(--sub);margin-bottom:12px">${m.nome||'—'}</div>
+  const totCusto=hist.reduce((a,h)=>a+Number(h.custo||0),0);
+  const rows=hist.map(h=>{
+    const t=TIPOS_MNT[h.tipo];
+    return`<tr>
+      <td>${t?t.label:h.tipo}</td>
+      <td style="font-size:11px">${fD(h.data)||'—'}</td>
+      <td><b>${fN(h.km)} km</b></td>
+      <td style="color:${h.custo?'var(--acc)':'var(--sub)'}">${h.custo?fR(h.custo):'—'}</td>
+      <td style="font-size:11px;color:var(--sub)">${h.ofic||'—'}</td>
+      <td style="font-size:11px;color:var(--sub);max-width:120px">${h.obs||'—'}</td>
+      <td>${(h.itens||[]).length?`<span style="font-size:10px;color:var(--sub)">${(h.itens||[]).map(x=>x.nome+'×'+x.qtd).join(', ')}</span>`:'—'}</td>
+      <td><button class="btn br bxs" onclick="delMnt('${h.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+  showM(mWrap('mHistM',`<div class="modal" style="max-width:700px">
+    <div class="mh"><span class="ct">📋 Histórico Completo — ${m.placa}</span><button class="btn bx" onclick="closeM('mHistM')">✕</button></div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:8px">${m.nome||'—'}</div>
+    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="background:var(--redbg);border-radius:8px;padding:8px 14px;text-align:center;flex:1">
+        <div style="font-size:10px;color:var(--sub)">TOTAL GASTO</div>
+        <div style="font-size:16px;font-weight:800;color:var(--red)">${fR(totCusto)}</div>
+      </div>
+      <div style="background:var(--sur);border-radius:8px;padding:8px 14px;text-align:center;flex:1">
+        <div style="font-size:10px;color:var(--sub)">INTERVENÇÕES</div>
+        <div style="font-size:16px;font-weight:800">${hist.length}</div>
+      </div>
+    </div>
     ${hist.length?`<div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>Tipo</th><th>Data</th><th>KM</th><th>Obs</th><th></th></tr></thead>
+      <thead><tr><th>Tipo</th><th>Data</th><th>KM</th><th>Custo</th><th>Oficina</th><th>Obs</th><th>Peças</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
-    </table></div>`:'<div class="empty">Nenhum registro de manutenção</div>'}
+    </table></div>`:'<div class="empty">Nenhum registro ainda</div>'}
     <div style="text-align:right;margin-top:12px"><button class="btn bx" onclick="closeM('mHistM')">Fechar</button></div>
   </div>`));
 }
 
 function delMnt(hid){
-  if(!confirm('Remover este registro?')) return;
+  if(!confirm('Remover este registro?'))return;
   DB.mhist=DB.mhist.filter(h=>h.id!==hid);
   sv('mhist');closeM('mHistM');render();
 }
@@ -1360,104 +1494,142 @@ function dOs(id){if(confirm('Remover OS?')){DB.os=DB.os.filter(o=>o.id!==id);sv(
 if(!DB.intervencoes) DB.intervencoes=S.get('mg_intv')||[];
 
 function vOficina(){
-  const pend=DB.intervencoes.filter(i=>i.st==='pendente');
-  const conf=DB.intervencoes.filter(i=>i.st==='confirmado');
-  const totalPend=pend.reduce((a,i)=>a+Number(i.total||0),0);
-  const totalConf=conf.reduce((a,i)=>a+Number(i.total||0),0);
-  const pendRows=pend.map(i=>{
-    const m=DB.motos.find(x=>x.id===i.mId)||{placa:'?',nome:'?'};
-    return`<tr style="background:rgba(249,115,22,.05)">
-      <td>${fD(i.data)}</td>
-      <td><b>${m.placa}</b><br><span style="font-size:10px;color:var(--sub)">${m.nome||'—'}</span></td>
-      <td style="font-size:11px">${(i.servicos||[]).map(s=>`<div>• ${s.desc}${s.peca?' — <b>'+s.peca+'</b>':''}</div>`).join('')}</td>
-      <td style="font-size:12px;font-weight:700;color:var(--blu)">${i.km?fN(i.km)+' km':'—'}</td>
-      <td>${fR(i.pecas||0)}</td><td>${fR(i.mao||0)}</td>
-      <td style="font-weight:700;color:var(--acc)">${fR(i.total||0)}</td>
-      <td class="row" style="gap:4px">
-        <button class="btn bg bxs" onclick="confirmarIntervencao('${i.id}')">✓ Confirmar → OS</button>
-        <button class="btn br bxs" onclick="rejeitarIntervencao('${i.id}')">✕</button>
-      </td>
-    </tr>`;
-  }).join('');
-  const confRows=[...conf].sort((a,b)=>(b.data||'').localeCompare(a.data||'')).slice(0,10).map(i=>{
-    const m=DB.motos.find(x=>x.id===i.mId)||{placa:'?'};
-    return`<tr style="opacity:.6">
-      <td>${fD(i.data)}</td><td><b>${m.placa}</b></td>
-      <td style="font-size:11px">${(i.servicos||[]).map(s=>s.desc).join(', ')}</td>
-      <td style="font-weight:700;color:var(--grn)">${fR(i.total||0)}</td>
-      <td><span style="font-size:10px;color:var(--grn)">✓ OS gerada</span></td>
-    </tr>`;
-  }).join('');
+  const todas=[...DB.intervencoes].sort((a,b)=>(b.data||'').localeCompare(a.data||'')||(b.ts||0)-(a.ts||0));
+  const hoje2=tod();
+  const deHoje=todas.filter(i=>i.data===hoje2);
+  const anteriores=todas.filter(i=>i.data<hoje2);
+  const totalHoje=deHoje.reduce((a,i)=>a+Number(i.total||0),0);
+  const totalMes=todas.filter(i=>(i.data||'').startsWith(hoje2.slice(0,7))).reduce((a,i)=>a+Number(i.total||0),0);
   const fbCfg=getFbConfig();
-  const fbStatus=fbCfg&&window._fbConnected?`<span style="background:var(--grnbg);color:var(--grn);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700">🔥 Firebase ativo</span>`:`<span style="background:var(--yelbg);color:var(--yel);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700">⚠️ Firebase não configurado</span>`;
+  const fbStatus=fbCfg&&window._fbConnected
+    ?`<span style="background:var(--grnbg);color:var(--grn);border-radius:6px;padding:2px 10px;font-size:11px;font-weight:700">🔥 Online — aplicação automática ativa</span>`
+    :`<span style="background:var(--yelbg);color:var(--yel);border-radius:6px;padding:2px 10px;font-size:11px;font-weight:700">⚠️ Firebase não configurado</span>`;
+
+  function rowIntv(i){
+    const m=DB.motos.find(x=>x.id===i.mId)||{placa:'?',nome:''};
+    const osGerada=DB.os.find(o=>o.intvId===i.id);
+    return`<tr>
+      <td>
+        <div style="font-weight:700">${m.placa}</div>
+        <div style="font-size:10px;color:var(--sub)">${m.nome?m.nome.split(' ').slice(0,2).join(' '):'—'}</div>
+      </td>
+      <td style="font-size:11px">${(i.servicos||[]).map(s=>`• ${s.desc}${s.peca?' <span style="color:var(--sub)">('+s.peca+')</span>':''}`).join('<br>')}</td>
+      <td style="font-size:12px;font-weight:700;color:var(--blu)">${i.km?fN(i.km)+' km':'—'}</td>
+      <td>${fR(i.pecas||0)}</td>
+      <td>${fR(i.mao||0)}</td>
+      <td style="font-weight:700;color:var(--acc)">${fR(i.total||0)}</td>
+      <td>
+        ${i.foto?`<img src="${i.foto}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="window.open('${i.foto}','_blank')" title="Ver foto">`:''}
+        ${osGerada?`<span style="font-size:10px;color:var(--grn);font-weight:700;display:block">✓ OS gerada</span>`:''}
+      </td>
+      <td><button class="btn br bxs" onclick="deletarIntervencao('${i.id}')">✕</button></td>
+    </tr>`;
+  }
+
   return`
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
-    <div class="card" style="padding:14px;text-align:center;border-color:rgba(249,115,22,.3)">
-      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">AGUARDANDO CONFIRMAÇÃO</div>
-      <div style="font-size:24px;font-weight:800;color:var(--acc)">${pend.length}</div>
-      <div style="font-size:11px;color:var(--red);margin-top:2px">${fR(totalPend)}</div>
+    <div class="card" style="padding:14px;text-align:center">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">HOJE</div>
+      <div style="font-size:24px;font-weight:800;color:var(--acc)">${deHoje.length}</div>
+      <div style="font-size:11px;color:var(--acc);margin-top:2px">${fR(totalHoje)}</div>
     </div>
     <div class="card" style="padding:14px;text-align:center">
-      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">CONFIRMADAS (HISTÓRICO)</div>
-      <div style="font-size:24px;font-weight:800;color:var(--grn)">${conf.length}</div>
-      <div style="font-size:11px;color:var(--grn);margin-top:2px">${fR(totalConf)}</div>
+      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">ESTE MÊS</div>
+      <div style="font-size:24px;font-weight:800;color:var(--grn)">${todas.filter(i=>(i.data||'').startsWith(hoje2.slice(0,7))).length}</div>
+      <div style="font-size:11px;color:var(--grn);margin-top:2px">${fR(totalMes)}</div>
     </div>
     <div class="card" style="padding:14px;text-align:center">
       <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">SINCRONIZAÇÃO</div>
-      <div style="margin-top:6px">${fbStatus}</div>
-      <button class="btn bx bxs" style="margin-top:8px;font-size:11px" onclick="openFirebaseConfig()">⚙️ Configurar Firebase</button>
+      <div style="margin-top:4px">${fbStatus}</div>
+      <button class="btn bx bxs" style="margin-top:8px;font-size:11px" onclick="openFirebaseConfig()">⚙️ Config Firebase</button>
     </div>
   </div>
+
   <div class="card" style="margin-bottom:12px;background:linear-gradient(135deg,#0f172a,#1a1a2e);border-color:rgba(249,115,22,.3)">
-    <div class="ch"><span class="ct" style="color:var(--acc)">📱 Link do Portal da Oficina</span></div>
-    <p style="font-size:12px;color:var(--sub);margin-bottom:10px">Envie este link para a funcionária da oficina. Ela registra as intervenções no celular e aparecem aqui automaticamente via Firebase.</p>
-    <div style="background:var(--sur);border-radius:8px;padding:10px 14px;font-size:12px;font-weight:700;word-break:break-all;margin-bottom:10px">${window.location.href.split('#')[0]}#portal-oficina</div>
+    <div class="ch"><span class="ct" style="color:var(--acc)">📱 Portal da Oficina</span></div>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:10px">
+      Quando a Arilane registra um serviço no portal, <b style="color:var(--grn)">entra automaticamente aqui como realizado</b> — odômetro e histórico de manutenção atualizados na hora.
+    </p>
     <div class="row" style="gap:8px;flex-wrap:wrap">
-      <button class="btn bg bxs" onclick="abrirPortalOficina()">🛠️ Abrir Portal Oficina</button>
-      <button class="btn bx bxs" onclick="navigator.clipboard.writeText(window.location.href.split('#')[0]+'#portal-oficina').then(()=>alert('✅ Link copiado!'))">📋 Copiar Link</button>
-      <button class="btn ba bxs" onclick="showAIntervencao()">+ Registrar manualmente</button>
+      <button class="btn bg bxs" onclick="abrirPortalOficina()">🛠️ Abrir Portal</button>
+      <button class="btn bx bxs" onclick="navigator.clipboard.writeText(window.location.href.split('#')[0]).then(()=>alert('✅ Link copiado!'))">📋 Copiar Link</button>
+      <button class="btn ba bxs" onclick="showAIntervencao()">+ Registrar manual</button>
     </div>
   </div>
-  ${pend.length?`<div class="card" style="margin-bottom:12px;border-color:rgba(249,115,22,.3)">
-    <div class="ch"><span class="ct">⏳ Intervenções Pendentes de Confirmação</span></div>
+
+  ${deHoje.length?`<div class="card" style="margin-bottom:12px;border-color:rgba(249,115,22,.25)">
+    <div class="ch"><span class="ct">📋 Serviços de Hoje (${deHoje.length})</span>
+      <span style="font-size:13px;font-weight:800;color:var(--acc)">${fR(totalHoje)}</span>
+    </div>
     <div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>Data</th><th>Moto</th><th>Serviços</th><th>KM</th><th>Peças R$</th><th>M.O. R$</th><th>Total</th><th>Ação</th></tr></thead>
-      <tbody>${pendRows}</tbody>
+      <thead><tr><th>Moto</th><th>Serviços</th><th>KM</th><th>Peças</th><th>M.O.</th><th>Total</th><th>Foto/OS</th><th></th></tr></thead>
+      <tbody>${deHoje.map(rowIntv).join('')}</tbody>
     </table></div>
-  </div>`:''}
+  </div>`:'<div class="card" style="margin-bottom:12px"><div class="empty">Nenhum serviço registrado hoje</div></div>'}
+
   <div class="card">
-    <div class="ch"><span class="ct">✅ Histórico de Intervenções Confirmadas (últimas 10)</span></div>
-    ${conf.length?`<div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>Data</th><th>Moto</th><th>Serviços</th><th>Total</th><th>Status</th></tr></thead>
-      <tbody>${confRows}</tbody>
-    </table></div>`:'<div class="empty">Nenhuma intervenção confirmada ainda</div>'}
+    <div class="ch"><span class="ct">🗂️ Histórico de Serviços</span>
+      <input type="month" id="oficMes" value="${hoje2.slice(0,7)}" onchange="render()" style="width:140px">
+    </div>
+    ${(()=>{
+      const mes=document.getElementById('oficMes')?.value||hoje2.slice(0,7);
+      const doMes=todas.filter(i=>(i.data||'').startsWith(mes)&&i.data!==hoje2);
+      if(!doMes.length)return'<div class="empty">Nenhum registro neste mês</div>';
+      return`<div style="overflow-x:auto"><table class="tbl">
+        <thead><tr><th>Moto</th><th>Serviços</th><th>KM</th><th>Peças</th><th>M.O.</th><th>Total</th><th>Foto/OS</th><th></th></tr></thead>
+        <tbody>${doMes.map(rowIntv).join('')}</tbody>
+      </table></div>`;
+    })()}
   </div>`;
+}
+
+function deletarIntervencao(id){
+  if(!confirm('Remover este registro?'))return;
+  DB.intervencoes=DB.intervencoes.filter(x=>x.id!==id);
+  sv('intv');
+  if(window._fbRef)window._fbRef.child('intervencoes/'+id).remove();
+  render();
+}
 }
 
 function confirmarIntervencao(id){
   const intv=DB.intervencoes.find(x=>x.id===id);if(!intv)return;
   const m=DB.motos.find(x=>x.id===intv.mId);
-  // Atualiza km de manutenção da moto se informado no registro
-  if(m && intv.km && intv.km>0){
-    const km=Number(intv.km);
-    // Atualiza odômetro se for maior
-    if(km>m.odo) m.odo=km;
-    // Atualiza km de manutenção conforme tipos de serviço registrados
-    const servDescs=(intv.servicos||[]).map(s=>(s.desc||'').toLowerCase()).join(' ');
-    if(/\bóleo\b|oleo|oil/.test(servDescs)){ m.loilKm=km; }
-    if(/revisão|revisao|revis/.test(servDescs)){ m.lrevKm=km; }
-    if(/pneu|borracha/.test(servDescs)){ m.lpneuKm=km; }
-    if(/correia|corrente|kit transmiss/.test(servDescs)){ m.lcorrKm=km; }
-    // Adiciona ao histórico de manutenção
-    if(/\bóleo\b|oleo|oil/.test(servDescs)) DB.mhist.push({id:uid(),mId:intv.mId,tipo:'oil',km,obs:'Via Oficina: '+(intv.servicos||[]).map(s=>s.desc).join(', '),data:intv.data});
-    if(/revisão|revisao|revis/.test(servDescs)) DB.mhist.push({id:uid(),mId:intv.mId,tipo:'rev',km,obs:'Via Oficina',data:intv.data});
-    if(/pneu|borracha/.test(servDescs)) DB.mhist.push({id:uid(),mId:intv.mId,tipo:'pneu',km,obs:'Via Oficina',data:intv.data});
-    sv('m');sv('mhist');
-    // Re-publica lista de motos com km atualizado
+  const km=Number(intv.km||0);
+  const servDescs=(intv.servicos||[]).map(s=>(s.desc||'').toLowerCase()).join(' ');
+  const tiposDetectados=[];
+  const mapeamento=[
+    {regex:/\bóleo\b|oleo|oil|lubrif/,tipo:'oil'},
+    {regex:/revisão|revisao|revis/,tipo:'rev'},
+    {regex:/pneu|borracha/,tipo:'pneu'},
+    {regex:/correia|corrente|kit\s*trans/,tipo:'corr'},
+    {regex:/pastilha/,tipo:'past'},
+    {regex:/vela|igni/,tipo:'vela'},
+    {regex:/filtro\s*de?\s*ar/,tipo:'filtrar'},
+    {regex:/filtro\s*de?\s*óleo|filtro\s*oleo/,tipo:'filtoleo'},
+    {regex:/escova|arranque/,tipo:'escova'},
+    {regex:/embreagem|embreia/,tipo:'embreia'},
+    {regex:/bucha|coroa/,tipo:'bucha'},
+  ];
+  if(m&&km>0){
+    mapeamento.forEach(({regex,tipo})=>{
+      if(regex.test(servDescs)){
+        tiposDetectados.push(tipo);
+        const t=TIPOS_MNT[tipo];
+        if(t&&t.key){m[t.key]=km;}
+        DB.mhist.push({id:uid(),mId:intv.mId,tipo,km,
+          obs:'Via Oficina: '+(intv.servicos||[]).map(s=>s.desc).join(', '),
+          custo:intv.total||0,ofic:'Oficina Parceira',data:intv.data});
+      }
+    });
+    if(km>m.odo)m.odo=km;
+    if(tiposDetectados.length>0){sv('m');sv('mhist');}
     publicarMotosFirebase();
   }
-  // Gera OS automaticamente
-  const novaOs={id:uid(),mId:intv.mId,data:intv.data,ofic:'Oficina Parceira',pec:Number(intv.pecas||0),mao:Number(intv.mao||0),nf:'',obs:(intv.km?'KM: '+intv.km+' — ':'')+((intv.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join('; ')),st:'pendente',origem:'oficina',itens:[],intvId:id};
+  const descObs=(km?'KM: '+fN(km)+' — ':'')+((intv.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join('; '));
+  const novaOs={id:uid(),mId:intv.mId,data:intv.data,ofic:'Oficina Parceira',
+    pec:Number(intv.pecas||0),mao:Number(intv.mao||0),nf:'',obs:descObs,
+    st:'pendente',origem:'oficina',itens:[],intvId:id,foto:intv.foto||null};
   DB.os.push(novaOs);
   intv.st='confirmado';intv.osId=novaOs.id;
   sv('os');sv('intv');
@@ -1465,7 +1637,8 @@ function confirmarIntervencao(id){
     window._fbRef.child('intervencoes/'+id+'/st').set('confirmado');
     window._fbRef.child('intervencoes/'+id+'/osId').set(novaOs.id);
   }
-  alert('✅ OS gerada!\nTotal: '+fR(intv.total||0)+(intv.km?'\nKM registrado: '+fN(intv.km)+' km':''));
+  const resumo=tiposDetectados.length?'\nManutenção atualizada: '+tiposDetectados.map(t=>TIPOS_MNT[t]?.label||t).join(', '):'';
+  alert('✅ OS gerada!\nTotal: '+fR(intv.total||0)+(km?'\nKM: '+fN(km)+' km':'')+resumo);
   render();
 }
 function rejeitarIntervencao(id){
@@ -1733,17 +1906,21 @@ function initFirebase(cfg){
     const db=firebase.database(app);
     window._fbRef=db.ref('ams_motos');
     window._fbConnected=true;
-    // Publica lista de motos para o portal da oficina poder carregar as placas
     publicarMotosFirebase();
-    // Escuta intervenções novas
+    // Escuta intervenções novas — aplica automaticamente
     window._fbRef.child('intervencoes').on('child_added',snap=>{
       const intv=snap.val();if(!intv||!intv.id)return;
       if(!DB.intervencoes) DB.intervencoes=[];
       if(!DB.intervencoes.find(x=>x.id===intv.id)){
         DB.intervencoes.push(intv);
+        // Aplica automaticamente como realizado
+        aplicarIntervencaoAutomatico(intv);
         sv('intv');
+        // Notificação visual
         const btn=document.getElementById('fbBtn');
-        if(btn){btn.textContent='🔥 Nova! ('+DB.intervencoes.filter(x=>x.st==='pendente').length+')';btn.style.background='#ef4444';}
+        if(btn){btn.textContent='🔥 Oficina (+1)';btn.style.background='#22c55e';}
+        // Renderiza aba ativa
+        if(TAB==='oficina'||TAB==='mnt'||TAB==='os') render();
       }
     });
     window._fbRef.child('intervencoes').on('child_changed',snap=>{
@@ -1756,6 +1933,64 @@ function initFirebase(cfg){
     if(btn){btn.textContent='🔥 Sync ✓';btn.style.background='#22c55e';btn.style.color='#000';}
     console.log('Firebase AMS conectado.');
   }catch(e){console.error('Firebase init error:',e);}
+}
+
+// ── Aplica intervenção da oficina AUTOMATICAMENTE ─────────────────────────────
+function aplicarIntervencaoAutomatico(intv){
+  // Só aplica se ainda não foi processado
+  if(intv.st==='confirmado') return;
+  const m=DB.motos.find(x=>x.id===intv.mId);
+  const km=Number(intv.km||0);
+  const servDescs=(intv.servicos||[]).map(s=>(s.desc||'').toLowerCase()).join(' ');
+  const mapeamento=[
+    {regex:/\bóleo\b|oleo|oil|lubrif/,tipo:'oil'},
+    {regex:/revisão|revisao|revis/,tipo:'rev'},
+    {regex:/pneu|borracha/,tipo:'pneu'},
+    {regex:/correia|corrente|kit\s*trans/,tipo:'corr'},
+    {regex:/pastilha/,tipo:'past'},
+    {regex:/vela|igni/,tipo:'vela'},
+    {regex:/filtro\s*de?\s*ar/,tipo:'filtrar'},
+    {regex:/filtro\s*de?\s*óleo|filtro\s*oleo/,tipo:'filtoleo'},
+    {regex:/escova|arranque/,tipo:'escova'},
+    {regex:/embreagem|embreia/,tipo:'embreia'},
+    {regex:/bucha|coroa/,tipo:'bucha'},
+    {regex:/freio|cabo\s*freio/,tipo:'freio'},
+  ];
+  // Atualiza moto e histórico
+  if(m&&km>0){
+    mapeamento.forEach(({regex,tipo})=>{
+      if(!regex.test(servDescs))return;
+      const t=TIPOS_MNT[tipo];
+      if(t&&t.key){m[t.key]=km;}
+      // Evita duplicata no histórico
+      const jaExiste=DB.mhist.find(h=>h.mId===intv.mId&&h.tipo===tipo&&h.data===intv.data&&Math.abs(h.km-km)<=5);
+      if(!jaExiste){
+        DB.mhist.push({id:uid(),mId:intv.mId,tipo,km,
+          obs:'Oficina: '+(intv.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join(', '),
+          custo:intv.total||0,ofic:'Oficina Parceira',data:intv.data,
+          origem:'portal'});
+      }
+    });
+    if(km>m.odo)m.odo=km;
+    sv('m');sv('mhist');
+    publicarMotosFirebase();
+  }
+  // Gera OS automaticamente
+  const jaTemOs=DB.os.find(o=>o.intvId===intv.id);
+  if(!jaTemOs){
+    const descObs=(km?'KM: '+fN(km)+' — ':'')+((intv.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join('; '));
+    DB.os.push({id:uid(),mId:intv.mId,data:intv.data,
+      ofic:'Oficina Parceira',pec:Number(intv.pecas||0),mao:Number(intv.mao||0),
+      nf:'',obs:descObs,st:'pendente',origem:'oficina',itens:[],intvId:intv.id,
+      foto:intv.foto||null});
+    sv('os');
+  }
+  // Marca como confirmado no Firebase
+  intv.st='confirmado';
+  sv('intv');
+  if(window._fbRef){
+    window._fbRef.child('intervencoes/'+intv.id+'/st').set('confirmado');
+  }
 }
 function publicarMotosFirebase(){
   if(!window._fbRef)return;
@@ -4351,12 +4586,61 @@ function salvarRepasse(id){
 })();
 
 // ── AGENDA DE REVISÕES ────────────────────────────────────────────────────────
+const HORARIOS_AGENDA=['08:00','14:00']; // apenas 2 por dia
+const DIAS_UTEIS=[1,2,3,4,5]; // Seg a Sex
+
+function isDiaUtil(dataStr){
+  const dt=new Date(dataStr+'T12:00');
+  return DIAS_UTEIS.includes(dt.getDay());
+}
+function vagasLivresNaDia(data){
+  const agsDia=(DB.agenda||[]).filter(a=>a.data===data&&a.st!=='feito');
+  const horariosOcupados=agsDia.map(a=>a.horario).filter(Boolean);
+  return HORARIOS_AGENDA.filter(h=>!horariosOcupados.includes(h));
+}
+
 function vAgendaTab(){
-  const agenda=(DB.agenda||[]).sort((a,b)=>a.data.localeCompare(b.data));
+  const agenda=(DB.agenda||[]).sort((a,b)=>a.data===b.data?(a.horario||'').localeCompare(b.horario||''):a.data.localeCompare(b.data));
   const vencidas=agenda.filter(a=>a.data<tod()&&a.st!=='feito');
   const hoje3=agenda.filter(a=>a.data===tod()&&a.st!=='feito');
   const proximas=agenda.filter(a=>a.data>tod()&&a.st!=='feito');
-  const feitas=agenda.filter(a=>a.st==='feito').sort((a,b)=>b.data.localeCompare(a.data)).slice(0,10);
+  const feitas=agenda.filter(a=>a.st==='feito').sort((a,b)=>b.data.localeCompare(a.data)).slice(0,15);
+
+  // Calendário semanal dos próximos 5 dias úteis
+  const calDias=[];
+  let dt=new Date();dt.setHours(12,0,0,0);
+  for(let i=0;i<14&&calDias.length<5;i++){
+    if(DIAS_UTEIS.includes(dt.getDay())){
+      const dStr=dt.toISOString().split('T')[0];
+      const vagasD=vagasLivresNaDia(dStr);
+      const agsD=(DB.agenda||[]).filter(a=>a.data===dStr&&a.st!=='feito');
+      calDias.push({data:dStr,label:dt.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'}),vagas:vagasD,agsD});
+    }
+    dt.setDate(dt.getDate()+1);
+  }
+
+  const calHTML=calDias.map(d=>`
+    <div style="background:var(--card);border:1px solid ${d.data===tod()?'rgba(59,130,246,.4)':'var(--bor)'};border-radius:10px;padding:10px;min-width:120px">
+      <div style="font-size:11px;font-weight:700;color:${d.data===tod()?'var(--blu)':'var(--sub)'};margin-bottom:8px;text-align:center">${d.label}${d.data===tod()?' 📍':''}</div>
+      ${HORARIOS_AGENDA.map(h=>{
+        const ag=d.agsD.find(a=>a.horario===h);
+        const m2=ag?DB.motos.find(x=>x.id===ag.mId):null;
+        return`<div style="background:${ag?'rgba(249,115,22,.15)':'var(--card2)'};border:1px solid ${ag?'rgba(249,115,22,.3)':'var(--bor)'};border-radius:6px;padding:6px;margin-bottom:4px;cursor:${ag?'default':'pointer'}" ${!ag?`onclick="novaAgenda('${d.data}','${h}')"`:''}
+          title="${ag?'':`Agendar para ${h}`}">
+          <div style="font-size:10px;font-weight:700;color:${ag?'var(--acc)':'var(--sub)'}">${h}</div>
+          ${ag?`<div style="font-size:11px;font-weight:700">${m2?m2.placa:'?'}</div>
+            <div style="font-size:10px;color:var(--sub)">${ag.tipo||'Revisão'}</div>
+            <div style="display:flex;gap:3px;margin-top:4px">
+              <button onclick="avisarLocatarioAgenda('${ag.id}')" style="background:#25d366;color:#fff;border:none;border-radius:4px;padding:2px 6px;font-size:9px;cursor:pointer">📱WA</button>
+              <button onclick="marcarAgendaFeita('${ag.id}')" style="background:var(--grnbg);color:var(--grn);border:1px solid rgba(34,197,94,.3);border-radius:4px;padding:2px 6px;font-size:9px;cursor:pointer">✓</button>
+              <button onclick="editarAgenda('${ag.id}')" style="background:var(--sur);color:var(--sub);border:1px solid var(--bor);border-radius:4px;padding:2px 6px;font-size:9px;cursor:pointer">✏️</button>
+              <button onclick="deletarAgenda('${ag.id}')" style="background:var(--redbg);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:4px;padding:2px 6px;font-size:9px;cursor:pointer">✕</button>
+            </div>`
+          :`<div style="font-size:10px;color:var(--sub)">+ Agendar</div>`}
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+
   function cardAg(lista,titulo,corBorda){
     if(!lista.length)return'';
     const rows=lista.map(a=>{
@@ -4366,14 +4650,16 @@ function vAgendaTab(){
       const stBg=a.st==='feito'?'var(--grnbg)':vencida?'var(--redbg)':ehHoje?'var(--blubg)':'var(--sur)';
       const stCor=a.st==='feito'?'var(--grn)':vencida?'var(--red)':ehHoje?'var(--blu)':'var(--sub)';
       const stLabel=a.st==='feito'?'✓ Feita':vencida?'⚠️ Vencida':ehHoje?'📍 Hoje':'⏰ Agendada';
+      const notifBadge=a.notifEnviada?'<span style="font-size:10px;color:var(--grn);margin-left:4px">📱✓</span>':'';
       return`<tr>
-        <td style="white-space:nowrap">${fD(a.data)}</td>
+        <td style="white-space:nowrap">${fD(a.data)} <b style="color:var(--acc)">${a.horario||'—'}</b></td>
         <td><b>${m.placa}</b><br><span style="font-size:10px;color:var(--sub)">${m.nome?m.nome.split(' ').slice(0,2).join(' '):'—'}</span></td>
         <td style="font-size:12px">${a.tipo||'—'}</td>
-        <td style="font-size:11px;color:var(--sub);max-width:140px">${a.obs||'—'}</td>
-        <td><span class="badge" style="background:${stBg};color:${stCor}">${stLabel}</span></td>
-        <td class="row" style="gap:4px">
+        <td style="font-size:11px;color:var(--sub);max-width:120px">${a.obs||'—'}</td>
+        <td><span class="badge" style="background:${stBg};color:${stCor}">${stLabel}</span>${notifBadge}</td>
+        <td class="row" style="gap:3px">
           ${a.st!=='feito'?`<button class="btn bg bxs" onclick="marcarAgendaFeita('${a.id}')">✓</button>`:''}
+          <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="avisarLocatarioAgenda('${a.id}')">📱</button>
           <button class="btn bx bxs" onclick="editarAgenda('${a.id}')">✏️</button>
           <button class="btn br bxs" onclick="deletarAgenda('${a.id}')">✕</button>
         </td>
@@ -4382,83 +4668,193 @@ function vAgendaTab(){
     return`<div class="card" style="margin-bottom:12px;border-color:${corBorda}">
       <div class="ch" style="margin-bottom:10px"><span class="ct">${titulo} (${lista.length})</span></div>
       <div style="overflow-x:auto"><table class="tbl">
-        <thead><tr><th>Data</th><th>Moto</th><th>Tipo</th><th>Obs</th><th>Status</th><th>Ação</th></tr></thead>
+        <thead><tr><th>Data / Hora</th><th>Moto</th><th>Tipo</th><th>Obs</th><th>Status</th><th>Ação</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
     </div>`;
   }
+
   return`<div class="card" style="margin-bottom:12px">
     <div class="ch">
-      <span class="ct">📅 Agenda de Revisões</span>
+      <span class="ct">📅 Agenda de Revisões — Oficina</span>
       <div class="row" style="gap:6px;flex-wrap:wrap">
         <button class="btn ba bs" onclick="novaAgenda()">+ Agendar</button>
-        <button class="btn bx bs" onclick="agendarProximas()" title="Agenda motos próximas da manutenção">🤖 Auto-agendar</button>
+        <button class="btn bx bs" onclick="agendarProximas()">🤖 Auto-agendar</button>
         <button class="btn bx bs" onclick="publicarAgendaFirebase()">🔥 Publicar para Oficina</button>
       </div>
     </div>
-    ${vencidas.length?`<div style="background:var(--redbg);border-radius:8px;padding:8px 14px;margin-bottom:8px;font-size:12px;color:var(--red)">⚠️ <b>${vencidas.length}</b> revisão(ões) vencida(s) — marque como feita ou reagende</div>`:''}
-    ${hoje3.length?`<div style="background:var(--blubg);border-radius:8px;padding:8px 14px;margin-bottom:8px;font-size:12px;color:var(--blu)">📍 <b>${hoje3.length}</b> revisão(ões) para hoje</div>`:''}
+    <div style="background:var(--blubg);border-radius:8px;padding:8px 14px;font-size:12px;color:var(--blu);margin-bottom:10px">
+      📌 <b>2 vagas por dia</b> — 08:00 e 14:00 · <b>Segunda a Sexta</b> apenas · Clique no horário livre para agendar
+    </div>
+    ${vencidas.length?`<div style="background:var(--redbg);border-radius:8px;padding:8px 14px;margin-bottom:8px;font-size:12px;color:var(--red)">⚠️ <b>${vencidas.length}</b> revisão(ões) vencida(s)</div>`:''}
+    ${hoje3.length?`<div style="background:var(--blubg);border-radius:8px;padding:8px 14px;margin-bottom:8px;font-size:12px;color:var(--blu)">📍 <b>${hoje3.length}</b> revisão(ões) hoje</div>`:''}
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="ch" style="margin-bottom:12px"><span class="ct">🗓️ Próximos 5 dias úteis</span></div>
+    <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px">${calHTML}</div>
   </div>
   ${cardAg(vencidas,'⚠️ Vencidas','rgba(239,68,68,.3)')}
   ${cardAg(hoje3,'📍 Hoje','rgba(59,130,246,.4)')}
   ${cardAg(proximas,'⏰ Próximas agendadas','var(--bor)')}
-  ${cardAg(feitas,'✅ Realizadas (últimas 10)','rgba(34,197,94,.2)')}
-  ${!agenda.length?`<div class="card"><div class="empty">Nenhuma revisão agendada.<br><br>
-    <button class="btn ba" onclick="agendarProximas()">🤖 Auto-agendar motos próximas da manutenção</button>
-  </div></div>`:''}`;
+  ${cardAg(feitas,'✅ Realizadas (últimas 15)','rgba(34,197,94,.2)')}
+  ${!agenda.length?`<div class="card"><div class="empty">Nenhuma revisão agendada.<br><br><button class="btn ba" onclick="agendarProximas()">🤖 Auto-agendar motos próximas</button></div></div>`:''}`;
 }
-function novaAgenda(mIdPre){
-  const opts=DB.motos.filter(m=>m.on).map(m=>`<option value="${m.id}" ${mIdPre===m.id?'selected':''}>${m.placa} — ${m.nome||'sem locatário'}</option>`).join('');
+
+function novaAgenda(dataPre, horarioPre){
+  // Calcula próximo dia útil livre
+  const hoje2=new Date();hoje2.setHours(12,0,0,0);
+  let dataDefault=dataPre||tod();
+  if(!dataPre){
+    // Avança para próximo dia útil com vaga
+    for(let i=0;i<30;i++){
+      const d=new Date(hoje2);d.setDate(d.getDate()+i);
+      const dStr=d.toISOString().split('T')[0];
+      if(DIAS_UTEIS.includes(d.getDay())&&vagasLivresNaDia(dStr).length>0){dataDefault=dStr;break;}
+    }
+  }
+  const vagasPre=vagasLivresNaDia(dataDefault);
+  const horarioDefault=horarioPre||(vagasPre[0]||HORARIOS_AGENDA[0]);
+  const opts=DB.motos.filter(m=>m.on).map(m=>`<option value="${m.id}">${m.placa} — ${m.nome||'sem locatário'}</option>`).join('');
+  const TIPOS_LABEL=Object.entries(TIPOS_MNT).filter(([k])=>k!=='outro').map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');
+
   showM(mWrap('mAgN',`<div class="modal">
     <div class="mh"><span class="ct">📅 Agendar Revisão</span><button class="btn bx" onclick="closeM('mAgN')">✕</button></div>
+    <div style="background:var(--blubg);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--blu);margin-bottom:14px">
+      📌 A agenda é exclusiva para <b>Revisões Gerais</b> agendadas com hora marcada (08:00 ou 14:00) · Seg–Sex · Máx 2/dia<br>
+      Para outros serviços (óleo, pastilha, etc.) a Arilane registra diretamente no portal e entra automático no sistema.
+    </div>
     <div class="fg"><label>Moto</label><select id="agM">${opts}</select></div>
     <div class="fr">
-      <div class="fg"><label>Data</label><input type="date" id="agD" value="${tod()}"></div>
-      <div class="fg"><label>Tipo de Serviço</label>
-        <select id="agT">
-          <option>Revisão geral</option><option>Troca de óleo</option>
-          <option>Troca de corrente/kit</option><option>Troca de pneu</option>
-          <option>Troca de pastilha</option><option>Freios</option><option>Outro</option>
+      <div class="fg">
+        <label>Data (dia útil)</label>
+        <input type="date" id="agD" value="${dataDefault}" onchange="atualizarVagasAgenda()">
+        <div id="agVagasInfo" style="font-size:11px;color:var(--sub);margin-top:3px"></div>
+      </div>
+      <div class="fg">
+        <label>Horário</label>
+        <select id="agH">
+          ${HORARIOS_AGENDA.map(h=>`<option value="${h}" ${h===horarioDefault?'selected':''}>${h}</option>`).join('')}
         </select>
       </div>
     </div>
-    <div class="fg"><label>Observação</label><textarea id="agO" rows="2" placeholder="Ex: trazer às 8h, checar freio traseiro..." style="resize:none"></textarea></div>
-    <div class="mact"><button class="btn bx" onclick="closeM('mAgN')">Cancelar</button>
-    <button class="btn ba" onclick="salvarAgenda()">✓ Agendar</button></div>
+    <div class="fg" style="display:none"><select id="agT"><option value="rev">🔧 Revisão Geral</option></select></div>
+    <div class="fg">
+      <label>Observação para a oficina</label>
+      <textarea id="agO" rows="2" placeholder="Ex: checar freio traseiro, corrente, nível de óleo..." style="resize:none"></textarea>
+    </div>
+    <div style="background:var(--accbg);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--acc)">
+      📱 Após agendar, use o botão <b>WA</b> para notificar o locatário
+    </div>
+    <div class="mact">
+      <button class="btn bx" onclick="closeM('mAgN')">Cancelar</button>
+      <button class="btn ba" onclick="salvarAgenda()">✓ Agendar</button>
+    </div>
   </div>`));
+  setTimeout(()=>atualizarVagasAgenda(),50);
 }
+
+function atualizarVagasAgenda(){
+  const data=document.getElementById('agD')?.value;
+  const el=document.getElementById('agVagasInfo');
+  const selH=document.getElementById('agH');
+  if(!data||!el)return;
+  const dt=new Date(data+'T12:00');
+  if(!DIAS_UTEIS.includes(dt.getDay())){
+    el.innerHTML='<span style="color:var(--red)">⚠️ Fim de semana — escolha um dia útil</span>';
+    return;
+  }
+  const vagas=vagasLivresNaDia(data);
+  if(vagas.length===0){
+    el.innerHTML='<span style="color:var(--red)">⚠️ Dia cheio — ambos os horários ocupados</span>';
+  } else {
+    el.innerHTML=`<span style="color:var(--grn)">✅ ${vagas.length} vaga(s) livre(s): ${vagas.join(' e ')}</span>`;
+    if(selH&&vagas.length>0)selH.value=vagas[0];
+  }
+}
+
 function salvarAgenda(){
   const mId=document.getElementById('agM').value;
   const data=document.getElementById('agD').value;
+  const horario=document.getElementById('agH')?.value||'08:00';
+  const obs=document.getElementById('agO').value.trim();
   if(!mId||!data){alert('Preencha moto e data.');return;}
-  DB.agenda.push({id:uid(),mId,data,tipo:document.getElementById('agT').value,obs:document.getElementById('agO').value.trim(),st:'pendente',criado:tod()});
+  const dt=new Date(data+'T12:00');
+  if(!DIAS_UTEIS.includes(dt.getDay())){alert('⚠️ Selecione um dia útil (Segunda a Sexta).');return;}
+  const vagasLivres=vagasLivresNaDia(data);
+  if(!vagasLivres.includes(horario)){
+    alert(`⚠️ Horário ${horario} de ${fD(data)} já está ocupado!\nVagas livres: ${vagasLivres.join(', ')||'Nenhuma — dia cheio'}`);
+    return;
+  }
+  DB.agenda.push({id:uid(),mId,data,horario,tipo:'rev',obs,st:'pendente',criado:tod()});
   sv('agenda');publicarAgendaFirebase();closeM('mAgN');render();
+  const m=DB.motos.find(x=>x.id===mId);
+  if(m&&m.nome&&confirm(`✅ Agendado!\nDeseja notificar ${m.nome.split(' ')[0]} pelo WhatsApp?`)){
+    const id2=(DB.agenda||[]).at(-1)?.id;
+    if(id2)avisarLocatarioAgenda(id2);
+  }
 }
+
 function editarAgenda(id){
   const a=DB.agenda.find(x=>x.id===id);if(!a)return;
   const opts=DB.motos.filter(m=>m.on).map(m=>`<option value="${m.id}" ${a.mId===m.id?'selected':''}>${m.placa} — ${m.nome||'—'}</option>`).join('');
+  const TIPOS_LABEL=Object.entries(TIPOS_MNT).map(([k,v])=>`<option value="${k}" ${a.tipo===k?'selected':''}>${v.label}</option>`).join('');
   showM(mWrap('mAgE',`<div class="modal">
     <div class="mh"><span class="ct">✏️ Editar Revisão</span><button class="btn bx" onclick="closeM('mAgE')">✕</button></div>
     <div class="fg"><label>Moto</label><select id="agEM">${opts}</select></div>
     <div class="fr">
       <div class="fg"><label>Data</label><input type="date" id="agED" value="${a.data}"></div>
-      <div class="fg"><label>Tipo</label>
-        <select id="agET">${['Revisão geral','Troca de óleo','Troca de corrente/kit','Troca de pneu','Troca de pastilha','Freios','Outro'].map(t=>`<option ${a.tipo===t?'selected':''}>${t}</option>`).join('')}</select>
+      <div class="fg"><label>Horário</label>
+        <select id="agEH">${HORARIOS_AGENDA.map(h=>`<option value="${h}" ${a.horario===h?'selected':''}>${h}</option>`).join('')}</select>
       </div>
     </div>
+    <div class="fg"><label>Tipo</label><select id="agET">${TIPOS_LABEL}</select></div>
     <div class="fg"><label>Obs</label><textarea id="agEO" rows="2" style="resize:none">${a.obs||''}</textarea></div>
-    <div class="mact"><button class="btn bx" onclick="closeM('mAgE')">Cancelar</button>
-    <button class="btn ba" onclick="atualizarAgenda('${id}')">✓ Salvar</button></div>
+    <div class="mact">
+      <button class="btn bx" onclick="closeM('mAgE')">Cancelar</button>
+      <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="avisarLocatarioAgenda('${id}')">📱 Notif. WA</button>
+      <button class="btn ba" onclick="atualizarAgenda('${id}')">✓ Salvar</button>
+    </div>
   </div>`));
 }
+
 function atualizarAgenda(id){
   const a=DB.agenda.find(x=>x.id===id);if(!a)return;
+  const novaData=document.getElementById('agED').value;
+  const novoHorario=document.getElementById('agEH')?.value||a.horario;
+  // Verifica conflito apenas se mudou data ou horário
+  if((novaData!==a.data||novoHorario!==a.horario)){
+    const outrasAgs=(DB.agenda||[]).filter(x=>x.id!==id&&x.data===novaData&&x.horario===novoHorario&&x.st!=='feito');
+    if(outrasAgs.length>0){alert(`⚠️ Horário ${novoHorario} de ${fD(novaData)} já está ocupado!`);return;}
+  }
   a.mId=document.getElementById('agEM').value;
-  a.data=document.getElementById('agED').value;
+  a.data=novaData;a.horario=novoHorario;
   a.tipo=document.getElementById('agET').value;
   a.obs=document.getElementById('agEO').value.trim();
   sv('agenda');publicarAgendaFirebase();closeM('mAgE');render();
 }
+
+function avisarLocatarioAgenda(id){
+  const a=DB.agenda.find(x=>x.id===id);if(!a)return;
+  const m=DB.motos.find(x=>x.id===a.mId);if(!m){alert('Moto não encontrada.');return;}
+  if(!m.nome){alert('Esta moto não tem locatário cadastrado.');return;}
+  const msg=`🏍️ *AMS Motos — Aviso de Revisão*\n\nOlá ${m.nome.split(' ')[0]}!\n\nSua moto *${m.placa}* tem *Revisão Geral* agendada:\n\n📅 Data: *${fD(a.data)}*\n🕐 Horário: *${a.horario||'08:00'}*\n🔧 Serviço: *Revisão Geral*${a.obs?'\n📝 Obs: '+a.obs:''}\n\n⚠️ Por favor, leve a moto *na hora marcada* para não perder a vaga.\n\nDúvidas? Entre em contato com a AMS.\n\n_AMS Motos 🏍️_`;
+  showM(mWrap('mWAAgenda',`<div class="modal">
+    <div class="mh"><span class="ct">📱 Notificar Locatário — ${m.placa}</span><button class="btn bx" onclick="closeM('mWAAgenda')">✕</button></div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:10px">${m.nome} · ${fD(a.data)} ${a.horario||''}</div>
+    <div style="background:var(--sur);border-radius:10px;padding:14px;font-size:12px;white-space:pre-wrap;line-height:1.7;max-height:50vh;overflow-y:auto">${msg}</div>
+    <div class="row" style="gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="btn bx" onclick="navigator.clipboard.writeText(${JSON.stringify(msg)}).then(()=>alert('✅ Copiado!'))">📋 Copiar</button>
+      <button class="btn bx" onclick="closeM('mWAAgenda')">Fechar</button>
+      <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="marcarNotifEnviada('${id}');window.open('https://wa.me/?text='+encodeURIComponent(${JSON.stringify(msg)}),'_blank')">📱 Abrir WA</button>
+    </div>
+  </div>`));
+}
+
+function marcarNotifEnviada(id){
+  const a=DB.agenda.find(x=>x.id===id);if(a){a.notifEnviada=true;sv('agenda');publicarAgendaFirebase();}
+  closeM('mWAAgenda');
+}
+
 function marcarAgendaFeita(id){
   const a=DB.agenda.find(x=>x.id===id);if(!a)return;
   a.st='feito';a.feitoEm=tod();
@@ -4470,28 +4866,33 @@ function deletarAgenda(id){
   sv('agenda');publicarAgendaFirebase();render();
 }
 function agendarProximas(){
-  const ativ=DB.motos.filter(m=>m.on);
+  const ativ=DB.motos.filter(m=>m.on&&m.nome);
   let count=0;
-  ativ.forEach(m=>{
-    const{ol,rl}=ms(m);
-    const kmDia=50; // estimativa km/dia
-    const diasOil=ol>0?Math.round(ol/kmDia):0;
-    const diasRev=rl>0?Math.round(rl/kmDia):0;
-    const jaTemOil=DB.agenda.find(a=>a.mId===m.id&&a.st!=='feito'&&(a.tipo||'').includes('óleo'));
-    const jaTemRev=DB.agenda.find(a=>a.mId===m.id&&a.st!=='feito'&&(a.tipo||'').includes('Revisão'));
-    if(!jaTemOil&&ol<=200){
-      const dt=new Date();dt.setDate(dt.getDate()+Math.max(1,diasOil));
-      DB.agenda.push({id:uid(),mId:m.id,data:dt.toISOString().split('T')[0],tipo:'Troca de óleo',obs:'Auto — '+fN(ol)+' km rest.',st:'pendente',criado:tod()});
-      count++;
+  function proximaDataComVaga(){
+    const hoje2=new Date();hoje2.setHours(12,0,0,0);
+    for(let i=1;i<60;i++){
+      const d=new Date(hoje2);d.setDate(d.getDate()+i);
+      if(!DIAS_UTEIS.includes(d.getDay()))continue;
+      const dStr=d.toISOString().split('T')[0];
+      const vagas=vagasLivresNaDia(dStr);
+      if(vagas.length>0)return{data:dStr,horario:vagas[0]};
     }
+    return null;
+  }
+  ativ.forEach(m=>{
+    const{rl}=ms(m);
+    const jaTemRev=DB.agenda.find(a=>a.mId===m.id&&a.st!=='feito');
     if(!jaTemRev&&rl<=1000){
-      const dt=new Date();dt.setDate(dt.getDate()+Math.max(1,diasRev));
-      DB.agenda.push({id:uid(),mId:m.id,data:dt.toISOString().split('T')[0],tipo:'Revisão geral',obs:'Auto — '+fN(rl)+' km rest.',st:'pendente',criado:tod()});
-      count++;
+      const v=proximaDataComVaga();
+      if(v){
+        DB.agenda.push({id:uid(),mId:m.id,data:v.data,horario:v.horario,
+          tipo:'rev',obs:'Auto — '+fN(rl)+' km rest. para revisão',st:'pendente',criado:tod()});
+        count++;
+      }
     }
   });
-  if(count>0){sv('agenda');publicarAgendaFirebase();alert('✅ '+count+' revisão(ões) agendada(s)!');}
-  else alert('Nenhuma moto precisa de agendamento urgente agora.');
+  if(count>0){sv('agenda');publicarAgendaFirebase();alert('✅ '+count+' revisão(ões) agendada(s) nos próximos horários livres!');}
+  else alert('Nenhuma moto precisa de revisão agendada urgente agora (todas acima de 1.000 km restantes ou já agendadas).');
   render();
 }
 function publicarAgendaFirebase(){
