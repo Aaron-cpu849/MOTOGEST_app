@@ -600,18 +600,28 @@ function processarDadosGps(data){
 // Interpreta status do Rastrear System (Traccar) corretamente
 function calcularStatusGps(item){
   const st=(item.status||'').toLowerCase();
-  // Status direto da API
   if(st==='online') return 'Conectado';
-  if(st==='offline') return 'Desconectado';
-  // Se tem lastUpdate, calcula por tempo
+  if(st==='offline'){
+    // Confirma offline pelo tempo — só marca Desconectado após 24h sem sinal
+    const lu=item.lastUpdate||item.fixTime||'';
+    if(lu){
+      try{
+        const mins=Math.floor((Date.now()-new Date(lu).getTime())/60000);
+        if(mins<=15) return 'Conectado';
+        if(mins<=1440) return 'Desconhecido'; // até 24h = amarelo
+        return 'Desconectado';                // acima de 24h = vermelho
+      }catch{}
+    }
+    return 'Desconhecido';
+  }
+  // Sem status da API — calcula só pelo tempo
   const lu=item.lastUpdate||item.fixTime||'';
   if(lu){
     try{
-      const dt=new Date(lu);
-      const mins=Math.floor((Date.now()-dt.getTime())/60000);
-      if(mins<=15) return 'Conectado';
-      if(mins<=120) return 'Desconhecido';
-      return 'Desconectado';
+      const mins=Math.floor((Date.now()-new Date(lu).getTime())/60000);
+      if(mins<=15)   return 'Conectado';
+      if(mins<=1440) return 'Desconhecido'; // até 24h = amarelo
+      return 'Desconectado';                // acima de 24h = vermelho
     }catch{}
   }
   return 'Desconhecido';
