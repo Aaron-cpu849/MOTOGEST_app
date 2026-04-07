@@ -557,34 +557,73 @@ function processarGpsManual(){
 function processarDadosGps(data){
   let updated=0;
   const matched=[], notMatched=[];
+
   for(const item of data){
     const uid=(item.uid||item.uniqueId||'').replace(/[^A-Z0-9]/g,'').toUpperCase();
     const nome=(item.nome||item.name||'').toUpperCase();
     let moto=null;
-    // 1. Tenta match por placa no uid ou nome
     for(const m of DB.motos){
       const pl=m.placa.replace(/[^A-Z0-9]/g,'').toUpperCase();
       if(uid.includes(pl)||(nome&&nome.includes(pl))){moto=m;break;}
     }
     const km=Number(item.km||item.totalDistance||0);
+
+    // Calcula status correto a partir dos dados do Rastrear System
+    const status=calcularStatusGps(item);
+    const lastUpdate=formatarDataGps(item.lastUpdate||item.fixTime||'');
+    const address=item.address||'';
+
     if(moto){
       const kmAtualizado=km>moto.odo;
       if(kmAtualizado){moto.odo=km;updated++;}
-      matched.push({item,moto,kmAtualizado});
+      // ATUALIZA o objeto GPS com dados frescos
+      GPS[moto.placa]={e:status,u:lastUpdate,end:address,km,lat:item.lat||0,lng:item.lng||0};
+      matched.push({item,moto,kmAtualizado,status});
     } else {
       notMatched.push(item);
     }
   }
+
   if(updated>0) sv('m');
+  // Salva GPS atualizado no localStorage
+  S.set('mg_gps', GPS);
 
   if(notMatched.length===0){
-    alert('✅ GPS atualizado!\n'+updated+' moto(s) com odômetro atualizado de '+data.length+' veículos.');
+    const sinc=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    alert('✅ GPS atualizado! ('+sinc+')\n'+updated+' moto(s) com odômetro novo\n'+matched.length+' motos reconhecidas\n\n🟢 Conectadas: '+matched.filter(x=>x.status==='Conectado').length+'\n🟡 Desconhecidas: '+matched.filter(x=>x.status==='Desconhecido').length+'\n🔴 Desconectadas: '+matched.filter(x=>x.status==='Desconectado').length);
     render();
     return;
   }
-
-  // Mostra painel de revisão com não-encontrados
   mostrarPainelGps(matched, notMatched, updated, data.length);
+}
+
+// Interpreta status do Rastrear System (Traccar) corretamente
+function calcularStatusGps(item){
+  const st=(item.status||'').toLowerCase();
+  // Status direto da API
+  if(st==='online') return 'Conectado';
+  if(st==='offline') return 'Desconectado';
+  // Se tem lastUpdate, calcula por tempo
+  const lu=item.lastUpdate||item.fixTime||'';
+  if(lu){
+    try{
+      const dt=new Date(lu);
+      const mins=Math.floor((Date.now()-dt.getTime())/60000);
+      if(mins<=15) return 'Conectado';
+      if(mins<=120) return 'Desconhecido';
+      return 'Desconectado';
+    }catch{}
+  }
+  return 'Desconhecido';
+}
+
+// Formata data do GPS para exibição
+function formatarDataGps(iso){
+  if(!iso) return '—';
+  try{
+    const dt=new Date(iso);
+    return dt.toLocaleDateString('pt-BR')+', '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  }catch{return iso;}
 }
 
 function mostrarPainelGps(matched, notMatched, updated, total){
@@ -795,12 +834,13 @@ async function syncGps(verbose=false){
         uid:(dev.uniqueId||'').toUpperCase(),
         km,
         status:dev.status||'',
-        lastUpdate:pos.fixTime||pos.serverTime||'',
+        lastUpdate:pos.fixTime||pos.deviceTime||'',
         address:pos.address||'',
         lat:pos.latitude||0,
-        lng:pos.longitude||0
+        lng:pos.longitude||0,
+        speed:pos.speed||0
       };
-    }).filter(x=>x.km>0);
+    }).filter(x=>x.km>0||x.status);
     processarDadosGps(gpsData);
   }catch(e){
     alert('Erro na sincronização:\n'+e.message+'\n\nO servidor pode estar bloqueando requisições externas (CORS).\nUse o bookmarklet como alternativa.');
@@ -895,7 +935,7 @@ function vDash(){
       <div class="row" style="gap:6px;flex-wrap:wrap">
         <button id="btnSyncGps" class="btn bg bs" onclick="pasteGps()">📋 Colar GPS</button>
         <button class="btn bx bs" onclick="syncGps(true)" title="Sincronizar diretamente via API (requer credenciais)">🔄 Sync Direto</button>
-        <a class="btn bx bs" href="javascript:(async()=>{try{const[posR,devR]=await Promise.all([fetch('/api/positions',{headers:{'Accept':'application/json'},credentials:'include'}),fetch('/api/devices',{headers:{'Accept':'application/json'},credentials:'include'})]);if(!posR.ok||!devR.ok){alert('Erro: verifique se está logado.');return;}const pos=await posR.json();const dev=await devR.json();const devMap={};dev.forEach(d=>{devMap[d.id]=d;});const result=pos.map(p=>{const d=devMap[p.deviceId]||{};const km=Math.round(((p.attributes&&(p.attributes.totalDistance||p.attributes.odometer))||0)/1000);return{nome:d.name||'',uid:(d.uniqueId||'').toUpperCase(),km,status:d.status||'',lastUpdate:p.fixTime||'',address:p.address||''};}).filter(x=>x.km>0);await navigator.clipboard.writeText(JSON.stringify(result));alert('✅ '+result.length+' veículos copiados!\nAgora vá ao MotoGest e clique em Colar GPS.');}catch(e){alert('Erro: '+e.message);}})();"
+        <a class="btn bx bs" href="javascript:(async()=>{try{const[posR,devR]=await Promise.all([fetch('/api/positions',{headers:{'Accept':'application/json'},credentials:'include'}),fetch('/api/devices',{headers:{'Accept':'application/json'},credentials:'include'})]);if(!posR.ok||!devR.ok){alert('Erro: verifique se está logado.');return;}const pos=await posR.json();const dev=await devR.json();const devMap={};dev.forEach(d=>{devMap[d.id]=d;});const result=pos.map(p=>{const d=devMap[p.deviceId]||{};const km=Math.round(((p.attributes&&(p.attributes.totalDistance||p.attributes.odometer))||0)/1000);return{nome:d.name||'',uid:(d.uniqueId||'').toUpperCase(),km,status:d.status||'',lastUpdate:p.fixTime||p.deviceTime||'',address:p.address||'',lat:p.latitude||0,lng:p.longitude||0,speed:p.speed||0};}).filter(x=>x.km>0||x.status);await navigator.clipboard.writeText(JSON.stringify(result));alert('✅ '+result.length+' veículos copiados!\nAgora vá ao MotoGest e clique em Colar GPS.');}catch(e){alert('Erro: '+e.message);}})();"
            title="Arraste para a barra de favoritos do navegador" style="text-decoration:none" onclick="return false" id="bmLink">🔖 Bookmarklet</a>
         <button class="btn bx bs" onclick="openGpsSettings()">⚙️ Config</button>
       </div>
@@ -4353,7 +4393,8 @@ async function parseCrlv(file,mId){
 }
 
 // ── GPS Status (atualizado 10/03/2026) ───────────────────────────────────────
-const GPS={
+// GPS: carrega do localStorage se existir, senão usa dados anteriores como fallback
+let GPS=S.get('mg_gps')||{
   "TGX0J77":{e:"Conectado",u:"10/03/2026, 21:05",end:"Estrada do Coco, Portão, Lauro de Freitas, BA"},
   "TGX1A75":{e:"Conectado",u:"10/03/2026, 21:04",end:"Estrada CIA Aeroporto, Nova Esperança, SSA, BA"},
   "TGX1F22":{e:"Conectado",u:"10/03/2026, 21:05",end:"Travessa Floréncio Correia, Liberdade, SSA, BA"},
@@ -4462,16 +4503,19 @@ function doLogin(){
   if(strToHex(v)===PWD_HASH){
     document.getElementById('loginScreen').style.display='none';
     inp.classList.remove('error');err.textContent='';
-    sessionStorage.setItem('mg_auth','1');
+    try{localStorage.setItem('mg_auth','1');}catch(e){}
+    render();
   } else {
     inp.classList.add('error');
     err.textContent='❌ Senha incorreta. Tente novamente.';
     inp.value='';inp.focus();
   }
 }
-if(sessionStorage.getItem('mg_auth')==='1'){
-  document.getElementById('loginScreen').style.display='none';
-}
+try{
+  if(localStorage.getItem('mg_auth')==='1'){
+    document.getElementById('loginScreen').style.display='none';
+  }
+}catch(e){}
 
 // ── Start ────────────────────────────────────────────────────────────────────
 function saveAll(){
