@@ -1457,33 +1457,287 @@ function dMul(id){if(confirm('Remover?')){DB.multas=DB.multas.filter(m=>m.id!==i
 
 // ── Estoque ──────────────────────────────────────────────────────────────────
 function vEst(){
-  const rows=DB.est.map(e=>{
+  const busca=document.getElementById('estBusca')?.value?.toLowerCase()||'';
+  const lista=DB.est.filter(e=>!busca||e.nome.toLowerCase().includes(busca)||e.cat?.toLowerCase().includes(busca));
+  const totalVal=DB.est.reduce((a,e)=>a+e.qtd*Number(e.custo||0),0);
+  const baixo=DB.est.filter(e=>e.qtd<=e.min);
+
+  const rows=lista.map(e=>{
     const low=e.qtd<=e.min;
-    return`<tr style="${low?'background:rgba(239,68,68,.07)':''}">
-      <td><b>${e.nome}</b></td><td>${e.un}</td>
-      <td style="color:${low?'var(--red)':'var(--txt)'};font-weight:${low?700:400}">${e.qtd}</td>
-      <td>${e.min}</td><td>${fR(e.custo)}</td>
-      <td class="row" style="gap:4px">
-        <button class="btn bg bxs" onclick="movE('${e.id}','in')">+ Entrada</button>
-        <button class="btn bx bxs" onclick="movE('${e.id}','out')">– Saída</button>
+    const pct=e.max?Math.min(100,Math.round(e.qtd/e.max*100)):null;
+    const barCor=e.qtd===0?'var(--red)':low?'var(--yel)':'var(--grn)';
+    return`<tr style="${e.qtd===0?'background:rgba(239,68,68,.07)':low?'background:rgba(234,179,8,.05)':''}">
+      <td>
+        <div style="font-weight:700">${e.nome}</div>
+        ${e.cat?`<span style="font-size:10px;color:var(--sub)">${e.cat}</span>`:''}
+      </td>
+      <td style="font-size:12px">${e.un}</td>
+      <td>
+        <div style="font-size:16px;font-weight:800;color:${barCor}">${e.qtd}</div>
+        ${pct!==null?`<div style="background:var(--bor);border-radius:3px;height:4px;width:50px;margin-top:3px"><div style="width:${pct}%;height:100%;background:${barCor};border-radius:3px"></div></div>`:''}
+      </td>
+      <td style="font-size:11px;color:var(--sub)">${e.min}</td>
+      <td style="font-size:11px;color:var(--sub)">${e.custo?fR(e.custo):'—'}</td>
+      <td style="font-size:11px;color:var(--sub)">${fR(e.qtd*Number(e.custo||0))}</td>
+      <td class="row" style="gap:3px;flex-wrap:wrap">
+        <button class="btn bg bxs" style="background:var(--grnbg);color:var(--grn);border:1px solid rgba(34,197,94,.3)" onclick="movEstModal('${e.id}','in')">+ Entrada</button>
+        <button class="btn bx bxs" onclick="movEstModal('${e.id}','out')">– Saída</button>
+        <button class="btn bx bxs" onclick="editEstItem('${e.id}')">✏️</button>
+        <button class="btn bx bxs" onclick="verMovItem('${e.id}')">📋</button>
+        <button class="btn br bxs" onclick="delEstItem('${e.id}')">✕</button>
       </td>
     </tr>`;
   }).join('');
-  return`<div class="card"><div class="ch"><span class="ct">Estoque de Peças</span></div>
+
+  return`
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+    <div class="card" style="padding:14px;text-align:center">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">ITENS CADASTRADOS</div>
+      <div style="font-size:22px;font-weight:800">${DB.est.length}</div>
+    </div>
+    <div class="card" style="padding:14px;text-align:center;border-color:${baixo.length?'rgba(234,179,8,.3)':'var(--bor)'}">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">ESTOQUE BAIXO</div>
+      <div style="font-size:22px;font-weight:800;color:${baixo.length?'var(--yel)':'var(--grn)'}">${baixo.length}</div>
+    </div>
+    <div class="card" style="padding:14px;text-align:center">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">VALOR TOTAL</div>
+      <div style="font-size:22px;font-weight:800;color:var(--acc)">${fR(totalVal)}</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ch">
+      <span class="ct">📦 Estoque de Peças</span>
+      <div class="row" style="gap:6px;flex-wrap:wrap">
+        <input id="estBusca" placeholder="🔍 Buscar..." style="width:150px" oninput="render()" value="${busca}">
+        <button class="btn ba" onclick="addEstItem()">+ Novo Item</button>
+        <button class="btn bx bs" onclick="verMovGeral()">📋 Movimentações</button>
+      </div>
+    </div>
+    ${baixo.length?`<div style="background:var(--yelbg);border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:var(--yel)">
+      ⚠️ Estoque baixo: ${baixo.map(e=>e.nome+' ('+e.qtd+')').join(', ')}
+    </div>`:''}
     <div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>Peça</th><th>Unid.</th><th>Qtd</th><th>Mín.</th><th>Custo Unit.</th><th>Movimentação</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div></div>`;
+      <thead><tr><th>Peça</th><th>Un.</th><th>Qtd</th><th>Mín.</th><th>Custo Unit.</th><th>Valor Total</th><th>Ações</th></tr></thead>
+      <tbody>${rows||'<tr><td colspan="7" class="empty">Nenhum item encontrado</td></tr>'}</tbody>
+    </table></div>
+  </div>`;
 }
-function movE(id,tipo){
+
+function addEstItem(){
+  const cats=[...new Set(DB.est.map(e=>e.cat).filter(Boolean))];
+  showM(mWrap('mEstAdd',`<div class="modal" style="max-width:460px">
+    <div class="mh"><span class="ct">+ Novo Item de Estoque</span><button class="btn bx" onclick="closeM('mEstAdd')">✕</button></div>
+    <div class="fr">
+      <div class="fg" style="flex:2"><label>Nome da Peça</label><input id="enNome" class="inp" placeholder="Ex: Óleo Motor 1L"></div>
+      <div class="fg"><label>Unidade</label>
+        <select id="enUn" class="inp">
+          <option>un</option><option>L</option><option>ml</option><option>par</option><option>kit</option><option>m</option>
+        </select>
+      </div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Categoria</label>
+        <input id="enCat" class="inp" placeholder="Ex: Lubrificantes" list="catList">
+        <datalist id="catList">${cats.map(c=>`<option>${c}</option>`).join('')}</datalist>
+      </div>
+      <div class="fg"><label>Qtd inicial</label><input type="number" id="enQtd" class="inp" value="0" min="0"></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Qtd mínima (alerta)</label><input type="number" id="enMin" class="inp" value="2" min="0"></div>
+      <div class="fg"><label>Qtd máxima</label><input type="number" id="enMax" class="inp" value="20" min="0"></div>
+    </div>
+    <div class="fg"><label>Custo unitário (R$)</label><input type="number" id="enCusto" class="inp" value="0" step="0.01"></div>
+    <div class="mact">
+      <button class="btn bx" onclick="closeM('mEstAdd')">Cancelar</button>
+      <button class="btn ba" onclick="salvarEstItem()">✓ Adicionar</button>
+    </div>
+  </div>`));
+}
+
+function salvarEstItem(){
+  const nome=document.getElementById('enNome').value.trim();
+  if(!nome){alert('Digite o nome da peça.');return;}
+  const qtd=Number(document.getElementById('enQtd').value||0);
+  const item={
+    id:uid(), nome,
+    un:document.getElementById('enUn').value,
+    cat:document.getElementById('enCat').value.trim()||'',
+    qtd,
+    min:Number(document.getElementById('enMin').value||0),
+    max:Number(document.getElementById('enMax').value||0),
+    custo:parseFloat(document.getElementById('enCusto').value||0)
+  };
+  DB.est.push(item);
+  if(qtd>0) DB.mov.push({id:uid(),eId:item.id,tipo:'in',qtd,data:tod(),obs:'Estoque inicial'});
+  sv('e');sv('mv');closeM('mEstAdd');render();
+}
+
+function editEstItem(id){
+  const e=DB.est.find(x=>x.id===id);if(!e)return;
+  const cats=[...new Set(DB.est.map(x=>x.cat).filter(Boolean))];
+  showM(mWrap('mEstEdit',`<div class="modal" style="max-width:460px">
+    <div class="mh"><span class="ct">✏️ Editar — ${e.nome}</span><button class="btn bx" onclick="closeM('mEstEdit')">✕</button></div>
+    <div class="fr">
+      <div class="fg" style="flex:2"><label>Nome</label><input id="eeNome" class="inp" value="${e.nome}"></div>
+      <div class="fg"><label>Unidade</label>
+        <select id="eeUn" class="inp">
+          ${['un','L','ml','par','kit','m'].map(u=>`<option${e.un===u?' selected':''}>${u}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Categoria</label>
+        <input id="eeCat" class="inp" value="${e.cat||''}" list="catList2">
+        <datalist id="catList2">${cats.map(c=>`<option>${c}</option>`).join('')}</datalist>
+      </div>
+      <div class="fg"><label>Qtd atual</label><input type="number" id="eeQtd" class="inp" value="${e.qtd}"></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Qtd mínima</label><input type="number" id="eeMin" class="inp" value="${e.min}"></div>
+      <div class="fg"><label>Qtd máxima</label><input type="number" id="eeMax" class="inp" value="${e.max||0}"></div>
+    </div>
+    <div class="fg"><label>Custo unitário (R$)</label><input type="number" id="eeCusto" class="inp" value="${e.custo||0}" step="0.01"></div>
+    <div class="mact">
+      <button class="btn bx" onclick="closeM('mEstEdit')">Cancelar</button>
+      <button class="btn ba" onclick="atualizarEstItem('${id}')">✓ Salvar</button>
+    </div>
+  </div>`));
+}
+
+function atualizarEstItem(id){
+  const e=DB.est.find(x=>x.id===id);if(!e)return;
+  const novaQtd=Number(document.getElementById('eeQtd').value||0);
+  const diffQtd=novaQtd-e.qtd;
+  e.nome=document.getElementById('eeNome').value.trim()||e.nome;
+  e.un=document.getElementById('eeUn').value;
+  e.cat=document.getElementById('eeCat').value.trim();
+  e.qtd=novaQtd;
+  e.min=Number(document.getElementById('eeMin').value||0);
+  e.max=Number(document.getElementById('eeMax').value||0);
+  e.custo=parseFloat(document.getElementById('eeCusto').value||0);
+  if(diffQtd!==0) DB.mov.push({id:uid(),eId:id,tipo:diffQtd>0?'in':'out',qtd:Math.abs(diffQtd),data:tod(),obs:'Ajuste manual'});
+  sv('e');sv('mv');closeM('mEstEdit');render();
+}
+
+function delEstItem(id){
   const e=DB.est.find(x=>x.id===id);
-  const q=Number(prompt(`${tipo==='in'?'Qtd entrada':'Qtd saída'} – ${e.nome}:`));
-  if(!q||isNaN(q))return;
-  if(tipo==='out'&&q>e.qtd){alert('Estoque insuficiente!');return}
-  e.qtd=tipo==='in'?e.qtd+q:e.qtd-q;
-  DB.mov.push({id:uid(),eId:id,tipo,qtd:q,data:tod()});
-  sv('est');sv('mov');render();
+  if(!confirm(`Remover "${e?.nome}" do estoque permanentemente?`))return;
+  DB.est=DB.est.filter(x=>x.id!==id);
+  sv('e');render();
 }
+
+function movEstModal(id, tipo){
+  const e=DB.est.find(x=>x.id===id);if(!e)return;
+  const cor=tipo==='in'?'var(--grn)':'var(--acc)';
+  const titulo=tipo==='in'?'📥 Entrada de Estoque':'📤 Saída de Estoque';
+  showM(mWrap('mEstMov',`<div class="modal" style="max-width:420px">
+    <div class="mh"><span class="ct">${titulo}</span><button class="btn bx" onclick="closeM('mEstMov')">✕</button></div>
+    <div style="background:var(--sur);border-radius:8px;padding:10px 14px;margin-bottom:14px">
+      <div style="font-weight:700;font-size:15px">${e.nome}</div>
+      <div style="font-size:12px;color:var(--sub)">Estoque atual: <b style="color:${cor}">${e.qtd} ${e.un}</b></div>
+    </div>
+    <div class="fg"><label>Quantidade (${e.un})</label>
+      <input type="number" id="emQtd" class="inp" value="1" min="1" style="font-size:24px;font-weight:800;text-align:center">
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Data</label><input type="date" id="emData" class="inp" value="${tod()}"></div>
+      ${tipo==='in'?`<div class="fg"><label>Custo unitário (R$)</label><input type="number" id="emCusto" class="inp" value="${e.custo||0}" step="0.01"></div>`:''}
+    </div>
+    <div class="fg"><label>Motivo / Observação</label>
+      <input id="emObs" class="inp" placeholder="${tipo==='in'?'Ex: Compra NF 123':'Ex: Uso na mota TGX0J77'}">
+    </div>
+    <div id="emAvisoEst" style="font-size:12px;margin-bottom:10px"></div>
+    <div class="mact">
+      <button class="btn bx" onclick="closeM('mEstMov')">Cancelar</button>
+      <button class="btn ba" style="background:${cor};color:#000" onclick="salvarMovEst('${id}','${tipo}')">✓ Registrar ${tipo==='in'?'Entrada':'Saída'}</button>
+    </div>
+  </div>`));
+  // Aviso de estoque baixo em saída
+  if(tipo==='out'){
+    document.getElementById('emQtd')?.addEventListener('input',function(){
+      const q=Number(this.value||0);
+      const av=document.getElementById('emAvisoEst');
+      if(!av)return;
+      if(q>e.qtd) av.innerHTML='<span style="color:var(--red)">⚠️ Qtd maior que o estoque ('+e.qtd+')</span>';
+      else if(e.qtd-q<=e.min) av.innerHTML='<span style="color:var(--yel)">⚠️ Estoque ficará em '+( e.qtd-q)+' (abaixo do mínimo)</span>';
+      else av.textContent='';
+    });
+  }
+}
+
+function salvarMovEst(id, tipo){
+  const e=DB.est.find(x=>x.id===id);if(!e)return;
+  const qtd=Number(document.getElementById('emQtd').value||0);
+  if(!qtd||qtd<1){alert('Digite uma quantidade válida.');return;}
+  if(tipo==='out'&&qtd>e.qtd){alert('Estoque insuficiente! Disponível: '+e.qtd);return;}
+  const data=document.getElementById('emData').value||tod();
+  const obs=document.getElementById('emObs').value.trim();
+  if(tipo==='in'){
+    const custo=parseFloat(document.getElementById('emCusto')?.value||e.custo||0);
+    if(custo) e.custo=custo; // atualiza custo unitário
+  }
+  e.qtd=tipo==='in'?e.qtd+qtd:e.qtd-qtd;
+  DB.mov.push({id:uid(),eId:id,tipo,qtd,data,obs,ref:tipo==='in'?'compra':'saida_manual'});
+  sv('e');sv('mv');closeM('mEstMov');render();
+  alert(`✅ ${tipo==='in'?'Entrada':'Saída'} registrada!\n${e.nome}: agora ${e.qtd} ${e.un}`);
+}
+
+function verMovItem(id){
+  const e=DB.est.find(x=>x.id===id);if(!e)return;
+  const movs=(DB.mov||[]).filter(m=>m.eId===id).sort((a,b)=>(b.data||'').localeCompare(a.data||'')).slice(0,30);
+  const totalEnt=movs.filter(m=>m.tipo==='in').reduce((a,m)=>a+m.qtd,0);
+  const totalSai=movs.filter(m=>m.tipo==='out').reduce((a,m)=>a+m.qtd,0);
+  const rows=movs.map(m=>`<tr>
+    <td>${fD(m.data)}</td>
+    <td><span style="color:${m.tipo==='in'?'var(--grn)':'var(--acc)'};font-weight:700">${m.tipo==='in'?'📥 Entrada':'📤 Saída'}</span></td>
+    <td style="font-weight:700;color:${m.tipo==='in'?'var(--grn)':'var(--acc)'}">${m.tipo==='in'?'+':'-'}${m.qtd}</td>
+    <td style="font-size:11px;color:var(--sub)">${m.obs||m.ref||'—'}</td>
+  </tr>`).join('');
+  showM(mWrap('mMovItem',`<div class="modal" style="max-width:500px">
+    <div class="mh"><span class="ct">📋 Movimentações — ${e.nome}</span><button class="btn bx" onclick="closeM('mMovItem')">✕</button></div>
+    <div style="display:flex;gap:10px;margin-bottom:14px">
+      <div style="background:var(--grnbg);border-radius:8px;padding:10px;flex:1;text-align:center">
+        <div style="font-size:10px;color:var(--sub)">ENTRADAS</div><div style="font-weight:800;color:var(--grn)">${totalEnt} ${e.un}</div>
+      </div>
+      <div style="background:rgba(249,115,22,.1);border-radius:8px;padding:10px;flex:1;text-align:center">
+        <div style="font-size:10px;color:var(--sub)">SAÍDAS</div><div style="font-weight:800;color:var(--acc)">${totalSai} ${e.un}</div>
+      </div>
+      <div style="background:var(--sur);border-radius:8px;padding:10px;flex:1;text-align:center">
+        <div style="font-size:10px;color:var(--sub)">SALDO ATUAL</div><div style="font-weight:800">${e.qtd} ${e.un}</div>
+      </div>
+    </div>
+    ${movs.length?`<div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Data</th><th>Tipo</th><th>Qtd</th><th>Motivo</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`:'<div class="empty">Nenhuma movimentação registrada</div>'}
+    <div style="text-align:right;margin-top:12px"><button class="btn bx" onclick="closeM('mMovItem')">Fechar</button></div>
+  </div>`));
+}
+
+function verMovGeral(){
+  const movs=[...DB.mov||[]].sort((a,b)=>(b.data||'').localeCompare(a.data||'')).slice(0,50);
+  const rows=movs.map(m=>{
+    const e=DB.est.find(x=>x.id===m.eId)||{nome:'?',un:'un'};
+    return`<tr>
+      <td>${fD(m.data)}</td>
+      <td style="font-weight:700">${e.nome}</td>
+      <td><span style="color:${m.tipo==='in'?'var(--grn)':'var(--acc)'};font-weight:700">${m.tipo==='in'?'📥 Entrada':'📤 Saída'}</span></td>
+      <td style="font-weight:700;color:${m.tipo==='in'?'var(--grn)':'var(--acc)'}">${m.tipo==='in'?'+':'-'}${m.qtd} ${e.un}</td>
+      <td style="font-size:11px;color:var(--sub)">${m.obs||m.ref||'—'}</td>
+    </tr>`;
+  }).join('');
+  showM(mWrap('mMovGeral',`<div class="modal" style="max-width:600px">
+    <div class="mh"><span class="ct">📋 Movimentações Gerais (últimas 50)</span><button class="btn bx" onclick="closeM('mMovGeral')">✕</button></div>
+    ${movs.length?`<div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Data</th><th>Peça</th><th>Tipo</th><th>Qtd</th><th>Motivo</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`:'<div class="empty">Nenhuma movimentação ainda</div>'}
+    <div style="text-align:right;margin-top:12px"><button class="btn bx" onclick="closeM('mMovGeral')">Fechar</button></div>
+  </div>`));
+}
+
+// backwards compat
+function movE(id,tipo){ movEstModal(id,tipo); }
 
 // ── OS ───────────────────────────────────────────────────────────────────────
 function vOs(){
@@ -2080,17 +2334,94 @@ function initFirebase(cfg){
 
 // ── Recebe intervenção da oficina — salva como PENDENTE para aprovação manual ──
 function aplicarIntervencaoAutomatico(intv){
-  // Já existe → não duplica
   if(intv.st==='confirmado') return;
-  // Garante que fica pendente aguardando aprovação
+  // Marca como pendente aguardando aprovação
   intv.st='pendente';
   sv('intv');
-  // Notificação visual no botão Firebase
   const btn=document.getElementById('fbBtn');
   const nPend=(DB.intervencoes||[]).filter(x=>x.st==='pendente').length;
   if(btn&&nPend>0){btn.textContent='🔥 '+nPend+' pendente(s)';btn.style.background='#f97316';}
-  // Atualiza render se estiver na aba oficina
   if(TAB==='oficina') render();
+}
+
+// Ao APROVAR intervenção: atualiza manutenção + baixa estoque + gera OS
+function confirmarIntervencao(id){
+  const intv=DB.intervencoes.find(x=>x.id===id);if(!intv)return;
+  const m=DB.motos.find(x=>x.id===intv.mId);
+  const km=Number(intv.km||0);
+  const servDescs=(intv.servicos||[]).map(s=>(s.desc||'').toLowerCase()).join(' ');
+  const tiposDetectados=[];
+  const mapeamento=[
+    {regex:/\bóleo\b|oleo|oil|lubrif/,tipo:'oil'},
+    {regex:/revisão|revisao|revis/,tipo:'rev'},
+    {regex:/pneu|borracha/,tipo:'pneu'},
+    {regex:/correia|corrente|kit\s*trans/,tipo:'corr'},
+    {regex:/pastilha/,tipo:'past'},
+    {regex:/vela|igni/,tipo:'vela'},
+    {regex:/filtro\s*de?\s*ar/,tipo:'filtrar'},
+    {regex:/filtro\s*de?\s*óleo|filtro\s*oleo/,tipo:'filtoleo'},
+    {regex:/escova|arranque/,tipo:'escova'},
+    {regex:/embreagem|embreia/,tipo:'embreia'},
+    {regex:/bucha|coroa/,tipo:'bucha'},
+  ];
+  // 1. Atualiza manutenção da moto
+  if(m&&km>0){
+    mapeamento.forEach(({regex,tipo})=>{
+      if(!regex.test(servDescs))return;
+      tiposDetectados.push(tipo);
+      const t=TIPOS_MNT[tipo];
+      if(t&&t.key)m[t.key]=km;
+      const jaExiste=DB.mhist.find(h=>h.mId===intv.mId&&h.tipo===tipo&&h.data===intv.data&&Math.abs(h.km-km)<=5);
+      if(!jaExiste){
+        DB.mhist.push({id:uid(),mId:intv.mId,tipo,km,
+          obs:'Oficina: '+(intv.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join(', '),
+          custo:intv.total||0,ofic:'Oficina Parceira',data:intv.data,origem:'portal'});
+      }
+    });
+    if(km>m.odo)m.odo=km;
+    sv('m');sv('mhist');
+    publicarMotosFirebase();
+  }
+  // 2. Baixa peças do estoque
+  const pecasBaixadas=[];
+  (intv.servicos||[]).forEach(s=>{
+    if(!s.peca||!s.peca.trim())return;
+    const nomePeca=s.peca.toLowerCase().trim();
+    const item=DB.est.find(e=>{
+      const n=e.nome.toLowerCase();
+      return n===nomePeca||n.includes(nomePeca)||nomePeca.includes(n.split(' ')[0]);
+    });
+    if(item){
+      const qtdBaixar=Math.min(1,item.qtd);
+      if(qtdBaixar>0){
+        item.qtd-=qtdBaixar;
+        DB.mov.push({id:uid(),eId:item.id,tipo:'out',qtd:qtdBaixar,data:intv.data||tod(),
+          obs:'Oficina: '+s.desc+' — '+(m?.placa||intv.mId),ref:'oficina',intvId:intv.id});
+        pecasBaixadas.push(item.nome+' ×'+qtdBaixar);
+      }
+    }
+  });
+  if(pecasBaixadas.length){sv('e');sv('mv');}
+  // 3. Gera OS
+  const jaTemOs=DB.os.find(o=>o.intvId===intv.id);
+  if(!jaTemOs){
+    const descObs=(km?'KM: '+fN(km)+' — ':'')+((intv.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join('; '));
+    DB.os.push({id:uid(),mId:intv.mId,data:intv.data,
+      ofic:'Oficina Parceira',pec:Number(intv.pecas||0),mao:Number(intv.mao||0),
+      nf:'',obs:descObs,st:'pendente',origem:'oficina',itens:[],intvId:intv.id,foto:intv.foto||null});
+    sv('os');
+  }
+  intv.st='confirmado';
+  sv('intv');
+  if(window._fbRef){
+    window._fbRef.child('intervencoes/'+id+'/st').set('confirmado');
+  }
+  const resumo=[]
+    .concat(tiposDetectados.length?['Manutenção: '+tiposDetectados.map(t=>TIPOS_MNT[t]?.label||t).join(', ')]:[])
+    .concat(pecasBaixadas.length?['Estoque baixado: '+pecasBaixadas.join(', ')]:[])
+    .join('\n');
+  alert('✅ Aprovado!\nTotal: '+fR(intv.total||0)+(km?'\nKM: '+fN(km)+' km':'')+(resumo?'\n\n'+resumo:''));
+  render();
 }
 function publicarMotosFirebase(){
   if(!window._fbRef)return;
