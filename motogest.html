@@ -1582,42 +1582,50 @@ if(!DB.intervencoes) DB.intervencoes=S.get('mg_intv')||[];
 function vOficina(){
   const todas=[...DB.intervencoes].sort((a,b)=>(b.data||'').localeCompare(a.data||'')||(b.ts||0)-(a.ts||0));
   const hoje2=tod();
-  const deHoje=todas.filter(i=>i.data===hoje2);
-  const anteriores=todas.filter(i=>i.data<hoje2);
-  const totalHoje=deHoje.reduce((a,i)=>a+Number(i.total||0),0);
+  const pendentes=todas.filter(i=>i.st==='pendente'||!i.st);
+  const confirmadas=todas.filter(i=>i.st==='confirmado');
+  const totalPend=pendentes.reduce((a,i)=>a+Number(i.total||0),0);
   const totalMes=todas.filter(i=>(i.data||'').startsWith(hoje2.slice(0,7))).reduce((a,i)=>a+Number(i.total||0),0);
   const fbCfg=getFbConfig();
   const fbStatus=fbCfg&&window._fbConnected
-    ?`<span style="background:var(--grnbg);color:var(--grn);border-radius:6px;padding:2px 10px;font-size:11px;font-weight:700">🔥 Online — aplicação automática ativa</span>`
+    ?`<span style="background:var(--grnbg);color:var(--grn);border-radius:6px;padding:2px 10px;font-size:11px;font-weight:700">🔥 Online</span>`
     :`<span style="background:var(--yelbg);color:var(--yel);border-radius:6px;padding:2px 10px;font-size:11px;font-weight:700">⚠️ Firebase não configurado</span>`;
 
-  function rowIntv(i){
+  function rowIntv(i, mostrarAprovar){
     const m=DB.motos.find(x=>x.id===i.mId)||{placa:'?',nome:''};
     const osGerada=DB.os.find(o=>o.intvId===i.id);
+    const stBadge=i.st==='confirmado'
+      ?`<span style="font-size:10px;color:var(--grn);font-weight:700">✓ Aprovado</span>`
+      :`<span style="font-size:10px;color:var(--yel);font-weight:700">⏳ Aguardando</span>`;
     return`<tr>
       <td>
         <div style="font-weight:700">${m.placa}</div>
         <div style="font-size:10px;color:var(--sub)">${m.nome?m.nome.split(' ').slice(0,2).join(' '):'—'}</div>
+        <div style="margin-top:2px">${stBadge}</div>
       </td>
-      <td style="font-size:11px">${(i.servicos||[]).map(s=>`• ${s.desc}${s.peca?' <span style="color:var(--sub)">('+s.peca+')</span>':''}`).join('<br>')}</td>
+      <td style="font-size:11px">${(i.servicos||[]).map(s=>`• ${s.desc}${s.peca?` <span style="color:var(--sub)">(${s.peca})</span>`:''}`).join('<br>')}</td>
       <td style="font-size:12px;font-weight:700;color:var(--blu)">${i.km?fN(i.km)+' km':'—'}</td>
       <td>${fR(i.pecas||0)}</td>
       <td>${fR(i.mao||0)}</td>
       <td style="font-weight:700;color:var(--acc)">${fR(i.total||0)}</td>
       <td>
-        ${i.foto?`<img src="${i.foto}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="window.open('${i.foto}','_blank')" title="Ver foto">`:''}
-        ${osGerada?`<span style="font-size:10px;color:var(--grn);font-weight:700;display:block">✓ OS gerada</span>`:''}
+        ${i.foto?`<img src="${i.foto}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="window.open('${i.foto}','_blank')">`:''}
+        ${osGerada?`<span style="font-size:10px;color:var(--grn);display:block">✓ OS</span>`:''}
       </td>
-      <td><button class="btn br bxs" onclick="deletarIntervencao('${i.id}')">✕</button></td>
+      <td class="row" style="gap:3px;flex-wrap:wrap">
+        ${mostrarAprovar?`<button class="btn bg bxs" onclick="confirmarIntervencao('${i.id}')" title="Aprovar e atualizar manutenção">✓ Aprovar</button>`:''}
+        <button class="btn bx bxs" onclick="editarIntervencao('${i.id}')" title="Editar">✏️</button>
+        <button class="btn br bxs" onclick="deletarIntervencao('${i.id}')" title="Excluir">✕</button>
+      </td>
     </tr>`;
   }
 
   return`
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
-    <div class="card" style="padding:14px;text-align:center">
-      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">HOJE</div>
-      <div style="font-size:24px;font-weight:800;color:var(--acc)">${deHoje.length}</div>
-      <div style="font-size:11px;color:var(--acc);margin-top:2px">${fR(totalHoje)}</div>
+    <div class="card" style="padding:14px;text-align:center;border-color:${pendentes.length?'rgba(249,115,22,.3)':'var(--bor)'}">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">AGUARDANDO APROVAÇÃO</div>
+      <div style="font-size:24px;font-weight:800;color:${pendentes.length?'var(--acc)':'var(--grn)'}">${pendentes.length}</div>
+      <div style="font-size:11px;color:var(--sub);margin-top:2px">${fR(totalPend)}</div>
     </div>
     <div class="card" style="padding:14px;text-align:center">
       <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">ESTE MÊS</div>
@@ -1634,7 +1642,7 @@ function vOficina(){
   <div class="card" style="margin-bottom:12px;background:linear-gradient(135deg,#0f172a,#1a1a2e);border-color:rgba(249,115,22,.3)">
     <div class="ch"><span class="ct" style="color:var(--acc)">📱 Portal da Oficina</span></div>
     <p style="font-size:12px;color:var(--sub);margin-bottom:10px">
-      Quando a Arilane registra um serviço no portal, <b style="color:var(--grn)">entra automaticamente aqui como realizado</b> — odômetro e histórico de manutenção atualizados na hora.
+      Arilane envia pelo portal → aparece aqui para <b style="color:var(--acc)">sua aprovação</b> → ao aprovar, manutenção e histórico são atualizados automaticamente.
     </p>
     <div class="row" style="gap:8px;flex-wrap:wrap">
       <button class="btn bg bxs" onclick="abrirPortalOficina()">🛠️ Abrir Portal</button>
@@ -1643,34 +1651,84 @@ function vOficina(){
     </div>
   </div>
 
-  ${deHoje.length?`<div class="card" style="margin-bottom:12px;border-color:rgba(249,115,22,.25)">
-    <div class="ch"><span class="ct">📋 Serviços de Hoje (${deHoje.length})</span>
-      <span style="font-size:13px;font-weight:800;color:var(--acc)">${fR(totalHoje)}</span>
+  ${pendentes.length?`<div class="card" style="margin-bottom:12px;border-color:rgba(249,115,22,.35)">
+    <div class="ch">
+      <span class="ct">⏳ Aguardando Aprovação (${pendentes.length})</span>
+      <span style="font-size:13px;font-weight:800;color:var(--acc)">${fR(totalPend)}</span>
     </div>
     <div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>Moto</th><th>Serviços</th><th>KM</th><th>Peças</th><th>M.O.</th><th>Total</th><th>Foto/OS</th><th></th></tr></thead>
-      <tbody>${deHoje.map(rowIntv).join('')}</tbody>
+      <thead><tr><th>Moto</th><th>Serviços</th><th>KM</th><th>Peças</th><th>M.O.</th><th>Total</th><th></th><th>Ações</th></tr></thead>
+      <tbody>${pendentes.map(i=>rowIntv(i,true)).join('')}</tbody>
     </table></div>
-  </div>`:'<div class="card" style="margin-bottom:12px"><div class="empty">Nenhum serviço registrado hoje</div></div>'}
+  </div>`:''}
 
   <div class="card">
-    <div class="ch"><span class="ct">🗂️ Histórico de Serviços</span>
+    <div class="ch"><span class="ct">✅ Histórico Aprovados</span>
       <input type="month" id="oficMes" value="${hoje2.slice(0,7)}" onchange="render()" style="width:140px">
     </div>
     ${(()=>{
       const mes=hoje2.slice(0,7);
-      const doMes=todas.filter(i=>(i.data||'').startsWith(mes)&&i.data!==hoje2);
-      if(!doMes.length)return'<div class="empty">Nenhum registro neste mês (além de hoje)</div>';
-      return`<div style="overflow-x:auto"><table class="tbl">
-        <thead><tr><th>Moto</th><th>Serviços</th><th>KM</th><th>Peças</th><th>M.O.</th><th>Total</th><th>Foto/OS</th><th></th></tr></thead>
-        <tbody>${doMes.map(rowIntv).join('')}</tbody>
+      const doMes=confirmadas.filter(i=>(i.data||'').startsWith(mes));
+      if(!doMes.length)return'<div class="empty">Nenhum registro aprovado neste mês</div>';
+      const totMes=doMes.reduce((a,i)=>a+Number(i.total||0),0);
+      return`<div style="font-size:12px;text-align:right;margin-bottom:8px;color:var(--grn);font-weight:700">${fR(totMes)}</div>
+      <div style="overflow-x:auto"><table class="tbl">
+        <thead><tr><th>Moto</th><th>Serviços</th><th>KM</th><th>Peças</th><th>M.O.</th><th>Total</th><th></th><th>Ações</th></tr></thead>
+        <tbody>${doMes.map(i=>rowIntv(i,false)).join('')}</tbody>
       </table></div>`;
     })()}
   </div>`;
 }
 
+function editarIntervencao(id){
+  const i=DB.intervencoes.find(x=>x.id===id);if(!i)return;
+  const m=DB.motos.find(x=>x.id===i.mId)||{placa:'?'};
+  showM(mWrap('mEditIntv',`<div class="modal" style="max-width:520px">
+    <div class="mh"><span class="ct">✏️ Editar Intervenção — ${m.placa}</span><button class="btn bx" onclick="closeM('mEditIntv')">✕</button></div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:12px">${fD(i.data)}</div>
+    <div class="fg"><label>Serviços (um por linha: descrição | peça)</label>
+      <textarea id="eiServs" rows="5" style="font-size:12px;resize:vertical">${(i.servicos||[]).map(s=>s.desc+(s.peca?'|'+s.peca:'')).join('\n')}</textarea>
+      <div style="font-size:10px;color:var(--sub);margin-top:3px">Ex: Troca de óleo|Óleo Motor</div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>KM</label><input type="number" id="eiKm" value="${i.km||0}" class="inp"></div>
+      <div class="fg"><label>Data</label><input type="date" id="eiData" value="${i.data||''}" class="inp"></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Peças (R$)</label><input type="number" id="eiPec" value="${i.pecas||0}" step="0.01" class="inp" oninput="document.getElementById('eiTotal').textContent='R$ '+(+this.value+ +document.getElementById('eiMao').value).toLocaleString('pt-BR',{minimumFractionDigits:2})"></div>
+      <div class="fg"><label>Mão de Obra (R$)</label><input type="number" id="eiMao" value="${i.mao||0}" step="0.01" class="inp" oninput="document.getElementById('eiTotal').textContent='R$ '+(+this.value+ +document.getElementById('eiPec').value).toLocaleString('pt-BR',{minimumFractionDigits:2})"></div>
+    </div>
+    <div style="background:var(--sur);border-radius:8px;padding:10px;text-align:center;margin-bottom:14px">
+      <div style="font-size:10px;color:var(--sub)">TOTAL</div>
+      <div id="eiTotal" style="font-size:24px;font-weight:800;color:var(--acc)">${fR(i.total||0)}</div>
+    </div>
+    <div class="fg"><label>Observação</label><input id="eiObs" class="inp" value="${i.obs||''}"></div>
+    <div class="mact">
+      <button class="btn bx" onclick="closeM('mEditIntv')">Cancelar</button>
+      <button class="btn ba" onclick="salvarEdicaoIntervencao('${id}')">✓ Salvar</button>
+    </div>
+  </div>`));
+}
+
+function salvarEdicaoIntervencao(id){
+  const i=DB.intervencoes.find(x=>x.id===id);if(!i)return;
+  const linhas=document.getElementById('eiServs').value.trim().split('\n').filter(Boolean);
+  i.servicos=linhas.map(l=>{const pts=l.split('|');return{desc:pts[0].trim(),peca:(pts[1]||'').trim()};});
+  i.km=Number(document.getElementById('eiKm').value)||0;
+  i.data=document.getElementById('eiData').value;
+  i.pecas=parseFloat(document.getElementById('eiPec').value)||0;
+  i.mao=parseFloat(document.getElementById('eiMao').value)||0;
+  i.total=i.pecas+i.mao;
+  i.obs=document.getElementById('eiObs').value.trim();
+  sv('intv');
+  // Sincroniza edição no Firebase
+  if(window._fbRef) window._fbRef.child('intervencoes/'+id).update({servicos:i.servicos,km:i.km,data:i.data,pecas:i.pecas,mao:i.mao,total:i.total,obs:i.obs});
+  closeM('mEditIntv');
+  render();
+}
+
 function deletarIntervencao(id){
-  if(!confirm('Remover este registro?'))return;
+  if(!confirm('Excluir este registro permanentemente?'))return;
   DB.intervencoes=DB.intervencoes.filter(x=>x.id!==id);
   sv('intv');
   if(window._fbRef)window._fbRef.child('intervencoes/'+id).remove();
@@ -2020,62 +2078,19 @@ function initFirebase(cfg){
   }catch(e){console.error('Firebase init error:',e);}
 }
 
-// ── Aplica intervenção da oficina AUTOMATICAMENTE ─────────────────────────────
+// ── Recebe intervenção da oficina — salva como PENDENTE para aprovação manual ──
 function aplicarIntervencaoAutomatico(intv){
-  // Só aplica se ainda não foi processado
+  // Já existe → não duplica
   if(intv.st==='confirmado') return;
-  const m=DB.motos.find(x=>x.id===intv.mId);
-  const km=Number(intv.km||0);
-  const servDescs=(intv.servicos||[]).map(s=>(s.desc||'').toLowerCase()).join(' ');
-  const mapeamento=[
-    {regex:/\bóleo\b|oleo|oil|lubrif/,tipo:'oil'},
-    {regex:/revisão|revisao|revis/,tipo:'rev'},
-    {regex:/pneu|borracha/,tipo:'pneu'},
-    {regex:/correia|corrente|kit\s*trans/,tipo:'corr'},
-    {regex:/pastilha/,tipo:'past'},
-    {regex:/vela|igni/,tipo:'vela'},
-    {regex:/filtro\s*de?\s*ar/,tipo:'filtrar'},
-    {regex:/filtro\s*de?\s*óleo|filtro\s*oleo/,tipo:'filtoleo'},
-    {regex:/escova|arranque/,tipo:'escova'},
-    {regex:/embreagem|embreia/,tipo:'embreia'},
-    {regex:/bucha|coroa/,tipo:'bucha'},
-    {regex:/freio|cabo\s*freio/,tipo:'freio'},
-  ];
-  // Atualiza moto e histórico
-  if(m&&km>0){
-    mapeamento.forEach(({regex,tipo})=>{
-      if(!regex.test(servDescs))return;
-      const t=TIPOS_MNT[tipo];
-      if(t&&t.key){m[t.key]=km;}
-      // Evita duplicata no histórico
-      const jaExiste=DB.mhist.find(h=>h.mId===intv.mId&&h.tipo===tipo&&h.data===intv.data&&Math.abs(h.km-km)<=5);
-      if(!jaExiste){
-        DB.mhist.push({id:uid(),mId:intv.mId,tipo,km,
-          obs:'Oficina: '+(intv.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join(', '),
-          custo:intv.total||0,ofic:'Oficina Parceira',data:intv.data,
-          origem:'portal'});
-      }
-    });
-    if(km>m.odo)m.odo=km;
-    sv('m');sv('mhist');
-    publicarMotosFirebase();
-  }
-  // Gera OS automaticamente
-  const jaTemOs=DB.os.find(o=>o.intvId===intv.id);
-  if(!jaTemOs){
-    const descObs=(km?'KM: '+fN(km)+' — ':'')+((intv.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join('; '));
-    DB.os.push({id:uid(),mId:intv.mId,data:intv.data,
-      ofic:'Oficina Parceira',pec:Number(intv.pecas||0),mao:Number(intv.mao||0),
-      nf:'',obs:descObs,st:'pendente',origem:'oficina',itens:[],intvId:intv.id,
-      foto:intv.foto||null});
-    sv('os');
-  }
-  // Marca como confirmado no Firebase
-  intv.st='confirmado';
+  // Garante que fica pendente aguardando aprovação
+  intv.st='pendente';
   sv('intv');
-  if(window._fbRef){
-    window._fbRef.child('intervencoes/'+intv.id+'/st').set('confirmado');
-  }
+  // Notificação visual no botão Firebase
+  const btn=document.getElementById('fbBtn');
+  const nPend=(DB.intervencoes||[]).filter(x=>x.st==='pendente').length;
+  if(btn&&nPend>0){btn.textContent='🔥 '+nPend+' pendente(s)';btn.style.background='#f97316';}
+  // Atualiza render se estiver na aba oficina
+  if(TAB==='oficina') render();
 }
 function publicarMotosFirebase(){
   if(!window._fbRef)return;
@@ -3292,23 +3307,143 @@ function abrirWhatsAppGrupo(dia){
 
 
 let rMes=tod().slice(0,7);
+let rModo='mes'; // 'mes' ou 'semana'
+let rSemOffset=0; // 0=semana atual, -1=anterior, etc
+
 function vRel(){
   const ativ=DB.motos.filter(m=>m.on);
+
+  // ── Modo Semana ──────────────────────────────────────────────────────────────
+  if(rModo==='semana'){
+    // Permite navegar entre semanas
+    const baseDate=new Date();baseDate.setHours(12,0,0,0);
+    baseDate.setDate(baseDate.getDate()+rSemOffset*7);
+    const ws=wS(baseDate.toISOString().split('T')[0]);
+    const we=wE(baseDate.toISOString().split('T')[0]);
+    const ehAtual=rSemOffset===0;
+
+    // Intervenções aprovadas da semana
+    const intvsem=(DB.intervencoes||[]).filter(i=>i.st==='confirmado'&&i.data>=ws&&i.data<=we);
+    // OS da oficina da semana
+    const osSem=DB.os.filter(o=>o.data>=ws&&o.data<=we&&o.origem==='oficina');
+
+    // Agrupa por moto (intervenções + OS)
+    const porMoto={};
+    intvsem.forEach(i=>{
+      if(!porMoto[i.mId])porMoto[i.mId]={intv:[],os:[],total:0,totalPec:0,totalMao:0};
+      porMoto[i.mId].intv.push(i);
+      porMoto[i.mId].total+=Number(i.total||0);
+      porMoto[i.mId].totalPec+=Number(i.pecas||0);
+      porMoto[i.mId].totalMao+=Number(i.mao||0);
+    });
+
+    // Contagem global de peças/itens da semana
+    const itensSem={};
+    intvsem.forEach(i=>{
+      (i.servicos||[]).forEach(s=>{
+        if(s.peca&&s.peca.trim()){
+          itensSem[s.peca]=(itensSem[s.peca]||0)+1;
+        }
+        // Conta também serviço sem peça nomeada
+        if(!s.peca&&s.desc){
+          const k='[Serviço] '+s.desc;
+          itensSem[k]=(itensSem[k]||0)+1;
+        }
+      });
+    });
+
+    const totSemana=intvsem.reduce((a,i)=>a+Number(i.total||0),0);
+    const totPecas=intvsem.reduce((a,i)=>a+Number(i.pecas||0),0);
+    const totMao=intvsem.reduce((a,i)=>a+Number(i.mao||0),0);
+
+    const rows=Object.entries(porMoto).sort((a,b)=>b[1].total-a[1].total).map(([mId,d])=>{
+      const m=DB.motos.find(x=>x.id===mId)||{placa:'?',nome:''};
+      // Agrupa serviços com quantidade
+      const porServ={};
+      d.intv.flatMap(i=>i.servicos||[]).forEach(s=>{
+        const k=(s.desc||'')+'|'+(s.peca||'');
+        if(!porServ[k])porServ[k]={desc:s.desc,peca:s.peca,qtd:0};
+        porServ[k].qtd++;
+      });
+      const servStr=Object.values(porServ).map(x=>
+        `<div style="font-size:11px">• ${x.desc}${x.peca?` <span style="color:var(--sub)">(${x.peca})</span>`:''}${x.qtd>1?` <b style="color:var(--acc)">×${x.qtd}</b>`:''}</div>`
+      ).join('');
+      return`<tr>
+        <td><b>${m.placa}</b><br><span style="font-size:10px;color:var(--sub)">${m.nome?m.nome.split(' ').slice(0,2).join(' '):'—'}</span></td>
+        <td>${servStr||'—'}</td>
+        <td style="font-size:11px;color:var(--sub)">${fR(d.totalPec)}</td>
+        <td style="font-size:11px;color:var(--sub)">${fR(d.totalMao)}</td>
+        <td style="font-weight:800;color:var(--red)">${fR(d.total)}</td>
+        <td><button class="btn bx bxs" onclick="verDetalhesMotoSemana('${mId}','${ws}','${we}')">🔍</button></td>
+      </tr>`;
+    }).join('');
+
+    const itensRows=Object.entries(itensSem).sort((a,b)=>b[1]-a[1]).map(([nome,qtd])=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--bor)">
+        <span style="font-size:12px">${nome}</span>
+        <b style="color:var(--acc);font-size:14px">${qtd}×</b>
+      </div>`).join('');
+
+    return`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn bx bs" onclick="rSemOffset--;render()">← Anterior</button>
+      <span style="font-size:13px;font-weight:700;color:var(--acc)">${ehAtual?'Semana Atual':fD(ws)+' – '+fD(we)}</span>
+      ${!ehAtual?`<button class="btn bx bs" onclick="rSemOffset++;render()">Próxima →</button>`:''}
+      <button class="btn bx bs" onclick="rModo='mes';rSemOffset=0;render()">📅 Ver Mês</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+      <div class="card" style="padding:14px;text-align:center;border-color:rgba(239,68,68,.2)">
+        <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">TOTAL SEMANA</div>
+        <div style="font-size:22px;font-weight:800;color:var(--red)">${fR(totSemana)}</div>
+        <div style="font-size:11px;color:var(--sub);margin-top:2px">${fD(ws)} – ${fD(we)}</div>
+      </div>
+      <div class="card" style="padding:14px;text-align:center">
+        <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">PEÇAS / M.O.</div>
+        <div style="font-size:16px;font-weight:800;color:var(--acc)">${fR(totPecas)}</div>
+        <div style="font-size:12px;color:var(--sub)">${fR(totMao)}</div>
+      </div>
+      <div class="card" style="padding:14px;text-align:center">
+        <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">SERVIÇOS / MOTOS</div>
+        <div style="font-size:22px;font-weight:800">${intvsem.length}</div>
+        <div style="font-size:11px;color:var(--sub)">${Object.keys(porMoto).length} moto(s)</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px">
+      <div class="card">
+        <div class="ch" style="margin-bottom:10px">
+          <span class="ct">🏍️ Custo por Moto</span>
+          <button class="btn ba bs" onclick="expCsvSemana('${ws}','${we}')">📥 CSV</button>
+        </div>
+        ${rows?`<div style="overflow-x:auto"><table class="tbl">
+          <thead><tr><th>Moto</th><th>Serviços</th><th>Peças</th><th>M.O.</th><th>Total</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>`:'<div class="empty">Nenhum serviço aprovado neste período</div>'}
+      </div>
+      <div class="card">
+        <div class="ch" style="margin-bottom:8px"><span class="ct">📦 Itens Utilizados</span></div>
+        ${itensRows||'<div class="empty" style="font-size:12px">Nenhum item registrado</div>'}
+        ${Object.keys(itensSem).length?`<div style="font-size:11px;color:var(--sub);margin-top:8px;text-align:right">${Object.values(itensSem).reduce((a,b)=>a+b,0)} itens no total</div>`:''}
+      </div>
+    </div>`;
+  }
+
+  // ── Modo Mês ──────────────────────────────────────────────────────────────────
   const rows=ativ.map(m=>{
     const osM=DB.os.filter(o=>o.mId===m.id&&(o.data||'').startsWith(rMes));
     const mulM=DB.multas.filter(x=>x.mId===m.id&&(x.data||'').startsWith(rMes));
     const pgM=DB.pg.filter(p=>p.mId===m.id&&(p.sem||p.data||'').slice(0,7)===rMes);
+    // Inclui intervenções aprovadas da oficina no custo
+    const intvM=(DB.intervencoes||[]).filter(i=>i.mId===m.id&&i.st==='confirmado'&&(i.data||'').startsWith(rMes));
     const cOs=osM.reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0);
     const cMu=mulM.reduce((a,x)=>a+Number(x.val||0),0);
-    const cPec=osM.reduce((a,o)=>a+Number(o.pec||0),0);
-    const cMao=osM.reduce((a,o)=>a+Number(o.mao||0),0);
-    const tot=cOs+cMu;
+    const cIntv=intvM.reduce((a,i)=>a+Number(i.total||0),0);
+    const tot=cOs+cMu; // cIntv já está nas OS (evita dupla contagem)
     const rec=pgM.reduce((a,p)=>a+(p.valor!=null?Number(p.valor):Number(m.val||0)),0);
     const lucro=rec-tot;
     const lM=DB.leit.filter(l=>l.mId===m.id&&(l.data||'').startsWith(rMes));
     const kmR=lM.length?Math.max(...lM.map(l=>l.km))-Math.min(...lM.map(l=>l.km)):0;
     const mulRep=mulM.filter(x=>x.repasse==='repassado').length;
-    return{m,placa:m.placa,nome:m.nome,cOs,cPec,cMao,cMu,tot,rec,lucro,kmR,mulRep,osQtd:osM.length,mulQtd:mulM.length};
+    return{m,placa:m.placa,nome:m.nome,cOs,cMu,cIntv,tot,rec,lucro,kmR,mulRep,osQtd:osM.length,mulQtd:mulM.length,intvQtd:intvM.length};
   }).filter(r=>r.tot>0||r.rec>0||r.kmR>0).sort((a,b)=>b.lucro-a.lucro);
 
   const totRec=rows.reduce((a,r)=>a+r.rec,0);
@@ -3334,15 +3469,51 @@ function vRel(){
     <div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">LUCRO</div><div style="font-size:22px;font-weight:800;color:${totLuc>=0?'var(--grn)':'var(--red)'}">${fR(totLuc)}</div></div>
   </div>
   <div class="card"><div class="ch">
-    <span class="ct">📊 Relatório Completo por Moto</span>
-    <div class="row">
+    <span class="ct">📊 Relatório por Moto</span>
+    <div class="row" style="gap:6px;flex-wrap:wrap">
       <input type="month" value="${rMes}" onchange="rMes=this.value;render()" style="width:150px">
+      <button class="btn bx bs" onclick="rModo='semana';rSemOffset=0;render()">📅 Ver Semana</button>
       <button class="btn ba" onclick="expCsv()">📥 CSV</button>
     </div></div>
   <div style="overflow-x:auto"><table class="tbl">
     <thead><tr><th>Moto</th><th>Receita</th><th>Custos</th><th>Lucro</th><th>Km Rod.</th><th></th></tr></thead>
     <tbody>${trs||'<tr><td colspan="6" class="empty">Nenhum dado neste mês</td></tr>'}</tbody>
   </table></div></div>`;
+}
+
+function verDetalhesMotoSemana(mId, ws, we){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const intv=(DB.intervencoes||[]).filter(i=>i.mId===mId&&i.st==='confirmado'&&i.data>=ws&&i.data<=we);
+  const tot=intv.reduce((a,i)=>a+Number(i.total||0),0);
+  const rows=intv.map(i=>`<tr>
+    <td>${fD(i.data)}</td>
+    <td style="font-size:11px">${(i.servicos||[]).map(s=>`• ${s.desc}${s.peca?' ('+s.peca+')':''}`).join('<br>')}</td>
+    <td>${fR(i.pecas||0)}</td><td>${fR(i.mao||0)}</td>
+    <td style="font-weight:700;color:var(--acc)">${fR(i.total||0)}</td>
+  </tr>`).join('');
+  showM(mWrap('mDetSem',`<div class="modal" style="max-width:560px">
+    <div class="mh"><span class="ct">🏍️ ${m.placa} — ${m.nome?m.nome.split(' ').slice(0,2).join(' '):'—'}</span><button class="btn bx" onclick="closeM('mDetSem')">✕</button></div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:12px">${fD(ws)} – ${fD(we)}</div>
+    ${intv.length?`<div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Data</th><th>Serviços</th><th>Peças</th><th>M.O.</th><th>Total</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <div style="text-align:right;margin-top:10px;font-size:15px;font-weight:800;color:var(--red)">Total: ${fR(tot)}</div>`
+    :'<div class="empty">Nenhum serviço neste período</div>'}
+    <div style="text-align:right;margin-top:12px"><button class="btn bx" onclick="closeM('mDetSem')">Fechar</button></div>
+  </div>`));
+}
+
+function expCsvSemana(ws,we){
+  const intvsem=(DB.intervencoes||[]).filter(i=>i.st==='confirmado'&&i.data>=ws&&i.data<=we);
+  const rows=intvsem.map(i=>{
+    const m=DB.motos.find(x=>x.id===i.mId)||{placa:'?',nome:''};
+    const servs=(i.servicos||[]).map(s=>s.desc+(s.peca?'('+s.peca+')':'')).join('; ');
+    return`${m.placa},"${m.nome||''}","${i.data}","${servs}",${i.pecas||0},${i.mao||0},${i.total||0}`;
+  });
+  const csv='Placa,Locatario,Data,Servicos,Pecas,MAO,Total\n'+rows.join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download=`ams_semana_${ws}.csv`;a.click();
 }
 
 function verDetalhesMoto(mId, mes){
