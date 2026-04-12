@@ -1833,6 +1833,22 @@ function dOs(id){if(confirm('Remover OS?')){DB.os=DB.os.filter(o=>o.id!==id);sv(
 // Armazena intervenções pendentes de confirmação da oficina
 if(!DB.intervencoes) DB.intervencoes=S.get('mg_intv')||[];
 
+// Tabela de preços de M.O. AMS Motos
+const TABELA_MO_AMS={
+  'Troca de óleo':5,
+  'Troca de pastilha':5,
+  'Troca de lona de freio':15,
+  'Troca de filtro de óleo':3,
+  'Troca de vela':5,
+  'Troca de corrente/kit':25,
+  'Troca de kit transmissão':25,
+  'Troca de bucha da coroa':15,
+  'Troca dos cabos':5,
+  'Serviço do bujão do óleo':30,
+  'Troca de lâmpada traseira':5,
+  'Troca de bateria':10,
+};
+
 function vOficina(){
   const todas=[...DB.intervencoes].sort((a,b)=>(b.data||'').localeCompare(a.data||'')||(b.ts||0)-(a.ts||0));
   const hoje2=tod();
@@ -1896,12 +1912,13 @@ function vOficina(){
   <div class="card" style="margin-bottom:12px;background:linear-gradient(135deg,#0f172a,#1a1a2e);border-color:rgba(249,115,22,.3)">
     <div class="ch"><span class="ct" style="color:var(--acc)">📱 Portal da Oficina</span></div>
     <p style="font-size:12px;color:var(--sub);margin-bottom:10px">
-      Arilane envia pelo portal → aparece aqui para <b style="color:var(--acc)">sua aprovação</b> → ao aprovar, manutenção e histórico são atualizados automaticamente.
+      Arilane envia pelo portal → aparece aqui para <b style="color:var(--acc)">sua aprovação</b> → ao aprovar, manutenção, estoque e histórico são atualizados automaticamente.
     </p>
     <div class="row" style="gap:8px;flex-wrap:wrap">
       <button class="btn bg bxs" onclick="abrirPortalOficina()">🛠️ Abrir Portal</button>
       <button class="btn bx bxs" onclick="navigator.clipboard.writeText(window.location.href.split('#')[0]).then(()=>alert('✅ Link copiado!'))">📋 Copiar Link</button>
       <button class="btn ba bxs" onclick="showAIntervencao()">+ Registrar manual</button>
+      <button class="btn bx bxs" onclick="verTabelaPrecos()">💰 Tabela M.O.</button>
     </div>
   </div>
 
@@ -1981,6 +1998,22 @@ function salvarEdicaoIntervencao(id){
   render();
 }
 
+function verTabelaPrecos(){
+  const rows=Object.entries(TABELA_MO_AMS).map(([serv,val])=>`
+    <tr>
+      <td style="font-size:13px">${serv}</td>
+      <td style="font-weight:800;color:var(--grn);font-size:14px">${fR(val)}</td>
+    </tr>`).join('');
+  showM(mWrap('mTabelaMO',`<div class="modal" style="max-width:400px">
+    <div class="mh"><span class="ct">💰 Tabela de Mão de Obra — AMS Motos</span><button class="btn bx" onclick="closeM('mTabelaMO')">✕</button></div>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:12px">Esses valores são preenchidos automaticamente no portal da Arilane ao usar os atalhos de serviço.</p>
+    <div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Serviço</th><th>Valor M.O.</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <div style="text-align:right;margin-top:12px"><button class="btn bx" onclick="closeM('mTabelaMO')">Fechar</button></div>
+  </div>`));
+}
 function deletarIntervencao(id){
   if(!confirm('Excluir este registro permanentemente?'))return;
   DB.intervencoes=DB.intervencoes.filter(x=>x.id!==id);
