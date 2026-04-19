@@ -945,8 +945,12 @@ function vDash(){
   // ── Troca de óleo no dashboard ────────────────────────────────────────────
   const oleoPend=ativ.filter(m=>m.nome&&m.nome.trim()&&m.odo>0&&(m.odo-m.loilKm)>=OIL);
   const oleoAlert=ativ.filter(m=>m.nome&&m.nome.trim()&&m.odo>0&&(m.odo-m.loilKm)>=(OIL*0.8)&&(m.odo-m.loilKm)<OIL);
+  const revPend=ativ.filter(m=>m.nome&&m.nome.trim()&&m.odo>0&&(m.odo-(m.lrevKm||0))>=REV);
+  const revAlert=ativ.filter(m=>m.nome&&m.nome.trim()&&m.odo>0&&(m.odo-(m.lrevKm||0))>=(REV*0.9)&&(m.odo-(m.lrevKm||0))<REV);
   if(oleoPend.length) al+=`<div style="background:rgba(249,115,22,.1);border-radius:8px;padding:10px 14px;color:var(--acc);display:flex;gap:8px;flex-wrap:wrap;align-items:center;cursor:pointer" onclick="go('odo')">🛢️ <b>${oleoPend.length} moto(s) com troca de óleo VENCIDA</b> — <span style="font-size:11px">${oleoPend.slice(0,4).map(m=>m.placa).join(', ')}${oleoPend.length>4?' e mais...':''}</span> <button class="btn bxs" style="font-size:11px;padding:3px 8px;background:#25d366;color:#fff;border:none;margin-left:auto" onclick="event.stopPropagation();waOleoBulk()">📱 Avisar todos</button></div>`;
   if(oleoAlert.length) al+=`<div style="background:var(--yelbg);border-radius:8px;padding:10px 14px;color:var(--yel);display:flex;gap:8px;align-items:center;cursor:pointer" onclick="go('odo')">🛢️ <b>${oleoAlert.length} moto(s)</b>&nbsp;próximas da troca de óleo (80%+)</div>`;
+  if(revPend.length) al+=`<div style="background:rgba(239,68,68,.12);border-radius:8px;padding:10px 14px;color:var(--red);display:flex;gap:8px;flex-wrap:wrap;align-items:center;cursor:pointer" onclick="go('mnt')">🔧 <b>${revPend.length} moto(s) com revisão geral VENCIDA</b> — <span style="font-size:11px">${revPend.slice(0,4).map(m=>m.placa+' (+'+fN(m.odo-(m.lrevKm||0)-REV)+' km)').join(', ')}${revPend.length>4?' e mais...':''}</span> <button class="btn bxs" style="font-size:11px;padding:3px 8px;background:var(--acc);color:#000;border:none;margin-left:auto" onclick="event.stopPropagation();go('agenda')">📅 Agendar</button></div>`;
+  if(revAlert.length) al+=`<div style="background:rgba(234,179,8,.1);border-radius:8px;padding:10px 14px;color:var(--yel);display:flex;gap:8px;align-items:center;cursor:pointer" onclick="go('mnt')">🔧 <b>${revAlert.length} moto(s)</b>&nbsp;próximas da revisão geral (90%+) — <span style="font-size:11px">${revAlert.slice(0,4).map(m=>m.placa).join(', ')}${revAlert.length>4?' e mais...':''}</span></div>`;
 
   // ── Inadimplência rápida para o dashboard ─────────────────────────────────
   const paidByM={};
@@ -1920,6 +1924,8 @@ function vOficina(){
       <button class="btn bx bxs" onclick="navigator.clipboard.writeText(window.location.href.split('#')[0]).then(()=>alert('✅ Link copiado!'))">📋 Copiar Link</button>
       <button class="btn ba bxs" onclick="showAIntervencao()">+ Registrar manual</button>
       <button class="btn bx bxs" onclick="verTabelaPrecos()">💰 Tabela M.O.</button>
+      <button class="btn bx bxs" onclick="exportarOficinaCSV()">📥 Exportar CSV</button>
+      <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="exportarOficinaWA()">📱 Resumo WA</button>
     </div>
   </div>
 
@@ -2021,6 +2027,88 @@ function deletarIntervencao(id){
   sv('intv');
   if(window._fbRef)window._fbRef.child('intervencoes/'+id).remove();
   render();
+}
+
+function exportarOficinaCSV(){
+  // Abre modal para selecionar período
+  const mesAtual=tod().slice(0,7);
+  const m=document.createElement('div');
+  m.id='modalExpOficina';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML=`<div class="modal" style="max-width:400px">
+    <div class="mh"><span class="ct">📥 Exportar Financeiro — Oficina</span><button class="btn bx" onclick="closeM('modalExpOficina')">✕</button></div>
+    <div class="fg"><label>Mês de referência</label><input type="month" id="expMes" value="${mesAtual}" class="inp"></div>
+    <div class="fg"><label>Status</label>
+      <select id="expSt" class="inp">
+        <option value="todos">Todos</option>
+        <option value="confirmado">Aprovados</option>
+        <option value="pendente">Pendentes</option>
+      </select>
+    </div>
+    <div class="mact">
+      <button class="btn bx" onclick="closeM('modalExpOficina')">Cancelar</button>
+      <button class="btn ba" onclick="_fazerExportCSV()">📥 Baixar CSV</button>
+    </div>
+  </div>`;
+  showM(m);
+}
+
+function _fazerExportCSV(){
+  const mes=document.getElementById('expMes')?.value||tod().slice(0,7);
+  const stFiltro=document.getElementById('expSt')?.value||'todos';
+  let lista=[...DB.intervencoes].filter(i=>(i.data||'').startsWith(mes));
+  if(stFiltro!=='todos') lista=lista.filter(i=>i.st===stFiltro);
+  lista.sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const header='Data,Placa,Serviços,Peças (R$),M.O. (R$),Total (R$),Status,Autor';
+  const rows=lista.map(i=>{
+    const m=DB.motos.find(x=>x.id===i.mId)||{placa:i.mId||'?'};
+    const servs=(i.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join(' | ');
+    const st=i.st==='confirmado'?'Aprovado':'Pendente';
+    return [i.data||'',m.placa,'"'+servs+'"',
+      Number(i.pecas||0).toFixed(2),Number(i.mao||0).toFixed(2),
+      Number(i.total||0).toFixed(2),st,i.autor||'Oficina'].join(',');
+  });
+  const csv=header+'\n'+rows.join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='oficina_'+mes+'.csv';a.click();
+  URL.revokeObjectURL(url);
+  closeM('modalExpOficina');
+}
+
+function exportarOficinaWA(){
+  const mesAtual=tod().slice(0,7);
+  const lista=DB.intervencoes.filter(i=>(i.data||'').startsWith(mesAtual));
+  const conf=lista.filter(i=>i.st==='confirmado');
+  const pend=lista.filter(i=>i.st==='pendente'||!i.st);
+  const totConf=conf.reduce((a,i)=>a+Number(i.total||0),0);
+  const totPend=pend.reduce((a,i)=>a+Number(i.total||0),0);
+  const totGeral=totConf+totPend;
+  const mesLabel=new Date(mesAtual+'-01').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  let msg=`🛠️ *Resumo Oficina — ${mesLabel.charAt(0).toUpperCase()+mesLabel.slice(1)}*\n\n`;
+  msg+=`✅ Aprovados: *${conf.length} serviço(s)* — ${fR(totConf)}\n`;
+  msg+=`⏳ Pendentes: *${pend.length} serviço(s)* — ${fR(totPend)}\n`;
+  msg+=`💰 Total Geral: *${fR(totGeral)}*\n\n`;
+  if(conf.length){
+    msg+=`*Detalhes aprovados:*\n`;
+    conf.slice(0,10).forEach(i=>{
+      const m=DB.motos.find(x=>x.id===i.mId)||{placa:i.mId||'?'};
+      const servs=(i.servicos||[]).map(s=>s.desc).join(', ');
+      msg+=`• ${fD(i.data)} — ${m.placa} — ${servs} — *${fR(i.total)}*\n`;
+    });
+    if(conf.length>10) msg+=`_...e mais ${conf.length-10} registros_\n`;
+  }
+  msg+=`\n_AMS Motos 🏍️_`;
+  showM(mWrap('mWAOficina',`<div class="modal" style="max-width:480px">
+    <div class="mh"><span class="ct">📱 Resumo da Oficina — WhatsApp</span><button class="btn bx" onclick="closeM('mWAOficina')">✕</button></div>
+    <div style="background:var(--sur);border-radius:10px;padding:14px;font-size:12px;white-space:pre-wrap;line-height:1.7;max-height:50vh;overflow-y:auto">${msg}</div>
+    <div class="row" style="gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="btn bx" onclick="navigator.clipboard.writeText(${JSON.stringify(msg)}).then(()=>alert('✅ Copiado!'))">📋 Copiar</button>
+      <button class="btn bx" onclick="closeM('mWAOficina')">Fechar</button>
+      <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="window.open('https://wa.me/?text='+encodeURIComponent(${JSON.stringify(msg)}),'_blank')">📱 Abrir WA</button>
+    </div>
+  </div>`));
 }
 
 function confirmarIntervencao(id){
@@ -2358,7 +2446,35 @@ function initFirebase(cfg){
       const intv=snap.val();if(!intv||!intv.id)return;
       if(!DB.intervencoes)DB.intervencoes=[];
       const idx=DB.intervencoes.findIndex(x=>x.id===intv.id);
-      if(idx>=0){DB.intervencoes[idx]=intv;sv('intv');}
+      if(idx>=0){
+        // Preserva status local se o Firebase ainda não confirmou
+        const stAtual=DB.intervencoes[idx].st;
+        DB.intervencoes[idx]={...intv,st:stAtual||intv.st};
+        sv('intv');
+        if(TAB==='oficina') render();
+      }
+    });
+    // Escuta alterações na agenda feitas pela oficina
+    window._fbRef.child('agenda').on('child_changed',snap=>{
+      const ag=snap.val();if(!ag||!ag.id)return;
+      if(!DB.agenda)DB.agenda=[];
+      const idx=DB.agenda.findIndex(x=>x.id===ag.id);
+      if(idx>=0){
+        DB.agenda[idx]={...DB.agenda[idx],...ag};
+        sv('agenda');
+        if(TAB==='agenda') render();
+        // Notifica se a oficina marcou como feita
+        if(ag.feitaPorOficina&&ag.st==='feito'){
+          const m=DB.motos.find(x=>x.id===ag.mId)||{placa:'?'};
+          const btn=document.getElementById('fbBtn');
+          if(btn){btn.textContent='✅ '+m.placa+' feita!';btn.style.background='#22c55e';}
+        }
+        // Notifica se a oficina editou a revisão
+        if(ag.editadaOficina){
+          const btn=document.getElementById('fbBtn');
+          if(btn){btn.textContent='✏️ Agenda editada';btn.style.background='#eab308';btn.style.color='#000';}
+        }
+      }
     });
     const btn=document.getElementById('fbBtn');
     if(btn){btn.textContent='🔥 Sync ✓';btn.style.background='#22c55e';btn.style.color='#000';}
@@ -2440,9 +2556,14 @@ function confirmarIntervencao(id){
   const jaTemOs=DB.os.find(o=>o.intvId===intv.id);
   if(!jaTemOs){
     const descObs=(km?'KM: '+fN(km)+' — ':'')+((intv.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join('; '));
-    DB.os.push({id:uid(),mId:intv.mId,data:intv.data,
+    // Monta itens estruturados com peças e descrições
+    const itensOs=(intv.servicos||[]).filter(s=>s.peca&&s.peca.trim()).map(s=>({
+      nome:s.peca,desc:s.desc,qtd:1
+    }));
+    DB.os.push({id:uid(),mId:intv.mId,data:intv.data,km:km||0,
       ofic:'Oficina Parceira',pec:Number(intv.pecas||0),mao:Number(intv.mao||0),
-      nf:'',obs:descObs,st:'pendente',origem:'oficina',itens:[],intvId:intv.id,foto:intv.foto||null});
+      nf:'',obs:descObs,st:'pendente',origem:'oficina',itens:itensOs,intvId:intv.id,
+      foto:intv.foto||null,autor:intv.autor||'Oficina'});
     sv('os');
   }
   intv.st='confirmado';
@@ -5211,7 +5332,7 @@ function salvarRepasse(id){
 })();
 
 // ── AGENDA DE REVISÕES ────────────────────────────────────────────────────────
-const HORARIOS_AGENDA=['08:00','14:00']; // apenas 2 por dia
+const HORARIOS_AGENDA=['07:00','08:00','09:00','10:00','11:00','13:00','14:00','15:00','16:00','17:00','18:00'];
 const DIAS_UTEIS=[1,2,3,4,5]; // Seg a Sex
 
 function isDiaUtil(dataStr){
@@ -5224,6 +5345,9 @@ function vagasLivresNaDia(data){
   return HORARIOS_AGENDA.filter(h=>!horariosOcupados.includes(h));
 }
 
+// Mês exibido no calendário (padrão = mês atual)
+let _agendaMes=new Date().toISOString().slice(0,7);
+
 function vAgendaTab(){
   const agenda=(DB.agenda||[]).sort((a,b)=>a.data===b.data?(a.horario||'').localeCompare(b.horario||''):a.data.localeCompare(b.data));
   const vencidas=agenda.filter(a=>a.data<tod()&&a.st!=='feito');
@@ -5231,22 +5355,46 @@ function vAgendaTab(){
   const proximas=agenda.filter(a=>a.data>tod()&&a.st!=='feito');
   const feitas=agenda.filter(a=>a.st==='feito').sort((a,b)=>b.data.localeCompare(a.data)).slice(0,15);
 
-  // Calendário semanal dos próximos 5 dias úteis
-  const calDias=[];
-  let dt=new Date();dt.setHours(12,0,0,0);
-  for(let i=0;i<14&&calDias.length<5;i++){
-    if(DIAS_UTEIS.includes(dt.getDay())){
-      const dStr=dt.toISOString().split('T')[0];
-      const vagasD=vagasLivresNaDia(dStr);
+  // Calendário mensal — todos os dias do mês selecionado
+  function buildCalMes(mesStr){
+    const [ano,mes]=mesStr.split('-').map(Number);
+    const primeiroDia=new Date(ano,mes-1,1);
+    const ultimoDia=new Date(ano,mes,0);
+    const dias=[];
+    for(let d=new Date(primeiroDia);d<=ultimoDia;d.setDate(d.getDate()+1)){
+      const dStr=d.toISOString().split('T')[0];
+      const isUtil=DIAS_UTEIS.includes(d.getDay());
       const agsD=(DB.agenda||[]).filter(a=>a.data===dStr&&a.st!=='feito');
-      calDias.push({data:dStr,label:dt.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'}),vagas:vagasD,agsD});
+      dias.push({
+        data:dStr,
+        label:d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit'}),
+        isUtil,
+        agsD
+      });
     }
-    dt.setDate(dt.getDate()+1);
+    return dias;
   }
 
-  const calHTML=calDias.map(d=>`
-    <div style="background:var(--card);border:1px solid ${d.data===tod()?'rgba(59,130,246,.4)':'var(--bor)'};border-radius:10px;padding:10px;min-width:120px">
-      <div style="font-size:11px;font-weight:700;color:${d.data===tod()?'var(--blu)':'var(--sub)'};margin-bottom:8px;text-align:center">${d.label}${d.data===tod()?' 📍':''}</div>
+  const calDias=buildCalMes(_agendaMes);
+
+  // Navegação de mês
+  const mesAnterior=new Date(_agendaMes+'-01');mesAnterior.setMonth(mesAnterior.getMonth()-1);
+  const mesSeguinte=new Date(_agendaMes+'-01');mesSeguinte.setMonth(mesSeguinte.getMonth()+1);
+  const mesAnt=mesAnterior.toISOString().slice(0,7);
+  const mesProx=mesSeguinte.toISOString().slice(0,7);
+  const mesLabel=new Date(_agendaMes+'-01').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+
+  const calHTML=calDias.map(d=>{
+    const ehHoje=d.data===tod();
+    if(!d.isUtil){
+      // Final de semana — exibe apenas o dia sem vagas
+      return`<div style="background:rgba(0,0,0,.15);border:1px solid var(--bor);border-radius:10px;padding:8px;min-width:100px;opacity:.45">
+        <div style="font-size:10px;font-weight:700;color:var(--mut);text-align:center">${d.label}</div>
+        <div style="font-size:9px;color:var(--mut);text-align:center;margin-top:4px">Fim de semana</div>
+      </div>`;
+    }
+    return`<div style="background:var(--card);border:1.5px solid ${ehHoje?'rgba(59,130,246,.5)':'var(--bor)'};border-radius:10px;padding:10px;min-width:120px">
+      <div style="font-size:11px;font-weight:700;color:${ehHoje?'var(--blu)':'var(--sub)'};margin-bottom:8px;text-align:center">${d.label}${ehHoje?' 📍':''}</div>
       ${HORARIOS_AGENDA.map(h=>{
         const ag=d.agsD.find(a=>a.horario===h);
         const m2=ag?DB.motos.find(x=>x.id===ag.mId):null;
@@ -5254,9 +5402,9 @@ function vAgendaTab(){
           title="${ag?'':`Agendar para ${h}`}">
           <div style="font-size:10px;font-weight:700;color:${ag?'var(--acc)':'var(--sub)'}">${h}</div>
           ${ag?`<div style="font-size:11px;font-weight:700">${m2?m2.placa:'?'}</div>
-            <div style="font-size:10px;color:var(--sub)">${ag.tipo||'Revisão'}</div>
-            <div style="display:flex;gap:3px;margin-top:4px">
-              <button onclick="avisarLocatarioAgenda('${ag.id}')" style="background:#25d366;color:#fff;border:none;border-radius:4px;padding:2px 6px;font-size:9px;cursor:pointer">📱WA</button>
+            <div style="font-size:10px;color:var(--sub)">${TIPOS_MNT[ag.tipo]?.label||ag.tipo||'Revisão'}</div>
+            <div style="display:flex;gap:3px;margin-top:4px;flex-wrap:wrap">
+              <button onclick="avisarLocatarioAgenda('${ag.id}')" style="background:#25d366;color:#fff;border:none;border-radius:4px;padding:2px 6px;font-size:9px;cursor:pointer">📱</button>
               <button onclick="marcarAgendaFeita('${ag.id}')" style="background:var(--grnbg);color:var(--grn);border:1px solid rgba(34,197,94,.3);border-radius:4px;padding:2px 6px;font-size:9px;cursor:pointer">✓</button>
               <button onclick="editarAgenda('${ag.id}')" style="background:var(--sur);color:var(--sub);border:1px solid var(--bor);border-radius:4px;padding:2px 6px;font-size:9px;cursor:pointer">✏️</button>
               <button onclick="deletarAgenda('${ag.id}')" style="background:var(--redbg);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:4px;padding:2px 6px;font-size:9px;cursor:pointer">✕</button>
@@ -5264,24 +5412,27 @@ function vAgendaTab(){
           :`<div style="font-size:10px;color:var(--sub)">+ Agendar</div>`}
         </div>`;
       }).join('')}
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   function cardAg(lista,titulo,corBorda){
     if(!lista.length)return'';
     const rows=lista.map(a=>{
       const m=DB.motos.find(x=>x.id===a.mId)||{placa:'?',nome:''};
       const vencida=a.data<tod()&&a.st!=='feito';
-      const ehHoje=a.data===tod();
-      const stBg=a.st==='feito'?'var(--grnbg)':vencida?'var(--redbg)':ehHoje?'var(--blubg)':'var(--sur)';
-      const stCor=a.st==='feito'?'var(--grn)':vencida?'var(--red)':ehHoje?'var(--blu)':'var(--sub)';
-      const stLabel=a.st==='feito'?'✓ Feita':vencida?'⚠️ Vencida':ehHoje?'📍 Hoje':'⏰ Agendada';
+      const ehHoje2=a.data===tod();
+      const stBg=a.st==='feito'?'var(--grnbg)':vencida?'var(--redbg)':ehHoje2?'var(--blubg)':'var(--sur)';
+      const stCor=a.st==='feito'?'var(--grn)':vencida?'var(--red)':ehHoje2?'var(--blu)':'var(--sub)';
+      const stLabel=a.st==='feito'?'✓ Feita':vencida?'⚠️ Vencida':ehHoje2?'📍 Hoje':'⏰ Agendada';
       const notifBadge=a.notifEnviada?'<span style="font-size:10px;color:var(--grn);margin-left:4px">📱✓</span>':'';
+      const oficinaBadge=a.feitaPorOficina?'<span style="font-size:10px;color:var(--grn);margin-left:4px">🛠️ feita pela oficina</span>':
+        a.editadaOficina?'<span style="font-size:10px;color:var(--yel);margin-left:4px">✏️ editada pela oficina</span>':'';
       return`<tr>
         <td style="white-space:nowrap">${fD(a.data)} <b style="color:var(--acc)">${a.horario||'—'}</b></td>
         <td><b>${m.placa}</b><br><span style="font-size:10px;color:var(--sub)">${m.nome?m.nome.split(' ').slice(0,2).join(' '):'—'}</span></td>
-        <td style="font-size:12px">${a.tipo||'—'}</td>
+        <td style="font-size:12px">${TIPOS_MNT[a.tipo]?.label||a.tipo||'—'}</td>
         <td style="font-size:11px;color:var(--sub);max-width:120px">${a.obs||'—'}</td>
-        <td><span class="badge" style="background:${stBg};color:${stCor}">${stLabel}</span>${notifBadge}</td>
+        <td><span class="badge" style="background:${stBg};color:${stCor}">${stLabel}</span>${notifBadge}${oficinaBadge}</td>
         <td class="row" style="gap:3px">
           ${a.st!=='feito'?`<button class="btn bg bxs" onclick="marcarAgendaFeita('${a.id}')">✓</button>`:''}
           <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="avisarLocatarioAgenda('${a.id}')">📱</button>
@@ -5309,13 +5460,20 @@ function vAgendaTab(){
       </div>
     </div>
     <div style="background:var(--blubg);border-radius:8px;padding:8px 14px;font-size:12px;color:var(--blu);margin-bottom:10px">
-      📌 <b>2 vagas por dia</b> — 08:00 e 14:00 · <b>Segunda a Sexta</b> apenas · Clique no horário livre para agendar
+      📌 Horários disponíveis: <b>07:00 às 18:00</b> (intervalos de 1h) · <b>Segunda a Sexta</b> (fins de semana visíveis mas sem vagas) · Clique no horário livre para agendar
     </div>
     ${vencidas.length?`<div style="background:var(--redbg);border-radius:8px;padding:8px 14px;margin-bottom:8px;font-size:12px;color:var(--red)">⚠️ <b>${vencidas.length}</b> revisão(ões) vencida(s)</div>`:''}
     ${hoje3.length?`<div style="background:var(--blubg);border-radius:8px;padding:8px 14px;margin-bottom:8px;font-size:12px;color:var(--blu)">📍 <b>${hoje3.length}</b> revisão(ões) hoje</div>`:''}
   </div>
   <div class="card" style="margin-bottom:12px">
-    <div class="ch" style="margin-bottom:12px"><span class="ct">🗓️ Próximos 5 dias úteis</span></div>
+    <div class="ch" style="margin-bottom:12px">
+      <span class="ct">🗓️ ${mesLabel.charAt(0).toUpperCase()+mesLabel.slice(1)}</span>
+      <div class="row" style="gap:4px">
+        <button class="btn bx bxs" onclick="_agendaMes='${mesAnt}';render()">‹ Anterior</button>
+        <button class="btn bx bxs" onclick="_agendaMes=new Date().toISOString().slice(0,7);render()">Hoje</button>
+        <button class="btn bx bxs" onclick="_agendaMes='${mesProx}';render()">Próximo ›</button>
+      </div>
+    </div>
     <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px">${calHTML}</div>
   </div>
   ${cardAg(vencidas,'⚠️ Vencidas','rgba(239,68,68,.3)')}
