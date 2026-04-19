@@ -1090,37 +1090,42 @@ function vMnt(){
   const ativ=DB.motos.filter(m=>m.on);
   const urgente=ativ.filter(m=>{const{u}=ms(m);return u==='ov'||u==='cr';});
   const rows=ativ.map(m=>{
-    const{ol,rl,pl,u}=ms(m);const cor=uc(u);
+    const{ol,rl,u}=ms(m);const cor=uc(u);
     const tag=u==='ov'?'VENCIDO':u==='cr'?'CRÍTICO':u==='wa'?'ATENÇÃO':'OK';
     const olC=ol<=0?'var(--red)':ol<=200?'var(--acc)':'var(--grn)';
     const rlC=rl<=0?'var(--red)':rl<=1000?'var(--acc)':'var(--grn)';
-    const plC=pl<=0?'var(--red)':pl<=1000?'var(--acc)':'var(--grn)';
     const proxOil=(m.loilKm||0)+OIL;
     const proxRev=(m.lrevKm||0)+REV;
-    const proxPneu=(m.lpneuKm||0)+PNEU;
+    // Pneus dianteiro e traseiro separados
+    const lpD=m.lpneuDKm||m.lpneuKm||0;
+    const lpT=m.lpneuTKm||m.lpneuKm||0;
     return`<tr>
       <td><b>${m.placa}</b><br><span style="font-size:10px;color:var(--sub)">${m.nome||'—'}</span></td>
       <td style="text-align:center"><b>${fN(m.odo)}</b></td>
       <td>
         <div style="font-size:11px;color:var(--sub)">Última: ${fN(m.loilKm||0)} km</div>
         <div style="font-size:12px;font-weight:700;color:${olC}">Próx: ${fN(proxOil)} km</div>
-        <div style="font-size:10px;color:${olC}">${ol<=0?'⚠️ VENCIDO '+fN(Math.abs(ol))+' km atrás':fN(ol)+' km restantes'}</div>
+        <div style="font-size:10px;color:${olC}">${ol<=0?'⚠️ VENCIDO '+fN(Math.abs(ol))+' km atrás':fN(ol)+' km rest.'}</div>
       </td>
       <td>
         <div style="font-size:11px;color:var(--sub)">Última: ${fN(m.lrevKm||0)} km</div>
         <div style="font-size:12px;font-weight:700;color:${rlC}">Próx: ${fN(proxRev)} km</div>
-        <div style="font-size:10px;color:${rlC}">${rl<=0?'⚠️ VENCIDO '+fN(Math.abs(rl))+' km atrás':fN(rl)+' km restantes'}</div>
+        <div style="font-size:10px;color:${rlC}">${rl<=0?'⚠️ VENCIDO '+fN(Math.abs(rl))+' km atrás':fN(rl)+' km rest.'}</div>
       </td>
       <td>
-        <div style="font-size:11px;color:var(--sub)">Última: ${fN(m.lpneuKm||0)} km</div>
-        <div style="font-size:12px;font-weight:700;color:${plC}">Próx: ${fN(proxPneu)} km</div>
-        <div style="font-size:10px;color:${plC}">${pl<=0?'⚠️ VENCIDO '+fN(Math.abs(pl))+' km atrás':fN(pl)+' km restantes'}</div>
+        <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:3px">Dianteiro</div>
+        <div style="font-size:11px;color:var(--sub)">${lpD?fN(lpD)+' km':'—'}</div>
+        <button class="btn bx bxs" style="font-size:10px;padding:2px 7px;margin-top:3px" onclick="editarPneu('${m.id}','D')">✏️ Edit</button>
+      </td>
+      <td>
+        <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:3px">Traseiro</div>
+        <div style="font-size:11px;color:var(--sub)">${lpT?fN(lpT)+' km':'—'}</div>
+        <button class="btn bx bxs" style="font-size:10px;padding:2px 7px;margin-top:3px" onclick="editarPneu('${m.id}','T')">✏️ Edit</button>
       </td>
       <td><span class="badge" style="background:${cor}22;color:${cor};font-weight:700">${tag}</span></td>
       <td class="row" style="gap:3px;flex-wrap:wrap">
         <button class="btn bx bs" onclick="mntModal('${m.id}','oil')" title="Troca de óleo">🛢️</button>
         <button class="btn bx bs" onclick="mntModal('${m.id}','rev')" title="Revisão geral">🔧</button>
-        <button class="btn bx bs" onclick="mntModal('${m.id}','pneu')" title="Pneu">🔵</button>
         <button class="btn bx bs" onclick="mntModal('${m.id}','corr')" title="Correia/kit">⛓️</button>
         <button class="btn bx bs" onclick="mntModal('${m.id}','past')" title="Pastilha">🔴</button>
         <button class="btn bx bs" onclick="mntModal('${m.id}','vela')" title="Vela">🔥</button>
@@ -1146,9 +1151,45 @@ function vMnt(){
     </div>
   </div>
   <div class="card"><div style="overflow-x:auto"><table class="tbl">
-    <thead><tr><th>Moto</th><th>Odo (km)</th><th>🛢 Óleo</th><th>🔧 Revisão</th><th>🔵 Pneu</th><th>Status</th><th>Ação</th></tr></thead>
+    <thead><tr><th>Moto</th><th>Odo (km)</th><th>🛢 Óleo</th><th>🔧 Revisão</th><th>🔵 Pneu Diant.</th><th>🔵 Pneu Tras.</th><th>Status</th><th>Ação</th></tr></thead>
     <tbody>${rows}</tbody>
   </table></div></div>`;
+}
+
+function editarPneu(mId, tipo){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const label=tipo==='D'?'Dianteiro':'Traseiro';
+  const key=tipo==='D'?'lpneuDKm':'lpneuTKm';
+  const valorAtual=m[key]||m.lpneuKm||0;
+  const modal=document.createElement('div');
+  modal.id='modalEditPneu';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px';
+  modal.innerHTML=`<div class="modal" style="max-width:360px">
+    <div class="mh"><span class="ct">🔵 Pneu ${label} — ${m.placa}</span><button class="btn bx" onclick="closeM('modalEditPneu')">✕</button></div>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:14px">Odômetro atual: <b style="color:var(--acc)">${fN(m.odo)} km</b></p>
+    <div class="fg"><label>KM da última troca do pneu ${label.toLowerCase()}</label>
+      <input type="number" id="pneuKmInp" class="inp" value="${valorAtual}" placeholder="Ex: 25000" inputmode="numeric">
+    </div>
+    <div class="mact">
+      <button class="btn bx" onclick="closeM('modalEditPneu')">Cancelar</button>
+      <button class="btn ba" onclick="salvarPneu('${mId}','${key}')">✓ Salvar</button>
+    </div>
+  </div>`;
+  showM(modal);
+}
+
+function salvarPneu(mId,key){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const km=Number(document.getElementById('pneuKmInp')?.value||0);
+  m[key]=km;
+  sv('m');
+  if(window._fbRef){
+    const patch={};patch[key]=km;
+    window._fbRef.child('motos_lista').once('value').then(()=>publicarMotosFirebase());
+  }
+  closeM('modalEditPneu');
+  render();
+  toast('✅ Pneu atualizado!','grn');
 }
 
 const TIPOS_MNT={
@@ -2560,10 +2601,16 @@ function confirmarIntervencao(id){
     const itensOs=(intv.servicos||[]).filter(s=>s.peca&&s.peca.trim()).map(s=>({
       nome:s.peca,desc:s.desc,qtd:1
     }));
+    // Revisão geral tem valor fixo de R$100 para a AMS, independente dos serviços realizados
+    const temRevisao=tiposDetectados.includes('rev');
+    const maoFinal=temRevisao?100:Number(intv.mao||0);
+    const pecasFinal=temRevisao?0:Number(intv.pecas||0);
+    const totalFinal=temRevisao?100:(Number(intv.pecas||0)+Number(intv.mao||0));
+    const obsRevFinal=descObs+(temRevisao?' [Revisão Geral — valor fixo R$ 100,00]':'');
     DB.os.push({id:uid(),mId:intv.mId,data:intv.data,km:km||0,
-      ofic:'Oficina Parceira',pec:Number(intv.pecas||0),mao:Number(intv.mao||0),
-      nf:'',obs:descObs,st:'pendente',origem:'oficina',itens:itensOs,intvId:intv.id,
-      foto:intv.foto||null,autor:intv.autor||'Oficina'});
+      ofic:'Oficina Parceira',pec:pecasFinal,mao:maoFinal,
+      nf:'',obs:obsRevFinal,st:'pendente',origem:'oficina',itens:itensOs,intvId:intv.id,
+      foto:intv.foto||null,autor:intv.autor||'Oficina',totalFixo:temRevisao});
     sv('os');
   }
   intv.st='confirmado';
@@ -5332,7 +5379,7 @@ function salvarRepasse(id){
 })();
 
 // ── AGENDA DE REVISÕES ────────────────────────────────────────────────────────
-const HORARIOS_AGENDA=['07:00','08:00','09:00','10:00','11:00','13:00','14:00','15:00','16:00','17:00','18:00'];
+const HORARIOS_AGENDA=['08:00','14:00']; // 2 vagas por dia: manhã e tarde
 const DIAS_UTEIS=[1,2,3,4,5]; // Seg a Sex
 
 function isDiaUtil(dataStr){
@@ -5345,8 +5392,8 @@ function vagasLivresNaDia(data){
   return HORARIOS_AGENDA.filter(h=>!horariosOcupados.includes(h));
 }
 
-// Mês exibido no calendário (padrão = mês atual)
-let _agendaMes=new Date().toISOString().slice(0,7);
+// Mês exibido no calendário (padrão = mês atual real)
+let _agendaMes=tod().slice(0,7);
 
 function vAgendaTab(){
   const agenda=(DB.agenda||[]).sort((a,b)=>a.data===b.data?(a.horario||'').localeCompare(b.horario||''):a.data.localeCompare(b.data));
@@ -5460,7 +5507,7 @@ function vAgendaTab(){
       </div>
     </div>
     <div style="background:var(--blubg);border-radius:8px;padding:8px 14px;font-size:12px;color:var(--blu);margin-bottom:10px">
-      📌 Horários disponíveis: <b>07:00 às 18:00</b> (intervalos de 1h) · <b>Segunda a Sexta</b> (fins de semana visíveis mas sem vagas) · Clique no horário livre para agendar
+      📌 <b>2 vagas por dia</b> — 08:00 e 14:00 · <b>Segunda a Sexta</b> (fins de semana visíveis mas sem vagas) · Clique no horário livre para agendar
     </div>
     ${vencidas.length?`<div style="background:var(--redbg);border-radius:8px;padding:8px 14px;margin-bottom:8px;font-size:12px;color:var(--red)">⚠️ <b>${vencidas.length}</b> revisão(ões) vencida(s)</div>`:''}
     ${hoje3.length?`<div style="background:var(--blubg);border-radius:8px;padding:8px 14px;margin-bottom:8px;font-size:12px;color:var(--blu)">📍 <b>${hoje3.length}</b> revisão(ões) hoje</div>`:''}
@@ -5497,7 +5544,7 @@ function novaAgenda(dataPre, horarioPre){
   }
   const vagasPre=vagasLivresNaDia(dataDefault);
   const horarioDefault=horarioPre||(vagasPre[0]||HORARIOS_AGENDA[0]);
-  const opts=DB.motos.filter(m=>m.on).map(m=>`<option value="${m.id}">${m.placa} — ${m.nome||'sem locatário'}</option>`).join('');
+  const opts=DB.motos.filter(m=>m.on).map(m=>`<option value="${m.id}" data-odo="${m.odo||0}">${m.placa}${m.nome?' — '+m.nome.split(' ').slice(0,2).join(' '):' — sem locatário'}${m.odo?' ('+fN(m.odo)+' km)':''}</option>`).join('');
   const TIPOS_LABEL=Object.entries(TIPOS_MNT).filter(([k])=>k!=='outro').map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');
 
   showM(mWrap('mAgN',`<div class="modal">
@@ -5506,7 +5553,13 @@ function novaAgenda(dataPre, horarioPre){
       📌 A agenda é exclusiva para <b>Revisões Gerais</b> agendadas com hora marcada (08:00 ou 14:00) · Seg–Sex · Máx 2/dia<br>
       Para outros serviços (óleo, pastilha, etc.) a Arilane registra diretamente no portal e entra automático no sistema.
     </div>
-    <div class="fg"><label>Moto</label><select id="agM">${opts}</select></div>
+    <div class="fg"><label>Moto</label>
+      <select id="agM" onchange="mostrarOdoAgenda(this)">
+        <option value="">— Selecionar —</option>
+        ${opts}
+      </select>
+      <div id="agOdoInfo" style="font-size:12px;color:var(--blu);margin-top:6px;min-height:18px"></div>
+    </div>
     <div class="fr">
       <div class="fg">
         <label>Data (dia útil)</label>
@@ -5555,6 +5608,19 @@ function atualizarVagasAgenda(){
   }
 }
 
+function mostrarOdoAgenda(sel){
+  const mId=sel.value;
+  const el=document.getElementById('agOdoInfo');
+  if(!el)return;
+  if(!mId){el.innerHTML='';return;}
+  const m=DB.motos.find(x=>x.id===mId);
+  if(!m){el.innerHTML='';return;}
+  const rl=REV-(m.odo-(m.lrevKm||0));
+  const rlC=rl<=0?'var(--red)':rl<=1000?'var(--yel)':'var(--grn)';
+  el.innerHTML=`📏 Odômetro atual: <b style="color:var(--acc)">${fN(m.odo)} km</b> &nbsp;|&nbsp;
+    🔧 Revisão: <b style="color:${rlC}">${rl<=0?'⚠️ VENCIDA '+fN(Math.abs(rl))+' km atrás':fN(rl)+' km restantes'}</b>`;
+}
+
 function salvarAgenda(){
   const mId=document.getElementById('agM').value;
   const data=document.getElementById('agD').value;
@@ -5579,10 +5645,18 @@ function salvarAgenda(){
 
 function editarAgenda(id){
   const a=DB.agenda.find(x=>x.id===id);if(!a)return;
-  const opts=DB.motos.filter(m=>m.on).map(m=>`<option value="${m.id}" ${a.mId===m.id?'selected':''}>${m.placa} — ${m.nome||'—'}</option>`).join('');
+  const mSel=DB.motos.find(x=>x.id===a.mId);
+  const rl=mSel?REV-(mSel.odo-(mSel.lrevKm||0)):null;
+  const rlC=rl===null?'var(--sub)':rl<=0?'var(--red)':rl<=1000?'var(--yel)':'var(--grn)';
+  const odoInfo=mSel?`<div style="background:var(--blubg);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--blu);margin-bottom:12px">
+    📏 Odo atual: <b style="color:var(--acc)">${fN(mSel.odo)} km</b> &nbsp;|&nbsp;
+    🔧 Revisão: <b style="color:${rlC}">${rl<=0?'⚠️ VENCIDA '+fN(Math.abs(rl))+' km atrás':fN(rl)+' km rest.'}</b>
+  </div>`:'';
+  const opts=DB.motos.filter(m=>m.on).map(m=>`<option value="${m.id}" ${a.mId===m.id?'selected':''}>${m.placa}${m.nome?' — '+m.nome.split(' ').slice(0,2).join(' '):''} (${fN(m.odo)} km)</option>`).join('');
   const TIPOS_LABEL=Object.entries(TIPOS_MNT).map(([k,v])=>`<option value="${k}" ${a.tipo===k?'selected':''}>${v.label}</option>`).join('');
   showM(mWrap('mAgE',`<div class="modal">
     <div class="mh"><span class="ct">✏️ Editar Revisão</span><button class="btn bx" onclick="closeM('mAgE')">✕</button></div>
+    ${odoInfo}
     <div class="fg"><label>Moto</label><select id="agEM">${opts}</select></div>
     <div class="fr">
       <div class="fg"><label>Data</label><input type="date" id="agED" value="${a.data}"></div>
