@@ -448,7 +448,11 @@ if(!localStorage.getItem('mg_mig_mul_20260315c')){
     localStorage.setItem('mg_mig_mul_20260315c','1');
   })();
 }
-function tod(){return new Date().toISOString().split('T')[0]}
+function tod(){
+  const d=new Date();
+  const pad=n=>String(n).padStart(2,'0');
+  return`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
 function fD(d){return d?new Date(d+'T12:00').toLocaleDateString('pt-BR'):'—'}
 function fN(n){return Number(n||0).toLocaleString('pt-BR')}
 function fR(n){return Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
@@ -506,6 +510,8 @@ let TAB='dash';
 function go(t){TAB=t;render()}
 function render(){
   document.getElementById('tabs').innerHTML=TABS.map(t=>`<button class="tab${TAB===t.id?' active':''}" onclick="go('${t.id}')">${t.label}</button>`).join('');
+  // Ao trocar de aba para longe da agenda, reseta a navegação manual
+  if(TAB!=='agenda') _agendaMesManual=false;
   const fn={dash:vDash,fin:vFin,odo:vOdo,mnt:vMnt,agenda:vAgendaTab,seg:vSeg,mul:vMul,est:vEst,os:vOs,oficina:vOficina,pag:vPag,rel:vRel,mts:vMts,loc:vLoc,ind:vInd,docs:vDocs,portal:vPortal};
   document.getElementById('content').innerHTML=fn[TAB]();
 }
@@ -5774,8 +5780,12 @@ function vagasLivresNaDia(data){
 
 // Mês exibido no calendário (padrão = mês atual real)
 let _agendaMes=tod().slice(0,7);
+let _agendaMesManual=false; // true quando usuário navegou manualmente entre meses
 
 function vAgendaTab(){
+  // Reseta para o mês atual toda vez que a aba abrir, a menos que o usuário tenha navegado
+  if(!_agendaMesManual) _agendaMes=tod().slice(0,7);
+
   const agenda=(DB.agenda||[]).sort((a,b)=>a.data===b.data?(a.horario||'').localeCompare(b.horario||''):a.data.localeCompare(b.data));
   const vencidas=agenda.filter(a=>a.data<tod()&&a.st!=='feito');
   const hoje3=agenda.filter(a=>a.data===tod()&&a.st!=='feito');
@@ -5915,9 +5925,9 @@ function vAgendaTab(){
     <div class="ch" style="margin-bottom:12px">
       <span class="ct">🗓️ ${mesLabel.charAt(0).toUpperCase()+mesLabel.slice(1)}</span>
       <div class="row" style="gap:4px">
-        <button class="btn bx bxs" onclick="_agendaMes='${mesAnt}';render()">‹ Anterior</button>
-        <button class="btn bx bxs" onclick="_agendaMes=new Date().toISOString().slice(0,7);render()">Hoje</button>
-        <button class="btn bx bxs" onclick="_agendaMes='${mesProx}';render()">Próximo ›</button>
+        <button class="btn bx bxs" onclick="_agendaMesManual=true;_agendaMes='${mesAnt}';render()">‹ Anterior</button>
+        <button class="btn bx bxs" onclick="_agendaMesManual=false;_agendaMes=tod().slice(0,7);render()">Hoje</button>
+        <button class="btn bx bxs" onclick="_agendaMesManual=true;_agendaMes='${mesProx}';render()">Próximo ›</button>
       </div>
     </div>
     <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px">${calHTML}</div>
