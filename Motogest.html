@@ -2292,55 +2292,7 @@ function exportarOficinaWA(){
   </div>`));
 }
 
-function confirmarIntervencao(id){
-  const intv=DB.intervencoes.find(x=>x.id===id);if(!intv)return;
-  const m=DB.motos.find(x=>x.id===intv.mId);
-  const km=Number(intv.km||0);
-  const servDescs=(intv.servicos||[]).map(s=>(s.desc||'').toLowerCase()).join(' ');
-  const tiposDetectados=[];
-  const mapeamento=[
-    {regex:/\bóleo\b|oleo|oil|lubrif/,tipo:'oil'},
-    {regex:/revisão|revisao|revis/,tipo:'rev'},
-    {regex:/pneu|borracha/,tipo:'pneu'},
-    {regex:/correia|corrente|kit\s*trans/,tipo:'corr'},
-    {regex:/pastilha/,tipo:'past'},
-    {regex:/vela|igni/,tipo:'vela'},
-    {regex:/filtro\s*de?\s*ar/,tipo:'filtrar'},
-    {regex:/filtro\s*de?\s*óleo|filtro\s*oleo/,tipo:'filtoleo'},
-    {regex:/escova|arranque/,tipo:'escova'},
-    {regex:/embreagem|embreia/,tipo:'embreia'},
-    {regex:/bucha|coroa/,tipo:'bucha'},
-  ];
-  if(m&&km>0){
-    mapeamento.forEach(({regex,tipo})=>{
-      if(regex.test(servDescs)){
-        tiposDetectados.push(tipo);
-        const t=TIPOS_MNT[tipo];
-        if(t&&t.key){m[t.key]=km;}
-        DB.mhist.push({id:uid(),mId:intv.mId,tipo,km,
-          obs:'Via Oficina: '+(intv.servicos||[]).map(s=>s.desc).join(', '),
-          custo:intv.total||0,ofic:'Oficina Parceira',data:intv.data});
-      }
-    });
-    if(km>m.odo)m.odo=km;
-    if(tiposDetectados.length>0){sv('m');sv('mhist');}
-    publicarMotosFirebase();
-  }
-  const descObs=(km?'KM: '+fN(km)+' — ':'')+((intv.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join('; '));
-  const novaOs={id:uid(),mId:intv.mId,data:intv.data,ofic:'Oficina Parceira',
-    pec:Number(intv.pecas||0),mao:Number(intv.mao||0),nf:'',obs:descObs,
-    st:'pendente',origem:'oficina',itens:[],intvId:id,foto:intv.foto||null};
-  DB.os.push(novaOs);
-  intv.st='confirmado';intv.osId=novaOs.id;
-  sv('os');sv('intv');
-  if(window._fbRef){
-    window._fbRef.child('intervencoes/'+id+'/st').set('confirmado');
-    window._fbRef.child('intervencoes/'+id+'/osId').set(novaOs.id);
-  }
-  const resumo=tiposDetectados.length?'\nManutenção atualizada: '+tiposDetectados.map(t=>TIPOS_MNT[t]?.label||t).join(', '):'';
-  alert('✅ OS gerada!\nTotal: '+fR(intv.total||0)+(km?'\nKM: '+fN(km)+' km':'')+resumo);
-  render();
-}
+// confirmarIntervencao está definida abaixo (versão completa com manutenção + estoque + OS)
 function rejeitarIntervencao(id){
   if(!confirm('Rejeitar esta intervenção?'))return;
   DB.intervencoes=DB.intervencoes.filter(x=>x.id!==id);
@@ -5243,12 +5195,24 @@ function svM(id){
   const novoNome=document.getElementById('emNm').value.trim();
   const nomeAnterior=m.nome||'';
   const stSel=document.getElementById('emSt')?document.getElementById('emSt').value:'';
-  // Registra histórico se locatário mudou
+  // Registra histórico se locatário mudou ou saiu
   if(nomeAnterior && nomeAnterior!==novoNome){
-    registrarHistLocatario(m.placa, nomeAnterior, m.odo, novoNome?'Substituído por '+novoNome.split(' ')[0]:'Saída');
+    // Calcula dívida de aluguel pendente
+    const dividaAluguel=calcSaldo(m.id);
+    // Calcula multas pendentes
+    const multasPend=(DB.multas||[]).filter(mu=>mu.mId===m.id&&mu.st==='p');
+    const totalMultas=multasPend.reduce((a,mu)=>a+Number(mu.val||0),0);
+    // Calcula cobranças de óleo pendentes
+    const oleosPend=(DB.cobOleo||[]).filter(c=>c.mId===m.id&&c.st!=='pago');
+    const totalOleo=oleosPend.reduce((a,c)=>a+Number(c.valor||30),0);
+    const totalDevido=dividaAluguel+totalMultas+totalOleo;
+    registrarHistLocatario(m.placa, nomeAnterior, m.odo,
+      novoNome?'Substituído por '+novoNome.split(' ')[0]:'Saída',
+      {dividaAluguel, totalMultas, totalOleo, totalDevido,
+       multasPend:multasPend.length, semanasPend:Math.round(dividaAluguel/(m.val||1)),
+       dataInicio:m.dataInicio||'', plano:m.val||0});
   }
   if(!nomeAnterior && novoNome){
-    // Novo locatário entrando — registra entrada
     setTimeout(()=>registrarHistLocatario(m.placa, novoNome, m.odo, 'Entrada'),100);
   }
   m.nome=novoNome;
@@ -5309,31 +5273,48 @@ function excluirMoto(id){
 // ── Histórico de Locatários por Moto ──────────────────────────────────────────
 if(!DB.histLoc) DB.histLoc=S.get('mg_histloc')||[];
 
-function registrarHistLocatario(placa, nome, odo, motivo){
+function registrarHistLocatario(placa, nome, odo, motivo, financeiro){
   if(!DB.histLoc) DB.histLoc=[];
-  DB.histLoc.push({id:uid(),placa,nome,odo,motivo:motivo||'',data:tod(),ts:Date.now()});
+  const reg={id:uid(),placa,nome,odo,motivo:motivo||'',data:tod(),ts:Date.now()};
+  if(financeiro){
+    reg.dividaAluguel=financeiro.dividaAluguel||0;
+    reg.totalMultas=financeiro.totalMultas||0;
+    reg.totalOleo=financeiro.totalOleo||0;
+    reg.totalDevido=financeiro.totalDevido||0;
+    reg.multasPend=financeiro.multasPend||0;
+    reg.semanasPend=financeiro.semanasPend||0;
+    reg.dataInicio=financeiro.dataInicio||'';
+    reg.plano=financeiro.plano||0;
+  }
+  DB.histLoc.push(reg);
   S.set('mg_histloc', DB.histLoc);
 }
 
 function verHistLocatario(placa){
   const hist=(DB.histLoc||[]).filter(h=>h.placa===placa).sort((a,b)=>b.ts-a.ts);
   const m=DB.motos.find(x=>x.placa===placa);
-  const rows=hist.map(h=>`<tr>
-    <td>${fD(h.data)}</td>
-    <td style="font-size:12px;font-weight:600">${h.nome}</td>
-    <td style="font-size:11px;color:var(--sub)">${h.motivo||'—'}</td>
-    <td>${fN(h.odo)} km</td>
-  </tr>`).join('');
-  showM(mWrap('mHistLoc',`<div class="modal" style="max-width:520px">
-    <div class="mh"><span class="ct">👥 Histórico de Locatários — ${placa}</span><button class="btn bx" onclick="closeM('mHistLoc')">✕</button></div>
-    ${m&&m.nome?`<div style="background:var(--grnbg);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--grn);margin-bottom:12px">🟢 Locatário atual: <b>${m.nome}</b></div>`:''}
-    ${hist.length?`<div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>Data</th><th>Locatário</th><th>Motivo</th><th>KM</th></tr></thead>
+  const rows=hist.map(h=>{
+    const temDivida=h.totalDevido>0;
+    const motivoCor=h.motivo==='Entrada'?'var(--grn)':h.motivo==='Saída'?'var(--red)':'var(--yel)';
+    return`<tr>
+      <td>${fD(h.data)}</td>
+      <td><b>${h.nome}</b></td>
+      <td style="color:${motivoCor};font-weight:700">${h.motivo}</td>
+      <td>${h.odo?fN(h.odo)+' km':'—'}</td>
+      <td>${h.dataInicio?fD(h.dataInicio)+'→'+fD(h.data):'—'}</td>
+      <td style="color:${temDivida?'var(--red)':'var(--grn)'};font-weight:700">
+        ${temDivida?fR(h.totalDevido)+' em aberto':'✓ Quitado'}
+        ${h.semanasPend>0?`<br><span style="font-size:10px;color:var(--sub)">${h.semanasPend} sem. aluguel · ${h.multasPend||0} multa(s)</span>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+  showM(mWrap('mHistLoc',`<div class="modal" style="max-width:680px">
+    <div class="mh"><span class="ct">📋 Histórico — ${placa}</span><button class="btn bx" onclick="closeM('mHistLoc')">✕</button></div>
+    ${!hist.length?'<div class="empty">Nenhum registro de locatário</div>':`
+    <div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Data</th><th>Locatário</th><th>Evento</th><th>Odo</th><th>Período</th><th>Situação Financeira</th></tr></thead>
       <tbody>${rows}</tbody>
-    </table></div>`:'<div class="empty">Nenhum histórico registrado ainda.<br><small>O histórico é salvo automaticamente quando um locatário é trocado.</small></div>'}
-    <div style="text-align:right;margin-top:12px">
-      <button class="btn bx" onclick="closeM('mHistLoc')">Fechar</button>
-    </div>
+    </table></div>`}
   </div>`));
 }
 
