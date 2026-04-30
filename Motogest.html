@@ -507,11 +507,14 @@ const TABS=[
   {id:'portal',label:'📱 Portal Locatário'},
 ];
 let TAB='dash';
-function go(t){TAB=t;render()}
+let _tabAnterior='';
+function go(t){
+  if(_tabAnterior==='agenda'&&t!=='agenda') _agendaMesManual=false;
+  _tabAnterior=t;
+  TAB=t;render();
+}
 function render(){
   document.getElementById('tabs').innerHTML=TABS.map(t=>`<button class="tab${TAB===t.id?' active':''}" onclick="go('${t.id}')">${t.label}</button>`).join('');
-  // Ao trocar de aba para longe da agenda, reseta a navegação manual
-  if(TAB!=='agenda') _agendaMesManual=false;
   const fn={dash:vDash,fin:vFin,odo:vOdo,mnt:vMnt,agenda:vAgendaTab,seg:vSeg,mul:vMul,est:vEst,os:vOs,oficina:vOficina,pag:vPag,rel:vRel,mts:vMts,loc:vLoc,ind:vInd,docs:vDocs,portal:vPortal};
   document.getElementById('content').innerHTML=fn[TAB]();
 }
@@ -2011,6 +2014,31 @@ function vOficina(){
     </div>
   </div>
 
+  <div class="card" style="margin-bottom:12px">
+    <div class="ch"><span class="ct">📢 Comunicados Rápidos</span>
+      <span style="font-size:11px;color:var(--sub)">Clique em 📋 para copiar e colar no WhatsApp</span>
+    </div>
+    ${[
+      {id:'feriado',label:'🚫 Feriado — sem atendimento',
+       texto:'🏍️ *AMS Motos — Aviso*\n\nInformamos que no feriado de amanhã *não haverá atendimento* na oficina.\n\nCaso precise de assistência com urgência, entre em contato conosco e orientaremos o melhor caminho.\n\n_AMS Motos agradece a compreensão!_ 🙏'},
+      {id:'oficina_parceira',label:'🔧 Troca pode ser feita na oficina parceira',
+       texto:'🏍️ *AMS Motos — Aviso*\n\nInformamos que a troca de serviço pode ser antecipada na nossa *oficina parceira*.\n\nSem necessidade de esperar — basta comparecer no horário combinado e a equipe já estará preparada.\n\nQualquer dúvida, estamos à disposição! 😊\n\n_AMS Motos_ 🏍️'},
+      {id:'oleo_sabado',label:'🛢️ Antecipar troca de óleo — sáb. até 12h',
+       texto:'🏍️ *AMS Motos — Aviso de Troca de Óleo*\n\nSua troca de óleo está próxima!\n\nInformamos que *aos sábados a oficina funciona somente até as 12h* e *aos domingos não há atendimento*.\n\nPedimos que *antecipe sua troca de óleo* para evitar transtornos. Entre em contato para garantir seu horário! ⏰\n\n_AMS Motos agradece a compreensão!_ 🙏'},
+      {id:'domingo_fechado',label:'❌ Domingo não funciona',
+       texto:'🏍️ *AMS Motos — Aviso*\n\nLembramos que *aos domingos a oficina não funciona*.\n\nPlaneje sua semana com antecedência para não ficar sem atendimento. Em caso de emergência, entre em contato conosco! 📲\n\n_AMS Motos_ 🏍️'},
+      {id:'cobranca_generica',label:'💰 Lembrete de pagamento semanal',
+       texto:'🏍️ *AMS Motos — Lembrete*\n\nOlá! Passando para lembrar que o vencimento do aluguel da semana está chegando.\n\nEfetue o pagamento via PIX para evitar a incidência de multa de *10%* após 2 dias de atraso.\n\nQualquer dúvida, estamos à disposição! 😊\n\n_AMS Motos_ 🏍️'},
+    ].map((c,idx)=>{
+      window['_com_'+idx]=c.texto;
+      return`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bor)">
+        <span style="font-size:13px;flex:1;font-weight:600">${c.label}</span>
+        <button class="btn bx bxs" style="white-space:nowrap" onclick="navigator.clipboard.writeText(window['_com_${idx}']).then(()=>{this.textContent='✅ Copiado!';setTimeout(()=>this.textContent='📋 Copiar',2000)}).catch(()=>prompt('Copie:',window['_com_${idx}']))">📋 Copiar</button>
+        <button class="btn bxs" style="background:#25d366;color:#fff;border:none;white-space:nowrap" onclick="window.open('https://wa.me/?text='+encodeURIComponent(window['_com_${idx}']),'_blank')">📱 WA</button>
+      </div>`;
+    }).join('')}
+  </div>
+
   ${pendentes.length?`<div class="card" style="margin-bottom:12px;border-color:rgba(249,115,22,.35)">
     <div class="ch">
       <span class="ct">⏳ Aguardando Aprovação (${pendentes.length})</span>
@@ -2035,7 +2063,6 @@ function vOficina(){
     ${(()=>{
       const mes=document.getElementById('oficMes')?.value||hoje2.slice(0,7);
       const doMes=confirmadas.filter(i=>(i.data||'').startsWith(mes));
-      // Pagamentos à oficina registrados
       const pgOficina=(DB.pgOficina||[]).filter(p=>p.mes===mes);
       const totPgOfi=pgOficina.reduce((a,p)=>a+Number(p.valor||0),0);
       const totMes=doMes.reduce((a,i)=>a+Number(i.total||0),0);
@@ -2292,7 +2319,106 @@ function exportarOficinaWA(){
   </div>`));
 }
 
-// confirmarIntervencao está definida abaixo (versão completa com manutenção + estoque + OS)
+// Ao APROVAR intervenção: atualiza manutenção + baixa estoque + gera OS
+function confirmarIntervencao(id){
+  const intv=DB.intervencoes.find(x=>x.id===id);if(!intv)return;
+  const m=DB.motos.find(x=>x.id===intv.mId);
+  // KM: usa da intervenção; se 0 ou vazio, usa odômetro atual da moto
+  const km=Number(intv.km)||Number(m?.odo)||0;
+  // Texto completo para detecção: descrições + peças + tipo principal
+  const servDescs=(intv.servicos||[]).map(s=>((s.desc||'')+' '+(s.peca||'')).toLowerCase()).join(' ');
+  const tipoIntv=(intv.tipo||'').toLowerCase();
+  const tiposDetectados=[];
+  const mapeamento=[
+    {regex:/ol[eé]o|oil|lubrif|15w|20w|10w/i,        tipo:'oil'},
+    {regex:/revis[aã]o|revisao|revis\b/i,              tipo:'rev'},
+    {regex:/pneu|borracha|matrix/i,                    tipo:'pneu'},
+    {regex:/correia|corrente|relacao|kit.*trans/i,     tipo:'corr'},
+    {regex:/pastilha|past\b/i,                         tipo:'past'},
+    {regex:/vela|igni/i,                               tipo:'vela'},
+    {regex:/filtro.*ar|ar.*filtro/i,                   tipo:'filtrar'},
+    {regex:/filtro.*ol[eé]o|ol[eé]o.*filtro/i,        tipo:'filtoleo'},
+    {regex:/escova|arranque/i,                         tipo:'escova'},
+    {regex:/embreagem|embreia|cabo.*emb/i,             tipo:'embreia'},
+    {regex:/bucha|coroa/i,                             tipo:'bucha'},
+    {regex:/freio|cabo.*fre/i,                         tipo:'freio'},
+  ];
+  // 1. Atualiza manutenção da moto
+  if(m){
+    mapeamento.forEach(({regex,tipo})=>{
+      // Detecta pelo texto completo OU pelo tipo selecionado no portal
+      if(!regex.test(servDescs) && tipoIntv!==tipo &&
+         !(intv.servicos||[]).some(s=>(s.tipo||'')=== tipo)) return;
+      if(tiposDetectados.includes(tipo)) return;
+      tiposDetectados.push(tipo);
+      const t=TIPOS_MNT[tipo];
+      // Atualiza km da última manutenção deste tipo
+      if(t&&t.key&&km>0){
+        m[t.key]=km;
+        console.log(`✅ Atualizado ${t.key} = ${km} para moto ${m.placa}`);
+      }
+      // Registra no histórico
+      const jaExiste=DB.mhist.find(h=>
+        h.mId===intv.mId&&h.tipo===tipo&&h.data===intv.data&&Math.abs((h.km||0)-(km||0))<=10);
+      if(!jaExiste){
+        DB.mhist.push({id:uid(),mId:intv.mId,tipo,km:km||0,
+          obs:'Oficina: '+(intv.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join(', '),
+          custo:intv.total||0,ofic:'Oficina Parceira',data:intv.data||tod(),origem:'portal'});
+      }
+    });
+    // Se nenhum tipo detectado mas há serviços, registra como 'outro'
+    if(tiposDetectados.length===0&&(intv.servicos||[]).length>0){
+      DB.mhist.push({id:uid(),mId:intv.mId,tipo:'outro',km:km||0,
+        obs:'Oficina: '+(intv.servicos||[]).map(s=>s.desc).join(', '),
+        custo:intv.total||0,ofic:'Oficina Parceira',data:intv.data||tod(),origem:'portal'});
+    }
+    // Atualiza odômetro se km maior
+    if(km>0&&km>(m.odo||0)) m.odo=km;
+    sv('m');sv('mhist');
+    publicarMotosFirebase();
+  }
+  // 2. Baixa peças do estoque
+  const pecasBaixadas=[];
+  (intv.servicos||[]).forEach(s=>{
+    if(!s.peca||!s.peca.trim())return;
+    const nomePeca=s.peca.toLowerCase().trim();
+    const item=DB.est.find(e=>{
+      const n=(e.nome||'').toLowerCase();
+      return n===nomePeca||n.includes(nomePeca)||nomePeca.includes(n.split(' ')[0]);
+    });
+    if(item&&item.qtd>0){
+      item.qtd-=1;
+      DB.mov.push({id:uid(),eId:item.id,tipo:'out',qtd:1,data:intv.data||tod(),
+        obs:'Oficina: '+s.desc+' — '+(m?.placa||intv.mId),ref:'oficina',intvId:intv.id});
+      pecasBaixadas.push(item.nome);
+    }
+  });
+  if(pecasBaixadas.length){sv('e');sv('mv');}
+  // 3. Gera OS
+  const jaTemOs=DB.os.find(o=>o.intvId===intv.id);
+  if(!jaTemOs){
+    const descObs=(km?'KM: '+fN(km)+' — ':'')+
+      (intv.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join('; ');
+    const itensOs=(intv.servicos||[]).filter(s=>s.peca&&s.peca.trim()).map(s=>({nome:s.peca,desc:s.desc,qtd:1}));
+    const temRevisao=tiposDetectados.includes('rev');
+    const maoFinal=temRevisao?100:Number(intv.mao||0);
+    const pecasFinal=temRevisao?0:Number(intv.pecas||0);
+    const obsRevFinal=descObs+(temRevisao?' [Revisão Geral — R$ 100,00 fixo]':'');
+    DB.os.push({id:uid(),mId:intv.mId,data:intv.data,km:km||0,
+      ofic:'Oficina Parceira',pec:pecasFinal,mao:maoFinal,
+      nf:'',obs:obsRevFinal,st:'pendente',origem:'oficina',itens:itensOs,
+      intvId:intv.id,foto:intv.foto||null,autor:intv.autor||'Oficina',totalFixo:temRevisao});
+    sv('os');
+  }
+  intv.st='confirmado';sv('intv');
+  if(window._fbRef) window._fbRef.child('intervencoes/'+id+'/st').set('confirmado');
+  const resumo=[]
+    .concat(tiposDetectados.length?['✅ Manutenção: '+tiposDetectados.map(t=>TIPOS_MNT[t]?.label||t).join(', ')]:[])
+    .concat(pecasBaixadas.length?['📦 Estoque baixado: '+pecasBaixadas.join(', ')]:[])
+    .concat(km>0?['📏 KM atualizado: '+fN(km)+'']:['⚠️ KM não informado — odômetro não atualizado']);
+  alert('✅ Aprovado!\n\n'+resumo.join('\n'));
+  render();
+}
 function rejeitarIntervencao(id){
   if(!confirm('Rejeitar esta intervenção?'))return;
   DB.intervencoes=DB.intervencoes.filter(x=>x.id!==id);
@@ -4080,15 +4206,16 @@ function gerarMsgCobranca(mId){
 function abrirWhatsApp(mId){
   const m=DB.motos.find(x=>x.id===mId);if(!m)return;
   const msg=gerarMsgCobranca(mId);
-  // Mostra prévia antes de abrir
+  // Salva a mensagem em variável global temporária para evitar bug de escape
+  window._waMsg=msg;
   showM(mWrap('mWA',`<div class="modal">
-    <div class="mh"><span class="ct">📱 Mensagem WhatsApp — ${m.nome}</span><button class="btn bx" onclick="closeM('mWA')">✕</button></div>
+    <div class="mh"><span class="ct">📱 WhatsApp — ${m.nome}</span><button class="btn bx" onclick="closeM('mWA')">✕</button></div>
     <div style="font-size:12px;color:var(--sub);margin-bottom:10px">Placa: ${m.placa} · Plano: ${fR(m.val)}</div>
-    <div style="background:var(--sur);border-radius:10px;padding:14px;font-size:13px;white-space:pre-wrap;line-height:1.6;max-height:50vh;overflow-y:auto;font-family:monospace">${msg}</div>
+    <div style="background:var(--sur);border-radius:10px;padding:14px;font-size:13px;white-space:pre-wrap;line-height:1.6;max-height:50vh;overflow-y:auto;font-family:monospace">${msg.replace(/</g,'&lt;')}</div>
     <div class="row" style="gap:8px;justify-content:flex-end;margin-top:14px">
-      <button class="btn bx" onclick="navigator.clipboard.writeText(${JSON.stringify(msg)}).then(()=>alert('✅ Copiado!'))">📋 Copiar</button>
+      <button class="btn bx" onclick="navigator.clipboard.writeText(window._waMsg).then(()=>{this.textContent='✅ Copiado!';setTimeout(()=>this.textContent='📋 Copiar',2000)}).catch(()=>prompt('Copie:',window._waMsg))">📋 Copiar</button>
       <button class="btn bx" onclick="closeM('mWA')">Fechar</button>
-      <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="window.open('https://wa.me/?text='+encodeURIComponent(${JSON.stringify(msg)}),'_blank')">📱 Abrir WhatsApp</button>
+      <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="window.open('https://wa.me/?text='+encodeURIComponent(window._waMsg),'_blank')">📱 Abrir WA</button>
     </div>
   </div>`));
 }
