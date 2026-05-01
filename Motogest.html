@@ -93,6 +93,7 @@ label{display:block;font-size:11px;color:var(--sub);margin-bottom:3px;font-weigh
     <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Manutenção Crítica</div><div class="num" style="color:var(--red)">48</div></div>
     <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Multas Pendentes</div><div class="num" style="color:var(--grn)">0</div></div>
   </div>
+  ${buildCentralAlertas()}
   <div class="card" style="margin-bottom:12px">
     <div class="ch"><span class="ct">📡 GPS / Rastreadores</span><div class="row" style="gap:6px"><button id="btnSyncGps" class="btn bg bs" onclick="pasteGps()">📋 Colar GPS</button><a class="btn bx bs" href="javascript:(async()=>{try{const[posR,devR]=await Promise.all([fetch('/api/positions',{headers:{'Accept':'application/json'},credentials:'include'}),fetch('/api/devices',{headers:{'Accept':'application/json'},credentials:'include'})]);if(!posR.ok||!devR.ok){alert('Erro: verifique se esta logado no Rastrear System.');return;}const pos=await posR.json();const dev=await devR.json();const devMap={};dev.forEach(d=>{devMap[d.id]=d;});const result=pos.map(p=>{const d=devMap[p.deviceId]||{};const km=Math.round(((p.attributes&&(p.attributes.totalDistance||p.attributes.odometer))||0)/1000);return{nome:d.name||'',uid:(d.uniqueId||'').toUpperCase(),km,status:d.status||'',lastUpdate:p.fixTime||p.deviceTime||'',address:p.address||'',lat:p.latitude||0,lng:p.longitude||0,speed:p.speed||0};}).filter(x=>x.km>0||x.status);const txt=JSON.stringify(result);await navigator.clipboard.writeText(txt);alert('OK '+result.length+' veiculos copiados! Agora clique em Colar GPS.');}catch(e){alert('Erro: '+e.message);}})();" title="⚠️ ATUALIZE: arraste este botão para favoritos novamente" style="text-decoration:none" onclick="return false" id="bmLink">🔖 Bookmarklet ⚠️NOVO</a></div><span style="font-size:11px;color:var(--sub)">atualizado 07/04/2026</span></div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
@@ -154,6 +155,7 @@ const DB={
   mov:   S.get('mg_mv')||[],
   os:    S.get('mg_os')||[],
   pg:    S.get('mg_pg')||[],
+  extras: S.get('mg_extras')||[],
   mhist: S.get('mg_mhist')||[],
   contratos: S.get('mg_ct')||[],
   caucoes:   S.get('mg_cau')||[],
@@ -167,7 +169,7 @@ const DB={
   pgOficina: S.get('mg_pgOficina')||[],
 };
 function sv(k){
-  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos',chats:'chats',solics:'solics',intv:'intervencoes',histloc:'histLoc',agenda:'agenda'};
+  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos',chats:'chats',solics:'solics',intv:'intervencoes',histloc:'histLoc',agenda:'agenda',extras:'extras'};
   const prop=map[k]||k;
   S.set('mg_'+k,DB[prop]);
 }
@@ -378,7 +380,7 @@ function wLateCalc(m, paidByMMap){
   return late;
 }
 
-function ms(m){const ol=OIL-(m.odo-(m.loilKm||0)),rl=REV-(m.odo-(m.lrevKm||0)),pl=PNEU-(m.odo-(m.lpneuKm||0)),cl=CORR-(m.odo-(m.lcorrKm||m.odo||0));const u=(ol<=0||rl<=0||pl<=0)?'ov':(ol<=100||rl<=500||pl<=500)?'cr':(ol<=200||rl<=1000||pl<=1000)?'wa':'ok';return{ol,rl,pl,cl,u}}
+function ms(m){const ol=OIL-(m.odo-(m.loilKm||0)),rl=REV-(m.odo-(m.lrevKm||0)),cl=CORR-(m.odo-(m.lcorrKm||m.odo||0));const pl=0;const u=(ol<=0||rl<=0)?'ov':(ol<=100||rl<=500)?'cr':(ol<=200||rl<=1000)?'wa':'ok';return{ol,rl,pl,cl,u}}
 function uc(u){return u==='ov'?'var(--red)':u==='cr'?'var(--acc)':u==='wa'?'var(--yel)':'var(--grn)'}
 
 // ── Router ──────────────────────────────────────────────────────────────────
@@ -801,6 +803,87 @@ async function syncGps(verbose=false){
 }
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
+
+// ── Central de Alertas ───────────────────────────────────────────────────────
+function buildCentralAlertas(){
+  const hoje=tod();
+  const ativ=DB.motos.filter(m=>m.on);
+  const alertas=[];
+
+  // 1. Intervenções pendentes da oficina
+  const pend=(DB.intervencoes||[]).filter(i=>i.st==='pendente');
+  if(pend.length) alertas.push({tipo:'oficina',cor:'var(--acc)',icon:'🛠️',
+    msg:`${pend.length} serviço(s) aguardando sua aprovação`,
+    btn:`onclick="go('oficina')"`});
+
+  // 2. Inadimplentes graves (3+ semanas)
+  const paidByM={};DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.sem);});
+  const indGraves=ativ.filter(m=>m.val>0&&m.nome&&wLateCalc(m,paidByM)>=3);
+  if(indGraves.length) alertas.push({tipo:'ind',cor:'var(--red)',icon:'🔴',
+    msg:`${indGraves.length} locatário(s) com 3+ semanas em atraso`,
+    btn:`onclick="go('ind')"`});
+
+  // 3. Óleo vencido
+  const oleovenc=ativ.filter(m=>m.odo>0&&(m.odo-(m.loilKm||0))>=OIL);
+  if(oleovenc.length) alertas.push({tipo:'oleo',cor:'var(--yel)',icon:'🛢️',
+    msg:`${oleovenc.length} moto(s) com óleo vencido`,
+    btn:`onclick="go('mnt')"`});
+
+  // 4. Revisão vencida
+  const revVenc=ativ.filter(m=>m.odo>0&&(m.odo-(m.lrevKm||0))>=REV);
+  if(revVenc.length) alertas.push({tipo:'rev',cor:'var(--yel)',icon:'🔧',
+    msg:`${revVenc.length} moto(s) com revisão vencida`,
+    btn:`onclick="go('mnt')"`});
+
+  // 5. Revisões agendadas hoje
+  const revHoje=(DB.agenda||[]).filter(a=>a.data===hoje&&a.st!=='feito');
+  if(revHoje.length) alertas.push({tipo:'agenda',cor:'var(--blu)',icon:'📅',
+    msg:`${revHoje.length} revisão(ões) agendada(s) para hoje`,
+    btn:`onclick="go('agenda')"`});
+
+  // 6. Motos paradas (sem GPS >48h) + inadimplentes
+  const agora=Date.now();
+  const gpsTs=S.get('mg_gps')||{};
+  const risco=ativ.filter(m=>{
+    const g=GPS[m.placa];
+    const semGps=g&&g.u?((agora-new Date(g.u).getTime())>172800000):false;
+    const ind=wLateCalc(m,paidByM)>=2;
+    return semGps&&ind;
+  });
+  if(risco.length) alertas.push({tipo:'risco',cor:'var(--red)',icon:'⚠️',
+    msg:`${risco.length} moto(s) SEM GPS +2d e inadimplente(s) — risco alto!`,
+    btn:`onclick="go('odo')"`});
+
+  // 7. Motos em oficina/acidente
+  const emServico=ativ.filter(m=>m.status==='oficina'||m.status==='acidente'||m.status==='sinistro');
+  if(emServico.length) alertas.push({tipo:'servico',cor:'var(--yel)',icon:'🔧',
+    msg:`${emServico.length} moto(s) em serviço/acidente: `+emServico.map(m=>m.placa).join(', '),
+    btn:`onclick="go('mts')"`});
+
+  // 8. Cobranças extras pendentes
+  const extrasPend=(DB.extras||[]).filter(e=>!e.pago);
+  if(extrasPend.length){
+    const total=extrasPend.reduce((a,e)=>a+Number(e.val||0),0);
+    alertas.push({tipo:'extras',cor:'var(--acc)',icon:'💰',
+      msg:`${extrasPend.length} cobrança(s) extra pendente(s): ${fR(total)}`,
+      btn:`onclick="go('pag')"`});
+  }
+
+  if(!alertas.length) return`<div style="background:var(--grnbg);border:1px solid rgba(34,197,94,.3);border-radius:12px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
+    <span style="font-size:20px">✅</span>
+    <span style="font-size:13px;color:var(--grn);font-weight:600">Tudo certo! Nenhum alerta no momento.</span>
+  </div>`;
+
+  return`<div class="card" style="margin-bottom:12px;border-color:rgba(239,68,68,.3)">
+    <div class="ch" style="margin-bottom:8px"><span class="ct" style="color:var(--red)">🚨 Central de Alertas (${alertas.length})</span></div>
+    ${alertas.map(a=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:6px;background:rgba(0,0,0,.15);border-left:3px solid ${a.cor};border-radius:0 8px 8px 0;cursor:pointer" ${a.btn}>
+      <span style="font-size:16px">${a.icon}</span>
+      <span style="font-size:12px;font-weight:600;color:${a.cor};flex:1">${a.msg}</span>
+      <span style="font-size:10px;color:var(--sub)">Ver →</span>
+    </div>`).join('')}
+  </div>`;
+}
+
 function vDash(){
   const gDes=Object.entries(GPS).filter(([,g])=>g.e==='Desconectado').map(([p])=>p);
   const gCon=Object.values(GPS).filter(g=>g.e==='Conectado').length;
@@ -843,6 +926,7 @@ function vDash(){
     <button class="btn bxs" style="font-size:12px" onclick="vMotoParada()">🏍️ Motos Paradas</button>
     <button class="btn bxs" style="font-size:12px" onclick="vCustoReceita()">📊 Custo vs Receita</button>
     <button class="btn bxs" style="font-size:12px" onclick="gerarRelatorioSemanal()">📄 Rel. Semanal PDF</button>
+    <button class="btn bxs" style="font-size:12px" onclick="gerarWALote()">📱 WA em Lote</button>
     <button class="btn bxs" style="font-size:12px;background:var(--blu);color:var(--fg)" onclick="openImport()">📥 Importar Extrato</button>
     <button class="btn bxs" style="font-size:12px" onclick="openGpsSettings()">📡 Config GPS</button>
   </div>`;
@@ -873,11 +957,36 @@ function vDash(){
 
   const alugadas=ativ.filter(m=>m.nome&&m.nome.trim()!=='');
   const disponiveis=ativ.filter(m=>!m.nome||m.nome.trim()==='');
+  // Meta semanal
+  const wsSem=wS(tod());
+  const pgsSem=DB.pg.filter(p=>p.sem===wsSem);
+  const recSemAtual=pgsSem.reduce((a,p)=>{const m2=DB.motos.find(x=>x.id===p.mId)||{val:0};return a+(p.valor!=null?Number(p.valor):Number(m2.val||0));},0);
+  const metaSemAtual=ativPg.reduce((a,m)=>a+Number(m.val||0),0);
+  const pctMeta=metaSemAtual>0?Math.min(100,Math.round(recSemAtual/metaSemAtual*100)):0;
+  const metaCor=pctMeta>=80?'var(--grn)':pctMeta>=50?'var(--yel)':'var(--acc)';
+  const emServico=ativ.filter(m=>m.status==='oficina'||m.status==='acidente'||m.status==='sinistro');
   return _btnsAcao+`<div class="g4" style="margin-bottom:12px">
     ${sc('Total de Motos',ativ.length,'var(--acc)')}
     ${sc('🟢 Alugadas',alugadas.length,'var(--grn)',Math.round(alugadas.length/ativ.length*100||0)+'% da frota')}
     ${sc('🔵 Disponíveis',disponiveis.length,'var(--blu)',Math.round(disponiveis.length/ativ.length*100||0)+'% da frota')}
-    ${sc('Manutenção Crítica',ma.length,ma.length?'var(--red)':'var(--grn)')}
+    ${emServico.length?sc('🔧 Em Serviço',emServico.length,'var(--yel)',emServico.map(m=>m.placa).join(', ')):sc('Manutenção Crítica',ma.length,ma.length?'var(--red)':'var(--grn)')}
+  </div>
+  <div class="card" style="margin-bottom:12px;border-color:${metaCor}">
+    <div class="ch" style="margin-bottom:8px">
+      <span class="ct">🎯 Meta Semanal — ${fD(wsSem)}</span>
+      <span style="font-size:13px;font-weight:800;color:${metaCor}">${pctMeta}%</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--sub);margin-bottom:6px">
+      <span>Recebido: <b style="color:var(--grn)">${fR(recSemAtual)}</b></span>
+      <span>${pgsSem.length} de ${ativPg.length} pagamentos</span>
+      <span>Meta: <b>${fR(metaSemAtual)}</b></span>
+    </div>
+    <div style="background:var(--bor);border-radius:6px;height:14px;overflow:hidden">
+      <div style="width:${pctMeta}%;height:100%;background:${metaCor};border-radius:6px;transition:width .5s;display:flex;align-items:center;justify-content:flex-end;padding-right:6px">
+        ${pctMeta>=15?`<span style="font-size:9px;font-weight:800;color:#000">${pctMeta}%</span>`:''}
+      </div>
+    </div>
+    ${metaSemAtual-recSemAtual>0?`<div style="font-size:11px;color:var(--sub);margin-top:6px">Faltam <b style="color:${metaCor}">${fR(metaSemAtual-recSemAtual)}</b> para atingir a meta</div>`:'<div style="font-size:11px;color:var(--grn);margin-top:6px">✅ Meta atingida!</div>'}
   </div>
   <div class="g4" style="margin-bottom:12px">
     ${sc('Leituras Hoje',lh.length+' / '+ativ.length,'var(--grn)')}
@@ -1340,6 +1449,14 @@ function sOil(id){saveMnt(id,'oil')}
 function sRev(id){saveMnt(id,'rev')}
 
 // ── Seguros ──────────────────────────────────────────────────────────────────
+// ─────────────── Caução: total retido ───────────────
+function totalCaucaoRetido(){
+  return DB.caucoes.filter(c=>c.status==='retido').reduce((a,c)=>a+Number(c.val||0),0);
+}
+function totalCaucaoQtd(){
+  return DB.caucoes.filter(c=>c.status==='retido').length;
+}
+
 function vSeg(){
   const rows=DB.seg.map(s=>{
     const m=DB.motos.find(x=>x.id===s.mId);
@@ -1353,6 +1470,9 @@ function vSeg(){
       <td><button class="btn br bxs" onclick="dSeg('${s.id}')">✕</button></td>
     </tr>`;
   }).join('');
+  const caucaoRet=DB.caucoes.filter(c=>c.status==='retido');
+  const caucaoRetVal=caucaoRet.reduce((a,c)=>a+Number(c.val||0),0);
+  const caucaoRet30=caucaoRet.filter(c=>{try{const d=new Date(c.data);return(Date.now()-d)>2592000000;}catch{return false;}});
   return`<div class="card"><div class="ch"><span class="ct">Seguros</span>
     <button class="btn ba" onclick="showASeg()">+ Novo Seguro</button></div>
     <div style="overflow-x:auto"><table class="tbl">
@@ -1835,6 +1955,22 @@ const TABELA_MO_AMS={
   'Lavagem':18,
 };
 
+
+function aprovarTodasPendentes(){
+  const pend=(DB.intervencoes||[]).filter(i=>i.st==='pendente');
+  if(!pend.length){alert('Nenhuma intervenção pendente.');return;}
+  // Mostra resumo antes de aprovar
+  const resumo=pend.map(i=>{
+    const m=DB.motos.find(x=>x.id===i.mId)||{placa:'?'};
+    return`• ${m.placa} — ${(i.servicos||[]).map(s=>s.desc).join(', ')} — ${fR(i.total||0)}`;
+  }).join('\n');
+  const total=pend.reduce((a,i)=>a+Number(i.total||0),0);
+  if(!confirm(`Aprovar ${pend.length} intervenção(ões)?\n\nTotal: ${fR(total)}\n\n${resumo}`))return;
+  let aprovadas=0,erros=0;
+  pend.forEach(i=>{try{confirmarIntervencao(i.id);aprovadas++;}catch(e){erros++;console.warn('Erro',i.id,e);}});
+  alert(`✅ ${aprovadas} aprovada(s)!${erros?'\n⚠️ '+erros+' com erro (veja console)':''}`);
+  render();
+}
 function vOficina(){
   const todas=[...DB.intervencoes].sort((a,b)=>(b.data||'').localeCompare(a.data||'')||(b.ts||0)-(a.ts||0));
   const hoje2=tod();
@@ -1903,7 +2039,7 @@ function vOficina(){
     <div class="row" style="gap:8px;flex-wrap:wrap">
       <button class="btn bg bxs" onclick="abrirPortalOficina()">🛠️ Abrir Portal</button>
       <button class="btn bx bxs" onclick="navigator.clipboard.writeText(window.location.href.split('#')[0]).then(()=>alert('✅ Link copiado!'))">📋 Copiar Link</button>
-      <button class="btn ba bxs" onclick="showAIntervencao()">+ Registrar manual</button>
+      <button class="btn bx bxs" onclick="aprovarTodasPendentes()">✓ Aprovar Todas</button><button class="btn ba bxs" onclick="showAIntervencao()">+ Registrar manual</button>
       <button class="btn bx bxs" onclick="verTabelaPrecos()">💰 Tabela M.O.</button>
       <button class="btn bx bxs" onclick="exportarOficinaCSV()">📥 Exportar CSV</button>
       <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="exportarOficinaWA()">📱 Resumo WA</button>
@@ -2221,6 +2357,24 @@ function confirmarIntervencao(id){
   const m=DB.motos.find(x=>x.id===intv.mId);
   // KM: usa da intervenção; se 0 ou vazio, usa odômetro atual da moto
   const km=Number(intv.km)||Number(m?.odo)||0;
+  // ── Proteção anti-duplicata ──────────────────────────────────────────────
+  const servsNovos=(intv.servicos||[]).map(s=>(s.desc||'').toLowerCase().trim());
+  const duplicata=DB.intervencoes.find(x=>
+    x.id!==id && x.mId===intv.mId && x.st==='confirmado' &&
+    Math.abs(Number(x.km||0)-km)<=5 && km>0 &&
+    (x.servicos||[]).some(s=>servsNovos.includes((s.desc||'').toLowerCase().trim()))
+  );
+  if(duplicata){
+    const continuar=confirm(
+      '⚠️ POSSÍVEL DUPLICATA DETECTADA!\n\n'+
+      'Já existe um serviço aprovado para esta moto com km similar:\n'+
+      '• KM aprovado: '+(duplicata.km||'?')+'\n'+
+      '• Serviços: '+(duplicata.servicos||[]).map(s=>s.desc).join(', ')+'\n'+
+      '• Data: '+(duplicata.data||'?')+'\n\n'+
+      'Deseja aprovar mesmo assim?'
+    );
+    if(!continuar)return;
+  }
   // Texto completo para detecção: descrições + peças + tipo principal
   const servDescs=(intv.servicos||[]).map(s=>((s.desc||'')+' '+(s.peca||'')).toLowerCase()).join(' ');
   const tipoIntv=(intv.tipo||'').toLowerCase();
@@ -2721,7 +2875,8 @@ function exportSemanaCSV(ws,we,lbl){
         p&&p.pagoPor?p.pagoPor:(m.nome||'—'),
         status, p&&p.obs?p.obs:'—'
       ].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(';');
-      csv+=linha+'\n';
+      csv+=linha+'\
+';
     });
   });
 
@@ -2852,7 +3007,8 @@ function exportHistorico(){
         p.data?fD(p.data):'—',
         p.obs||'—'
       ].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(';');
-      csv+=linha+'\n';
+      csv+=linha+'\
+';
     });
   });
 
@@ -2891,11 +3047,11 @@ function vPag(){
         <td style="font-size:12px"><div>${m.nome||'—'}</div>${pagoPor}</td>
         <td style="font-size:12px">${fR(m.val)}</td>
         <td style="font-size:12px">${p?`${fR(valPago)}${diffStr}`:'—'}</td>
-        <td style="font-size:12px">${saldo>0?`<span style="color:var(--red);font-weight:700">${fR(saldo)}</span><button class="btn br bxs" style="font-size:9px;padding:1px 5px;margin-left:4px" onclick="ajustarSaldo('${m.id}')">✏️</button>`:'<span style="color:var(--grn)">—</span>'}</td>
+        <td style="font-size:12px">${(()=>{const ext=(DB.extras||[]).filter(e=>e.mId===m.id&&!e.pago);return saldo>0||ext.length?`<span style="color:var(--red);font-weight:700">${fR(saldo)}</span>${ext.length?`<span style="font-size:9px;color:var(--acc);margin-left:3px">+${ext.length}extra</span>`:''}${saldo>0?`<button class="btn br bxs" style="font-size:9px;padding:1px 5px;margin-left:4px" onclick="ajustarSaldo('${m.id}')">✏️</button>`:''}${ext.length?`<button class="btn bx bxs" style="font-size:9px;padding:1px 5px;margin-left:2px" onclick="verExtras('${m.id}')">📋</button>`:''}` :'<span style="color:var(--grn)">—</span>';})()}</td>
         <td><span style="font-size:11px;display:flex;align-items:center;color:${semCor};font-weight:700">${semLabel}</span></td>
         <td class="row" style="gap:4px">${p
           ?`<button class="btn bx bxs" title="Editar" onclick="openPgModal('${m.id}','${ws}')">✏️</button><button class="btn bx bxs" title="Alterar pagador" onclick="openPagadorModal('${m.id}','${ws}')">👤</button><button class="btn br bxs" title="Desfazer" onclick="uPg('${m.id}','${ws}')">✕</button>`
-          :`<button class="btn bg bxs" onclick="sPg('${m.id}','${ws}')">✓ Pagar</button>`
+          :`<button class="btn bg bxs" onclick="sPg('${m.id}','${ws}')">✓ Pagar</button><button class="btn bx bxs" title="Adicionar cobrança extra" onclick="addCobrancaExtra('${m.id}')">+💰</button>`
         }</td>
       </tr>`;
     }).join('');
@@ -3059,6 +3215,26 @@ function savePgFromModal(mId){
   sv('pg');closeM('mPgM');render();
 }
 
+function verExtras(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const ext=(DB.extras||[]).filter(e=>e.mId===mId).sort((a,b)=>b.criado.localeCompare(a.criado));
+  const rows=ext.map(e=>`<tr style="${e.pago?'opacity:.5':''}">
+    <td>${fD(e.data)}</td>
+    <td style="font-size:12px">${e.desc}</td>
+    <td style="font-weight:700;color:${e.pago?'var(--grn)':'var(--red)'}">${fR(e.val)}</td>
+    <td>${e.pago?`<span style="font-size:10px;color:var(--grn)">✓ Quitado ${fD(e.pago_em)}</span>`:`<div class="row" style="gap:3px"><button class="btn bg bxs" style="font-size:10px;padding:2px 7px" onclick="quitarCobrancaExtra('${e.id}')">✓ Quitar</button><button class="btn br bxs" style="font-size:10px;padding:2px 7px" onclick="excluirCobrancaExtra('${e.id}')">🗑️</button></div>`}</td>
+  </tr>`).join('');
+  const totalPend=ext.filter(e=>!e.pago).reduce((a,e)=>a+Number(e.val||0),0);
+  showM(mWrap('mExtras',`<div class="modal" style="max-width:560px">
+    <div class="mh"><span class="ct">💰 Cobranças Extras — ${m.placa}</span><button class="btn bx" onclick="closeM('mExtras')">✕</button></div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:10px">${m.nome||'—'} · Pendente: <b style="color:var(--red)">${fR(totalPend)}</b></div>
+    ${ext.length?`<table class="tbl"><thead><tr><th>Data</th><th>Descrição</th><th>Valor</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>`:'<div class="empty">Nenhuma cobrança extra</div>'}
+    <div class="mact">
+      <button class="btn ba" onclick="closeM('mExtras');addCobrancaExtra('${mId}')">+ Nova Cobrança</button>
+      <button class="btn bx" onclick="closeM('mExtras')">Fechar</button>
+    </div>
+  </div>`));
+}
 function ajustarSaldo(mId){
   const m=DB.motos.find(x=>x.id===mId);if(!m)return;
   const saldo=calcSaldo(mId);
@@ -3092,7 +3268,45 @@ function calcSaldo(mId){
   const pgs=DB.pg.filter(p=>p.mId===mId);
   const totalPago=pgs.reduce((a,p)=>a+(p.valor!=null?Number(p.valor):Number(m.val)),0);
   const semanas=pgs.length;
-  return Math.max(0,(semanas*Number(m.val))-totalPago);
+  const baseSaldo=Math.max(0,(semanas*Number(m.val))-totalPago);
+  // Inclui cobranças extras pendentes
+  const extrasPend=(DB.extras||[]).filter(e=>e.mId===mId&&!e.pago).reduce((a,e)=>a+Number(e.val||0),0);
+  return baseSaldo+extrasPend;
+}
+function addCobrancaExtra(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  showM(mWrap('mExtCob',`<div class="modal" style="max-width:420px">
+    <div class="mh"><span class="ct">💰 Cobrança Extra — ${m.placa}</span><button class="btn bx" onclick="closeM('mExtCob')">✕</button></div>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:14px">${m.nome||'—'}<br>Use para registrar débitos adicionais: multa não repassada, danos, combustível, etc.</p>
+    <div class="fg"><label>Valor (R$)</label><input type="number" id="extVal" class="inp" placeholder="0,00" step="0.01" min="0"></div>
+    <div class="fg"><label>Descrição / Motivo</label><input id="extDesc" class="inp" placeholder="Ex: Multa de trânsito 15/04, dano no retrovisor..."></div>
+    <div class="fg"><label>Data</label><input type="date" id="extData" class="inp" value="${tod()}"></div>
+    <div class="mact">
+      <button class="btn bx" onclick="closeM('mExtCob')">Cancelar</button>
+      <button class="btn ba" onclick="salvarCobrancaExtra('${mId}')">✓ Adicionar</button>
+    </div>
+  </div>`));
+}
+function salvarCobrancaExtra(mId){
+  const val=parseFloat(document.getElementById('extVal')?.value||0);
+  const desc=document.getElementById('extDesc')?.value?.trim()||'Cobrança extra';
+  const data=document.getElementById('extData')?.value||tod();
+  if(!val||val<=0){alert('Informe um valor maior que zero.');return;}
+  if(!DB.extras) DB.extras=[];
+  DB.extras.push({id:uid(),mId,val,desc,data,pago:false,criado:tod()});
+  sv('extras');closeM('mExtCob');render();
+  toast('💰 Cobrança extra adicionada: '+fR(val),'acc');
+}
+function quitarCobrancaExtra(eId){
+  const e=(DB.extras||[]).find(x=>x.id===eId);
+  if(!e){toast('Não encontrado','red');return;}
+  e.pago=true;e.pago_em=tod();
+  sv('extras');render();toast('✅ Cobrança quitada!','grn');
+}
+function excluirCobrancaExtra(eId){
+  if(!confirm('Excluir esta cobrança extra?'))return;
+  DB.extras=(DB.extras||[]).filter(x=>x.id!==eId);
+  sv('extras');render();toast('🗑️ Cobrança removida','acc');
 }
 
 // ── Importar Extrato ──────────────────────────────────────────────────────────
@@ -3656,6 +3870,57 @@ function confirmImport(){
 }
 
 // ── Inadimplência ─────────────────────────────────────────────────────────────
+
+function gerarWALote(){
+  const paidByM={};DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.sem);});
+  const ativ=DB.motos.filter(m=>m.on&&m.val>0&&m.nome);
+  const ind=ativ.map(m=>({m,sem:wLateCalc(m,paidByM)})).filter(x=>x.sem>=1).sort((a,b)=>b.sem-a.sem);
+  if(!ind.length){alert('Nenhum inadimplente no momento!');return;}
+  const msgs=ind.map(({m,sem})=>{
+    const val=sem*Number(m.val||0);
+    return `🏍️ *AMS Motos — Cobrança*
+
+Olá ${m.nome.split(' ')[0]}!
+
+Identificamos que o pagamento do aluguel da sua moto *${m.placa}* está pendente:
+
+📊 Semanas em atraso: *${sem}*
+💰 Valor total devido: *${fR(val)}*
+
+Pedimos que regularize o quanto antes para evitar medidas adicionais.
+
+Efetue o pagamento via PIX e envie o comprovante.
+
+_AMS Motos_ 🏍️`;
+  });
+  // Show modal with all messages
+  const cards=ind.map(({m,sem},i)=>{
+    const val=sem*Number(m.val||0);
+    const corSem=sem>=3?'var(--red)':sem>=2?'var(--acc)':'var(--yel)';
+    window['_wa_lot_'+i]=msgs[i];
+    return`<div style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--card2);border-radius:8px;margin-bottom:6px;border-left:3px solid ${corSem}">
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:13px">${m.placa} — ${m.nome.split(' ').slice(0,2).join(' ')}</div>
+        <div style="font-size:11px;color:var(--sub)">${sem}× semanas · ${fR(val)}</div>
+      </div>
+      <button onclick="copiarLote(${i},this)" style="background:var(--card);border:1px solid var(--bor);color:var(--txt);border-radius:6px;padding:6px 10px;font-size:11px;cursor:pointer;white-space:nowrap">📋 Copiar</button>
+      <button onclick="window._waMsg=window['_wa_lot_${i}'];window.open('https://wa.me/?text='+encodeURIComponent(window['_wa_lot_${i}']),'_blank')" style="background:#25d366;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11px;cursor:pointer">📱 WA</button>
+    </div>`;
+  }).join('');
+  showM(mWrap('mWALote',`<div class="modal" style="max-width:580px">
+    <div class="mh"><span class="ct">📱 WA em Lote — ${ind.length} inadimplentes</span><button class="btn bx" onclick="closeM('mWALote')">✕</button></div>
+    <p style="font-size:11px;color:var(--sub);margin-bottom:12px">Clique em 📋 Copiar e cole no WhatsApp de cada locatário, ou 📱 WA para abrir direto.</p>
+    <div style="max-height:60vh;overflow-y:auto">${cards}</div>
+    <div class="mact"><button class="btn bx" onclick="closeM('mWALote')">Fechar</button></div>
+  </div>`));
+}
+function copiarLote(i,btn){
+  const txt=window['_wa_lot_'+i];if(!txt)return;
+  if(navigator.clipboard?.writeText){
+    navigator.clipboard.writeText(txt).then(()=>{if(btn){const o=btn.textContent;btn.textContent='✅ Copiado!';setTimeout(()=>btn.textContent=o,2000);}});
+  } else {prompt('Copie:',txt);}
+}
+
 function vInd(){
   const MULTA_PCT=0.10; // 10% de multa após 2 dias de tolerância
   const TOLERANCIA_DIAS=2;
@@ -4523,9 +4788,21 @@ function vFin(){
   </div>
   <div class="g3" style="margin-bottom:12px">
     ${sc('Receita Potencial',fR(recPot),'var(--sub)',`${ativ.length} motos × 4 semanas`)}
-    ${sc('💰 Caução Retido',fR(caucaoTotal),'var(--yel)',`${DB.caucoes.filter(c=>c.status==='retido').length} contratos`)}
+    ${sc('💰 Caução Retido',fR(caucaoTotal),'var(--yel)',`${DB.caucoes.filter(c=>c.status==='retido').length} contratos · clique para detalhes`)}
     ${sc('Taxa de Recebimento',(taxaRec.toFixed(1)+'%'),taxaRec>=80?'var(--grn)':taxaRec>=60?'var(--yel)':'var(--red)',taxaRec>=80?'Excelente':taxaRec>=60?'Regular':'Atenção')}
   </div>
+  ${caucaoTotal>0?`<div class="card" style="margin-bottom:12px;border-color:rgba(234,179,8,.3)">
+    <div class="ch"><span class="ct">💰 Caução — Situação Atual</span></div>
+    <div class="g3" style="margin-bottom:10px">
+      ${sc('Total Retido',fR(caucaoTotal),'var(--yel)',DB.caucoes.filter(c=>c.status==='retido').length+' contratos')}
+      ${sc('Devolvidos',fR(DB.caucoes.filter(c=>c.status!=='retido').reduce((a,c)=>a+Number(c.val||0),0)),'var(--grn)',DB.caucoes.filter(c=>c.status!=='retido').length+' devolvidos')}
+      ${sc('Média por Moto',DB.caucoes.filter(c=>c.status==='retido').length?fR(caucaoTotal/DB.caucoes.filter(c=>c.status==='retido').length):'R$ 0,00','var(--sub)','')}
+    </div>
+    <div style="overflow-x:auto;max-height:200px;overflow-y:auto"><table class="tbl">
+      <thead><tr><th>Moto</th><th>Locatário</th><th>Valor</th><th>Data</th><th>Status</th></tr></thead>
+      <tbody>${DB.caucoes.filter(c=>c.status==='retido').map(c=>{const m=DB.motos.find(x=>x.id===c.mId)||{placa:'?',nome:''};return`<tr><td><b>${m.placa}</b></td><td style="font-size:11px">${m.nome?m.nome.split(' ').slice(0,2).join(' '):'—'}</td><td style="color:var(--yel);font-weight:700">${fR(c.val||0)}</td><td style="font-size:11px">${fD(c.data||'')}</td><td><span style="font-size:10px;color:var(--yel)">🔒 Retido</span></td></tr>`;}).join('')}</tbody>
+    </table></div>
+  </div>`:''}
   <div class="card" style="margin-bottom:12px">
     <div class="ch" style="margin-bottom:12px"><span class="ct">📊 Receita vs Custos — Últimos 6 meses</span></div>
     ${svgBars}
@@ -5157,7 +5434,7 @@ function vMts(){
     <td>${m.nome||'<span style="color:var(--mut)">—</span>'}</td>
     <td>${m.dia||'—'}</td><td>${m.val?fR(m.val):'—'}</td>
     <td>${fN(m.odo)} km</td>
-    <td>${mStatusBadge(mStatus(m))}</td>
+    <td>${mStatusBadge(mStatus(m))}${m.ocorrencia?`<br><span style="font-size:9px;color:var(--yel);max-width:120px;display:block;white-space:normal">${m.ocorrencia}</span>`:''}</td>
     <td><span style="color:${gc};font-size:12px" title="${g?g.e+' – '+g.u+(g.end?' – '+g.end:''): 'Sem dados'}">${gi} ${g?g.e:'—'}</span>${g&&g.end?`<br><span style="font-size:10px;color:var(--mut)">${g.end.split(',').slice(0,2).join(',')}</span>`:''}</td>
     <td class="row" style="gap:4px">
       <button class="btn bx bxs" onclick="editM('${m.id}')">✏️</button>
@@ -5229,17 +5506,32 @@ function editM(id){
         <option value="alugada">🟢 Alugada</option>
         <option value="disponivel">🔵 Disponível</option>
         <option value="inativa">🔴 Inativa</option>
+        <option value="oficina">🔧 Em serviço / Oficina</option>
+        <option value="acidente">⚠️ Acidente / Dano</option>
+        <option value="sinistro">🚨 Sinistro / Seguradora</option>
       </select>
       <div style="font-size:11px;color:var(--sub);margin-top:3px">⚡ Preencher/limpar locatário atualiza automaticamente</div>
+    </div>
+    <div class="fg" id="emOcorrDiv" style="display:none">
+      <label>📝 Observação da ocorrência</label>
+      <input id="emOcorr" class="inp" placeholder="Ex: Acidente em 29/04, aguardando vistoria do seguro...">
     </div>
     <div class="mact"><button class="btn bx" onclick="closeM('mEM')">Cancelar</button>
     <button class="btn ba" onclick="svM('${id}')">Salvar</button></div>
   </div>`));
-  setTimeout(()=>{const s=document.getElementById('emSt');if(s)s.value=mStatus(m);},50);
+  setTimeout(()=>{
+    const s=document.getElementById('emSt');if(s){s.value=mStatus(m);
+    s.onchange=()=>{const v=s.value;document.getElementById('emOcorrDiv').style.display=(v==='oficina'||v==='acidente'||v==='sinistro')?'':'none';};
+    s.onchange();}
+    const oi=document.getElementById('emOcorr');if(oi)oi.value=m.ocorrencia||'';
+  },50);
 }
 function svM(id){
   const m=DB.motos.find(x=>x.id===id);
   const novoNome=document.getElementById('emNm').value.trim();
+  const novaOcorrencia=document.getElementById('emOcorr')?.value?.trim()||'';
+  if(novaOcorrencia) m.ocorrencia=novaOcorrencia;
+  else delete m.ocorrencia;
   const nomeAnterior=m.nome||'';
   const stSel=document.getElementById('emSt')?document.getElementById('emSt').value:'';
   // Registra histórico se locatário mudou ou saiu
@@ -5449,6 +5741,43 @@ function waMotosParadas(){
 // ── Locatários ────────────────────────────────────────────────────────────────
 let locBusca='';
 let locDia='';
+
+function verHistCompleto(nome){
+  // Todas as motos que este locatário já usou
+  const motos=DB.motos.filter(m=>(m.nome||'').toUpperCase()===nome.toUpperCase());
+  const histLocs=(DB.histLoc||[]).filter(h=>h.nome&&h.nome.toUpperCase()===nome.toUpperCase());
+  const todosIds=[...new Set([...motos.map(m=>m.id),...histLocs.map(h=>h.placa)])];
+  const allMotos=[...motos];
+  // Pagamentos feitos
+  const pgs=DB.pg.filter(p=>motos.some(m=>m.id===p.mId));
+  const totalPago=pgs.reduce((a,p)=>{const m=DB.motos.find(x=>x.id===p.mId)||{val:0};return a+(p.valor!=null?Number(p.valor):Number(m.val||0));},0);
+  // Multas
+  const multas=DB.multas.filter(mu=>motos.some(m=>m.id===mu.mId));
+  const totalMultas=multas.reduce((a,mu)=>a+Number(mu.val||0),0);
+  // Serviços na oficina
+  const servicos=(DB.intervencoes||[]).filter(i=>motos.some(m=>m.id===i.mId)&&i.st==='confirmado');
+  const totalServ=servicos.reduce((a,i)=>a+Number(i.total||0),0);
+  // Caução
+  const caucao=DB.caucoes.filter(c=>motos.some(m=>m.id===c.mId));
+  const motosRows=allMotos.map(m=>{
+    const pgsM=DB.pg.filter(p=>p.mId===m.id).length;
+    const totalM=DB.pg.filter(p=>p.mId===m.id).reduce((a,p)=>a+(p.valor!=null?Number(p.valor):Number(m.val||0)),0);
+    return`<tr><td><b>${m.placa}</b></td><td>${m.on?'🟢 Ativa':'⚫ Inativa'}</td><td>${fD(m.dataInicio)||'—'}</td><td>${fR(m.val)}/sem</td><td>${pgsM} semanas</td><td style="color:var(--grn)">${fR(totalM)}</td></tr>`;
+  }).join('');
+  const histRows=histLocs.map(h=>`<tr><td><b>${h.placa}</b></td><td>${fD(h.data)}</td><td>${h.motivo||'—'}</td><td>${h.odo?fN(h.odo)+' km':'—'}</td></tr>`).join('');
+  showM(mWrap('mHistComp',`<div class="modal" style="max-width:640px">
+    <div class="mh"><span class="ct">👤 Histórico Completo — ${nome.split(' ').slice(0,2).join(' ')}</span><button class="btn bx" onclick="closeM('mHistComp')">✕</button></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+      <div style="background:var(--grnbg);border-radius:8px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--sub)">TOTAL PAGO</div><div style="font-weight:800;color:var(--grn)">${fR(totalPago)}</div></div>
+      <div style="background:var(--redbg);border-radius:8px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--sub)">MULTAS</div><div style="font-weight:800;color:var(--red)">${fR(totalMultas)}</div></div>
+      <div style="background:var(--sur);border-radius:8px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--sub)">MOTOS</div><div style="font-weight:800">${allMotos.length}</div></div>
+    </div>
+    ${allMotos.length?`<h4 style="margin:0 0 8px;font-size:13px">🏍️ Motos Atuais</h4><table class="tbl" style="margin-bottom:14px"><thead><tr><th>Placa</th><th>Status</th><th>Retirada</th><th>Plano</th><th>Semanas</th><th>Total Pago</th></tr></thead><tbody>${motosRows}</tbody></table>`:''}
+    ${histRows?`<h4 style="margin:0 0 8px;font-size:13px">📋 Histórico de Devolução</h4><table class="tbl" style="margin-bottom:14px"><thead><tr><th>Placa</th><th>Data</th><th>Motivo</th><th>Odômetro</th></tr></thead><tbody>${histRows}</tbody></table>`:''}
+    ${caucao.length?`<h4 style="margin:0 0 8px;font-size:13px">💰 Caução</h4><div style="font-size:12px">${caucao.map(c=>`${c.status==='retido'?'🔒 Retido':'✅ Devolvido'}: ${fR(c.val||0)} (${fD(c.data||'')})`).join('<br>')}</div>`:''}
+    <div class="mact"><button class="btn bx" onclick="closeM('mHistComp')">Fechar</button></div>
+  </div>`));
+}
 function vLoc(){
   const ativos=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim()!=='');
   const hoje=wS(tod());
@@ -5479,7 +5808,7 @@ function vLoc(){
       <td>${saldo>0?`<span style="color:var(--red);font-weight:700">${fR(saldo)}</span>`:'<span style="color:var(--grn)">—</span>'}</td>
       <td><div style="display:flex;align-items:center;gap:4px">${hist||'<span style="color:var(--mut);font-size:11px">sem registros</span>'}</div></td>
       <td><span class="badge" style="background:${statusBg};color:${statusColor}">${status}</span></td>
-      <td><button class="btn bx bxs" onclick="go('pag')">💰</button></td>
+      <td><button class="btn bx bxs" onclick="go('pag')">💰</button><button class="btn bx bxs" onclick="verHistCompleto('${m.nome.replace(/'/g,"\\'")}')">📋</button></td>
     </tr>`;
   }).join('');
 
