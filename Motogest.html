@@ -111,103 +111,7 @@ const S={
 };
 
 // ── Seed ──────────────────────────────────────────────────────────────────
-const SEED=[
-  {id:"m1",placa:"TGX0J77",nome:"LUCAS DE SOUZA RIBEIRO",odo:32738,loilKm:32932,lrevKm:30000,val:0,dia:"DOM",on:true},
-  {id:"m2",placa:"TGX1A75",nome:"BRENO AMORIM DOS SANTOS",odo:31788,loilKm:31626,lrevKm:30000,val:377,dia:"TER",on:true},
-  {id:"m3",placa:"TGX1F22",nome:"",odo:0,loilKm:23881,lrevKm:0,val:0,dia:"",on:true},
-  {id:"m4",placa:"TGX1J34",nome:"LUIS EUGENIO SANTOS DE SOUZA",odo:38742,loilKm:37742,lrevKm:30000,val:377,dia:"QUI",on:true},
-  {id:"m5",placa:"TGX2B17",nome:"JADSON MATHEUS FREITAS DE OLIVEIRA",odo:17593,loilKm:17593,lrevKm:10000,val:377,dia:"QUA",on:true},
-  {id:"m6",placa:"TGX2G39",nome:"EWERTON OLIVEIRA DE JESUS",odo:17430,loilKm:18324,lrevKm:10000,val:0,dia:"SAB",on:true},
-  {id:"m7",placa:"TGX2H49",nome:"CAIQUE SILVA DE JESUS",odo:40510,loilKm:40510,lrevKm:40000,val:0,dia:"SAB",on:true},
-  {id:"m8",placa:"TGX2I54",nome:"SIMONE BATISTA DOS SANTOS",odo:29191,loilKm:29191,lrevKm:20000,val:377,dia:"QUA",on:true},
-  {id:"m9",placa:"TGX3B41",nome:"VINICIUS BORGES SANTOS",odo:31210,loilKm:31210,lrevKm:30000,val:467,dia:"TER",on:true},
-  {id:"m10",placa:"TGX3C19",nome:"LEANDRO DAMASCENO MORAIS",odo:24435,loilKm:24289,lrevKm:20000,val:377,dia:"SAB",on:true},
-  {id:"m11",placa:"TGX3D66",nome:"ANDERSON SOUSA DE ALMEIDA",odo:29420,loilKm:28420,lrevKm:20000,val:363,dia:"SEX",on:true},
-  {id:"m12",placa:"TGX3F33",nome:"ELVIS ARAUJO DE OLIVEIRA",odo:27934,loilKm:26934,lrevKm:20000,val:393,dia:"SEG",on:true},
-  {id:"m13",placa:"TGX4C94",nome:"BRENNO RIBEIRO ALVES",odo:50022,loilKm:50126,lrevKm:50000,val:393,dia:"SEX",on:true},
-  {id:"m14",placa:"TGX4D63",nome:"",odo:0,loilKm:0,lrevKm:0,val:0,dia:"",on:false},
-  {id:"m15",placa:"TGX5A82",nome:"TIAGO CORREIA DO CARMO SANTOS",odo:27490,loilKm:27364,lrevKm:20000,val:377,dia:"TER",on:true},
-  {id:"m16",placa:"TGX5H31",nome:"CAIQUE HENRIQUE VELOSO CRUZ",odo:20588,loilKm:20588,lrevKm:20000,val:0,dia:"SAB",on:true},
-  {id:"m17",placa:"TGX6A02",nome:"EDVALDO DE ASSIS NABUCO NETO",odo:41226,loilKm:40345,lrevKm:40000,val:467,dia:"SEG",on:true},
-  {id:"m18",placa:"TGX6B84",nome:"LUIS FERNANDO BOMFIM DOS SANTOS",odo:43316,loilKm:43407,lrevKm:40000,val:377,dia:"SAB",on:true},
-  {id:"m19",placa:"TGX6E61",nome:"ROBSON ALVES DE SALES JUNIOR",odo:45713,loilKm:47368,lrevKm:40000,val:393,dia:"SEX",on:true},
-  {id:"m20",placa:"TGX6H83",nome:"RAMON DO NASCIMENTO MOTA",odo:42941,loilKm:42795,lrevKm:40000,val:393,dia:"TER",on:true},
-  {id:"m21",placa:"TGX6I09",nome:"RENILSON SILVA SA BARRETO PEREIRA",odo:21083,loilKm:21083,lrevKm:20000,val:377,dia:"SEX",on:true},
-  {id:"m22",placa:"TGX6I43",nome:"RICARDO ARAGÃO DO LAGO",odo:0,loilKm:0,lrevKm:0,val:0,dia:"SAB",on:true},
-  {id:"m23",placa:"TGX7A44",nome:"",odo:0,loilKm:0,lrevKm:0,val:0,dia:"",on:false},
-  {id:"m24",placa:"TGX7B27",nome:"MATHEUS OLIVEIRA GOMES",odo:28764,loilKm:29133,lrevKm:20000,val:393,dia:"QUI",on:true},
-  {id:"m25",placa:"TGX7C64",nome:"LEANDRO CARVALHO DE JESUS",odo:42708,loilKm:44073,lrevKm:40000,val:467,dia:"QUI",on:true},
-  {id:"m26",placa:"TGX7C86",nome:"ANDERSANDRO DE JESUS DA SILVA",odo:24850,loilKm:24850,lrevKm:20000,val:377,dia:"QUI",on:true},
-  {id:"m27",placa:"TGX7D93",nome:"ANTONIO DOS SANTOS JUNIOR",odo:0,loilKm:0,lrevKm:0,val:0,dia:"SAB",on:true},
-  {id:"m28",placa:"TGX7I01",nome:"MARCOS ADRIANO PEREIRA LIMA",odo:38492,loilKm:38818,lrevKm:30000,val:0,dia:"SEX",on:true},
-  {id:"m29",placa:"TGX7I03",nome:"EVERTON SOUZA COSTA",odo:0,loilKm:29862,lrevKm:0,val:0,dia:"",on:false},
-  {id:"m30",placa:"TGX7I75",nome:"",odo:0,loilKm:0,lrevKm:0,val:393,dia:"SEG",on:true},
-  {id:"m31",placa:"TGX7I76",nome:"MARCELO DA ANUNCIAÇÃO SANTOS",odo:32443,loilKm:32555,lrevKm:30000,val:393,dia:"TER",on:true},
-  {id:"m32",placa:"TGX7J09",nome:"JURANDIR ALMEIDA DOS SANTOS",odo:27094,loilKm:27094,lrevKm:20000,val:363,dia:"QUA",on:true},
-  {id:"m33",placa:"TGX7J29",nome:"TARCISIO FERREIRA DA SILVA",odo:39610,loilKm:40355,lrevKm:30000,val:0,dia:"DOM",on:true},
-  {id:"m34",placa:"TGX8A08",nome:"IGOR DE LIMA CONCEIÇÃO",odo:34261,loilKm:34261,lrevKm:30000,val:393,dia:"QUI",on:false},
-  {id:"m35",placa:"TGX8A63",nome:"JOÃO VICTOR RAMOS BRAZ",odo:38122,loilKm:38122,lrevKm:30000,val:0,dia:"SAB",on:true},
-  {id:"m36",placa:"TGX8D81",nome:"CLEVERSON SILVA LOPES",odo:23054,loilKm:23944,lrevKm:20000,val:377,dia:"SEX",on:true},
-  {id:"m37",placa:"TGX8F89",nome:"BRUNO SILVA SOUZA",odo:20555,loilKm:19555,lrevKm:20000,val:393,dia:"QUI",on:false},
-  {id:"m38",placa:"TGX8G60",nome:"GIVALDO BISPO NASCIMENTO",odo:0,loilKm:0,lrevKm:0,val:0,dia:"",on:true},
-  {id:"m39",placa:"TGX9B34",nome:"JONAS FERREIRA GOMES",odo:0,loilKm:0,lrevKm:0,val:0,dia:"",on:true},
-  {id:"m40",placa:"TGX9H81",nome:"LUIS CLEBER DE OLIVEIRA ALVES",odo:38129,loilKm:38129,lrevKm:30000,val:363,dia:"TER",on:true},
-  {id:"m41",placa:"TGX9J12",nome:"CLEISSON SANTOS LOPES",odo:0,loilKm:33308,lrevKm:0,val:363,dia:"QUI",on:true},
-  {id:"m42",placa:"TGZ2E99",nome:"WILLIAM SAILON CUNHA DA SILVA REIS",odo:21653,loilKm:21776,lrevKm:20000,val:377,dia:"SEX",on:true},
-  {id:"m43",placa:"THD2I06",nome:"WESLEY DOS ANJOS BATISTA",odo:20000,loilKm:20000,lrevKm:20000,val:393,dia:"SEG",on:true},
-  {id:"m44",placa:"THD3H74",nome:"JEFERSON LUIS ANDRADE DE SANTANA",odo:31650,loilKm:31650,lrevKm:30000,val:467,dia:"QUA",on:true},
-  {id:"m45",placa:"THD6E18",nome:"RUAN JASIEL SOUZA LEITE",odo:23283,loilKm:22931,lrevKm:20000,val:377,dia:"QUI",on:true},
-  {id:"m46",placa:"THD7I10",nome:"THIAGO ALVES DOS SANTOS",odo:24339,loilKm:23339,lrevKm:20000,val:467,dia:"QUA",on:true},
-  {id:"m47",placa:"THE7E32",nome:"CASSIO LUIZ LIMA SANTOS",odo:23617,loilKm:23617,lrevKm:20000,val:393,dia:"TER",on:false},
-  {id:"m48",placa:"THE8G47",nome:"HELTON DA SILVA GUIMARÃES",odo:20571,loilKm:20463,lrevKm:20000,val:467,dia:"SEG",on:true},
-  {id:"m49",placa:"THF5E73",nome:"MARCOS VINICIUS MACEDO PITA",odo:23105,loilKm:23104,lrevKm:20000,val:467,dia:"QUA",on:true},
-  {id:"m50",placa:"THG0B42",nome:"PEDRO SAMERSON SANTOS DE SOUZA",odo:21899,loilKm:22105,lrevKm:20000,val:377,dia:"SEX",on:true},
-  {id:"m51",placa:"THG0C35",nome:"RAFAEL DE ALMEIDA PASSOS",odo:11000,loilKm:10000,lrevKm:10000,val:0,dia:"QUA",on:true},
-  {id:"m52",placa:"THH7A33",nome:"CRISTIANO DA SILVA LIMA PAZ",odo:24279,loilKm:24624,lrevKm:20000,val:487,dia:"SEX",on:true},
-  {id:"m53",placa:"TMK2G25",nome:"LUCAS ADRIANO LIMA SOARES DOS SANTOS",odo:12971,loilKm:13808,lrevKm:10000,val:393,dia:"QUI",on:true},
-  {id:"m54",placa:"TML4J64",nome:"VITOR BATISTA DOS SANTOS",odo:7375,loilKm:7375,lrevKm:0,val:377,dia:"TER",on:true},
-  {id:"m55",placa:"TML8A86",nome:"HENRIQUE SANTOS DE SOUSA",odo:6589,loilKm:6589,lrevKm:0,val:0,dia:"TER",on:true},
-  {id:"m56",placa:"TMM0A57",nome:"RICARDO SILVA NUNES DOS SANTOS",odo:5864,loilKm:5864,lrevKm:0,val:0,dia:"DOM",on:true},
-  {id:"m57",placa:"TMM0E41",nome:"WEVERTON KAIQUE BONFIM COSTA",odo:2118,loilKm:2644,lrevKm:0,val:0,dia:"SEG",on:true},
-  {id:"m58",placa:"TMM0H64",nome:"FERNANDO DE JESUS SOUSA",odo:7067,loilKm:7012,lrevKm:0,val:0,dia:"SEX",on:true},
-  {id:"m59",placa:"TMM0H72",nome:"MILENA CASTRO SANTOS",odo:2000,loilKm:2000,lrevKm:0,val:487,dia:"SEG",on:true},
-  {id:"m60",placa:"TMM0J30",nome:"DOUGLAS VINICIUS CERQUEIRA",odo:0,loilKm:0,lrevKm:0,val:0,dia:"SAB",on:true},
-  {id:"m61",placa:"TMM1D90",nome:"ELIOMAR INOCENCIO BONFIM",odo:2003,loilKm:2088,lrevKm:0,val:0,dia:"SEX",on:true},
-  {id:"m62",placa:"TMM1D91",nome:"FABIO DA SILVA ALVES",odo:5812,loilKm:5808,lrevKm:0,val:0,dia:"SEX",on:true},
-  {id:"m63",placa:"TMM1G77",nome:"YURI SENA PERRI",odo:5295,loilKm:5295,lrevKm:0,val:487,dia:"QUA",on:true},
-  {id:"m64",placa:"TMM1J88",nome:"DOUGLAS PEREIRA DA SILVA",odo:7080,loilKm:7080,lrevKm:0,val:487,dia:"SEG",on:true},
-  {id:"m65",placa:"TMM2A80",nome:"DANILO FERREIRA DOS SANTOS",odo:8864,loilKm:7864,lrevKm:0,val:0,dia:"SEX",on:true},
-  {id:"m66",placa:"TMM2F63",nome:"JAMILE DOS SANTOS XAVIER",odo:0,loilKm:0,lrevKm:0,val:0,dia:"QUA",on:true},
-  {id:"m67",placa:"TMM2H99",nome:"LUIS ALEXANDRE FRANCA ALVES",odo:9714,loilKm:8714,lrevKm:0,val:0,dia:"TER",on:true},
-  {id:"m68",placa:"TMM3H81",nome:"",odo:0,loilKm:0,lrevKm:0,val:0,dia:"",on:false},
-  {id:"m69",placa:"TMM3J66",nome:"MICAEL SILVA DOS SANTOS",odo:9893,loilKm:9893,lrevKm:0,val:487,dia:"QUA",on:true},
-  {id:"m70",placa:"TMM4A61",nome:"GEOVANE DE JESUS SANTOS",odo:8262,loilKm:7262,lrevKm:0,val:487,dia:"QUI",on:true},
-  {id:"m71",placa:"TMM4B46",nome:"ALDRIN FREIRE RAMOS",odo:2000,loilKm:2000,lrevKm:0,val:487,dia:"SEG",on:true},
-  {id:"m72",placa:"TMM4F31",nome:"MARCUS VINICIUS CORREIA DOS SANTOS",odo:5775,loilKm:5775,lrevKm:0,val:0,dia:"SEX",on:true},
-  {id:"m73",placa:"TMP4F88",nome:"FABIANO ANDRADE",odo:3114,loilKm:3114,lrevKm:0,val:487,dia:"QUA",on:true},
-  {id:"m74",placa:"TMM4J01",nome:"GENILSON NASCIMENTO GUIMARÃES",odo:5173,loilKm:5173,lrevKm:0,val:0,dia:"SAB",on:true},
-  {id:"m75",placa:"TMM5A99",nome:"RICARDO LUIS SANTOS DO NASCIMENTO",odo:8610,loilKm:8610,lrevKm:0,val:487,dia:"SEG",on:true},
-  {id:"m76",placa:"TMM5F42",nome:"SERGIO CONCEIÇÃO OLIVEIRA JUNIOR",odo:0,loilKm:0,lrevKm:0,val:487,dia:"TER",on:true},
-  {id:"m77",placa:"TMM5G18",nome:"IGOR SILVA MERCES",odo:10551,loilKm:10923,lrevKm:10000,val:0,dia:"DOM",on:true},
-  {id:"m78",placa:"TMM5H73",nome:"LEONEL BASTOS DOS SANTOS",odo:6978,loilKm:6880,lrevKm:0,val:487,dia:"TER",on:true},
-  {id:"m79",placa:"TMM6A98",nome:"LAERCIO SANTOS DE SOUZA",odo:3393,loilKm:3393,lrevKm:0,val:0,dia:"SEX",on:true},
-  {id:"m80",placa:"TMM6D65",nome:"",odo:9627,loilKm:12571,lrevKm:0,val:487,dia:"QUA",on:true},
-  {id:"m81",placa:"TMM6E40",nome:"ALEX SANTOS XAVIER",odo:0,loilKm:0,lrevKm:0,val:500.38,dia:"SEG",on:true},
-  {id:"m82",placa:"TMM7A19",nome:"MATHEUS CAMPOS SILVA",odo:8472,loilKm:7472,lrevKm:0,val:487,dia:"QUA",on:true},
-  {id:"m83",placa:"TMM8H70",nome:"JONAS RODRIGUES DE SOUZA JUNIOR",odo:7268,loilKm:7467,lrevKm:0,val:487,dia:"QUI",on:true},
-  {id:"m84",placa:"TMM9B53",nome:"ANTONIO CARLOS DE JESUS JUNIOR",odo:0,loilKm:0,lrevKm:0,val:0,dia:"",on:true},
-  {id:"m85",placa:"TMM9E48",nome:"CARLOS HENRIQUE PEREIRA SANTOS",odo:9651,loilKm:9595,lrevKm:0,val:487,dia:"QUA",on:true},
-  {id:"m86",placa:"TMM9F10",nome:"KAUAN DE JESUS PORTUGAL",odo:0,loilKm:1061,lrevKm:0,val:487,dia:"QUA",on:true},
-  {id:"m87",placa:"TMM9F38",nome:"ALEX ROCHA DA SILVA",odo:20256,loilKm:20536,lrevKm:20000,val:487,dia:"QUA",on:true},
-  {id:"m88",placa:"TMM9I91",nome:"ADRIANO CABICEIRA BATISTA FILHO",odo:0,loilKm:0,lrevKm:0,val:377,dia:"TER",on:true},
-  {id:"m89",placa:"TMP0F94",nome:"ALEF SOUZA LUBARINO",odo:0,loilKm:0,lrevKm:0,val:0,dia:"",on:true},
-  {id:"m90",placa:"TMP4F91",nome:"LUIS HENRIQUE SANTOS DA SILVA",odo:0,loilKm:0,lrevKm:0,val:0,dia:"SAB",on:true},
-  {id:"m91",placa:"TMP5G81",nome:"MAURICIO SANTOS BORJA",odo:0,loilKm:0,lrevKm:0,val:0,dia:"",on:true},
-  {id:"m92",placa:"TMP7D19",nome:"ADRIANO DOS SANTOS SILVA",odo:3260,loilKm:4253,lrevKm:0,val:487,dia:"TER",on:true},
-  {id:"m93",placa:"TMP8H67",nome:"BRUNO DOS SANTOS",odo:4306,loilKm:3299,lrevKm:0,val:487,dia:"SEG",on:true},
-  {id:"m95",placa:"TMP8A45",nome:"",odo:0,loilKm:0,lrevKm:0,val:0,dia:"",on:true},
-  {id:"m94",placa:"TMP9A31",nome:"LEONARDO VICENTE DOS SANTOS",odo:3744,loilKm:3744,lrevKm:0,val:487,dia:"TER",on:false},
-];
+const SEED=[];
 const SEED_EST=[
   {id:"e1",nome:"Pneu Traseiro",un:"un",qtd:4,min:2,custo:220},
   {id:"e2",nome:"Pneu Dianteiro",un:"un",qtd:3,min:2,custo:180},
@@ -238,17 +142,8 @@ function saveGpsCfg(){S.set('mg_gps_cfg', GPS_CFG);}
 
 
 (function(){
-  if(localStorage.getItem('mg_seed_20260316f')) return;
-  localStorage.setItem('mg_m',    '[{"id": "m1", "placa": "TGX0J77", "nome": "LUCAS DE SOUZA RIBEIRO", "odo": 33618, "loilKm": 32932, "lrevKm": 30000, "val": 377, "dia": "DOM", "on": true, "lpneuKm": 30000, "chassi": "9C6RG9910S0023381", "modelo": "PLACA", "cor": "PREDOMINANTE ESPÉCIE / TIPO", "categoria": "CAPACIDADE POTÊNCIA/CILINDRADA"}, {"id": "m2", "placa": "TGX1A75", "nome": "BRENO AMORIM DOS SANTOS", "odo": 31817, "loilKm": 31626, "lrevKm": 30000, "val": 377, "dia": "TER", "on": true, "lpneuKm": 30000, "chassi": "9C6RG9910S0025282", "modelo": "PLACA", "cor": "PREDOMINANTE ESPÉCIE / TIPO", "categoria": "CAPACIDADE POTÊNCIA/CILINDRADA"}, {"id": "m3", "placa": "TGX1F22", "nome": "", "odo": 23881, "loilKm": 23881, "lrevKm": 20000, "val": 0, "dia": "", "on": true, "lpneuKm": 20000, "status": "disponivel"}, {"id": "m4", "placa": "TGX1J34", "nome": "LUIS EUGENIO SANTOS DE SOUZA", "odo": 38742, "loilKm": 38721, "lrevKm": 30000, "val": 377, "dia": "QUI", "on": true, "lpneuKm": 30000}, {"id": "m5", "placa": "TGX2B17", "nome": "JADSON MATHEUS FREITAS DE OLIVEIRA", "odo": 17593, "loilKm": 17593, "lrevKm": 10000, "val": 377, "dia": "QUA", "on": true, "lpneuKm": 15000}, {"id": "m6", "placa": "TGX2G39", "nome": "EWERTON OLIVEIRA DE JESUS", "odo": 18324, "loilKm": 18324, "lrevKm": 10000, "val": 377, "dia": "SAB", "on": true, "lpneuKm": 10000}, {"id": "m7", "placa": "TGX2H49", "nome": "CAIQUE SILVA DE JESUS", "odo": 40918, "loilKm": 40516, "lrevKm": 40000, "val": 377, "dia": "SAB", "on": true, "lpneuKm": 40000}, {"id": "m8", "placa": "TGX2I54", "nome": "SIMONE BATISTA DOS SANTOS", "odo": 29191, "loilKm": 29191, "lrevKm": 20000, "val": 377, "dia": "QUA", "on": true, "lpneuKm": 25000}, {"id": "m9", "placa": "TGX3B41", "nome": "VINICIUS BORGES SANTOS", "odo": 32802, "loilKm": 32467, "lrevKm": 30000, "val": 467, "dia": "TER", "on": true, "lpneuKm": 30000}, {"id": "m10", "placa": "TGX3C19", "nome": "LEANDRO DAMASCENO MORAIS", "odo": 24746, "loilKm": 24289, "lrevKm": 20000, "val": 377, "dia": "SAB", "on": true, "lpneuKm": 24000}, {"id": "m11", "placa": "TGX3D66", "nome": "ANDERSON SOUSA DE ALMEIDA", "odo": 29420, "loilKm": 28420, "lrevKm": 20000, "val": 363, "dia": "SEX", "on": true, "lpneuKm": 25000}, {"id": "m12", "placa": "TGX3F33", "nome": "ELVIS ARAUJO DE OLIVEIRA", "odo": 27934, "loilKm": 26934, "lrevKm": 20000, "val": 393, "dia": "SEG", "on": true, "lpneuKm": 25000}, {"id": "m13", "placa": "TGX4C94", "nome": "BRENNO RIBEIRO ALVES", "odo": 50022, "loilKm": 50126, "lrevKm": 50000, "val": 393, "dia": "SEX", "on": true, "lpneuKm": 50000}, {"id": "m14", "placa": "TGX4D63", "nome": "", "odo": 28711, "loilKm": 0, "lrevKm": 0, "val": 0, "dia": "", "on": true}, {"id": "m15", "placa": "TGX5A82", "nome": "TIAGO CORREIA DO CARMO SANTOS", "odo": 28131, "loilKm": 27364, "lrevKm": 20000, "val": 377, "dia": "TER", "on": true, "lpneuKm": 20000}, {"id": "m16", "placa": "TGX5H31", "nome": "CAIQUE HENRIQUE VELOSO CRUZ", "odo": 20588, "loilKm": 20588, "lrevKm": 20000, "val": 467, "dia": "SAB", "on": true, "lpneuKm": 20000}, {"id": "m17", "placa": "TGX6A02", "nome": "EDVALDO DE ASSIS NABUCO NETO", "odo": 41566, "loilKm": 41453, "lrevKm": 40000, "val": 467, "dia": "SEG", "on": true, "lpneuKm": 40000}, {"id": "m18", "placa": "TGX6B84", "nome": "LUIS FERNANDO BOMFIM DOS SANTOS", "odo": 44373, "loilKm": 44373, "lrevKm": 40000, "val": 377, "dia": "SAB", "on": true, "lpneuKm": 50000}, {"id": "m19", "placa": "TGX6E61", "nome": "ROBSON ALVES DE SALES JUNIOR", "odo": 47843, "loilKm": 47368, "lrevKm": 40000, "val": 393, "dia": "SEX", "on": true, "lpneuKm": 40000}, {"id": "m20", "placa": "TGX6H83", "nome": "RAMON DO NASCIMENTO MOTA", "odo": 43744, "loilKm": 43744, "lrevKm": 40000, "val": 393, "dia": "TER", "on": true, "lpneuKm": 40000}, {"id": "m21", "placa": "TGX6I09", "nome": "RENILSON SILVA SA BARRETO PEREIRA", "odo": 21952, "loilKm": 21951, "lrevKm": 20000, "val": 377, "dia": "SEX", "on": true, "lpneuKm": 20000}, {"id": "m22", "placa": "TGX6I43", "nome": "RICARDO ARAGÃO DO LAGO", "odo": 13853, "loilKm": 12734, "lrevKm": 10000, "val": 363, "dia": "SAB", "on": true, "lpneuKm": 10000}, {"id": "m23", "placa": "TGX7A44", "nome": "", "odo": 0, "loilKm": 0, "lrevKm": 0, "val": 0, "dia": "", "on": true}, {"id": "m24", "placa": "TGX7B27", "nome": "MATHEUS OLIVEIRA GOMES", "odo": 29938, "loilKm": 29133, "lrevKm": 20000, "val": 393, "dia": "QUI", "on": true, "lpneuKm": 20000}, {"id": "m25", "placa": "TGX7C64", "nome": "LEANDRO CARVALHO DE JESUS", "odo": 45429, "loilKm": 45370, "lrevKm": 40000, "val": 467, "dia": "QUI", "on": true, "lpneuKm": 40000}, {"id": "m26", "placa": "TGX7C86", "nome": "ANDERSANDRO DE JESUS DA SILVA", "odo": 25708, "loilKm": 24850, "lrevKm": 20000, "val": 377, "dia": "QUI", "on": true, "lpneuKm": 25000}, {"id": "m27", "placa": "TGX7D93", "nome": "ANTONIO DOS SANTOS JUNIOR", "odo": 7001, "loilKm": 0, "lrevKm": 0, "val": 377, "dia": "SAB", "on": true}, {"id": "m28", "placa": "TGX7I01", "nome": "MARCOS ADRIANO PEREIRA LIMA", "odo": 40221, "loilKm": 40151, "lrevKm": 40000, "val": 467, "dia": "SEX", "on": true, "lpneuKm": 40000}, {"id": "m29", "placa": "TGX7I03", "nome": "EVERTON SOUZA COSTA", "odo": 29862, "loilKm": 29862, "lrevKm": 23382, "val": 467, "dia": "SAB", "on": true, "lpneuKm": 29862}, {"id": "m30", "placa": "TGX7I75", "nome": "", "odo": 10, "loilKm": 0, "lrevKm": 0, "val": 393, "dia": "SEG", "on": true}, {"id": "m31", "placa": "TGX7I76", "nome": "MARCELO DA ANUNCIAÇÃO SANTOS", "odo": 32839, "loilKm": 32555, "lrevKm": 30000, "val": 393, "dia": "TER", "on": true, "lpneuKm": 30000}, {"id": "m32", "placa": "TGX7J09", "nome": "JURANDIR ALMEIDA DOS SANTOS", "odo": 40000, "loilKm": 27094, "lrevKm": 20000, "val": 363, "dia": "QUA", "on": true, "lpneuKm": 40000}, {"id": "m33", "placa": "TGX7J29", "nome": "TARCISIO FERREIRA DA SILVA", "odo": 40947, "loilKm": 40947, "lrevKm": 40000, "val": 393, "dia": "DOM", "on": true, "lpneuKm": 40000}, {"id": "m34", "placa": "TGX8A08", "nome": "", "odo": 34261, "loilKm": 34261, "lrevKm": 30000, "val": 393, "dia": "QUI", "on": true, "status": "disponivel"}, {"id": "m35", "placa": "TGX8A63", "nome": "JOÃO VICTOR RAMOS BRAZ", "odo": 40000, "loilKm": 39275, "lrevKm": 41000, "val": 363, "dia": "SAB", "on": true, "lpneuKm": 40000}, {"id": "m36", "placa": "TGX8D81", "nome": "CLEVERSON SILVA LOPES", "odo": 24912, "loilKm": 23944, "lrevKm": 20000, "val": 377, "dia": "SEX", "on": true}, {"id": "m37", "placa": "TGX8F89", "nome": "BRUNO SILVA SOUZA", "odo": 20405, "loilKm": 20305, "lrevKm": 20000, "val": 393, "dia": "QUI", "on": true, "lpneuKm": 30000}, {"id": "m38", "placa": "TGX8G60", "nome": "GIVALDO BISPO NASCIMENTO", "odo": 4607, "loilKm": 0, "lrevKm": 0, "val": 377, "dia": "SEG", "on": true}, {"id": "m39", "placa": "TGX9B34", "nome": "JONAS FERREIRA GOMES", "odo": 5177, "loilKm": 0, "lrevKm": 0, "val": 377, "dia": "QUA", "on": true}, {"id": "m40", "placa": "TGX9H81", "nome": "LUIS CLEBER DE OLIVEIRA ALVES", "odo": 38129, "loilKm": 37129, "lrevKm": 30000, "val": 363, "dia": "TER", "on": true, "lpneuKm": 37000}, {"id": "m41", "placa": "TGX9J12", "nome": "CLEISSON SANTOS LOPES", "odo": 33308, "loilKm": 33308, "lrevKm": 30000, "val": 363, "dia": "QUI", "on": true, "lpneuKm": 30000}, {"id": "m42", "placa": "TGZ2E99", "nome": "WILLIAM SAILON CUNHA DA SILVA REIS", "odo": 21653, "loilKm": 21776, "lrevKm": 20000, "val": 377, "dia": "SEX", "on": true}, {"id": "m43", "placa": "THD2I06", "nome": "WESLEY DOS ANJOS BATISTA", "odo": 20000, "loilKm": 20000, "lrevKm": 20000, "val": 393, "dia": "SEG", "on": true}, {"id": "m44", "placa": "THD3H74", "nome": "JEFERSON LUIS ANDRADE DE SANTANA", "odo": 31650, "loilKm": 31650, "lrevKm": 30000, "val": 467, "dia": "QUA", "on": true}, {"id": "m45", "placa": "THD6E18", "nome": "RUAN JASIEL SOUZA LEITE", "odo": 23728, "loilKm": 22931, "lrevKm": 20000, "val": 377, "dia": "QUI", "on": true, "lpneuKm": 20000}, {"id": "m46", "placa": "THD7I10", "nome": "THIAGO ALVES DOS SANTOS", "odo": 24339, "loilKm": 23339, "lrevKm": 20000, "val": 467, "dia": "QUA", "on": true}, {"id": "m47", "placa": "THE7E32", "nome": "CASSIO LUIZ LIMA SANTOS", "odo": 32053, "loilKm": 23617, "lrevKm": 20000, "val": 393, "dia": "TER", "on": true}, {"id": "m48", "placa": "THE8G47", "nome": "HELTON DA SILVA GUIMARÃES", "odo": 20807, "loilKm": 20463, "lrevKm": 20000, "val": 467, "dia": "SEG", "on": true, "lpneuKm": 20000}, {"id": "m49", "placa": "THF5E73", "nome": "MARCOS VINICIUS MACEDO PITA", "odo": 23105, "loilKm": 23104, "lrevKm": 20000, "val": 467, "dia": "QUA", "on": true, "lpneuKm": 20000}, {"id": "m50", "placa": "THG0B42", "nome": "PEDRO SAMERSON SANTOS DE SOUZA", "odo": 22205, "loilKm": 22105, "lrevKm": 20000, "val": 377, "dia": "SEX", "on": true, "lpneuKm": 20000}, {"id": "m51", "placa": "THG0C35", "nome": "RAFAEL DE ALMEIDA PASSOS", "odo": 11000, "loilKm": 10000, "lrevKm": 10000, "val": 467, "dia": "QUA", "on": true}, {"id": "m52", "placa": "THH7A33", "nome": "CRISTIANO DA SILVA LIMA PAZ", "odo": 25273, "loilKm": 24624, "lrevKm": 20000, "val": 487, "dia": "SEX", "on": true, "lpneuKm": 24624}, {"id": "m53", "placa": "TMK2G25", "nome": "LUCAS ADRIANO LIMA SOARES DOS SANTOS", "odo": 12971, "loilKm": 13808, "lrevKm": 10000, "val": 393, "dia": "QUI", "on": true}, {"id": "m54", "placa": "TML4J64", "nome": "VITOR BATISTA DOS SANTOS", "odo": 7736, "loilKm": 7375, "lrevKm": 0, "val": 377, "dia": "TER", "on": true}, {"id": "m55", "placa": "TML8A86", "nome": "HENRIQUE SANTOS DE SOUSA", "odo": 6800, "loilKm": 6589, "lrevKm": 0, "val": 423, "dia": "TER", "on": true}, {"id": "m56", "placa": "TMM0A57", "nome": "RICARDO SILVA NUNES DOS SANTOS", "odo": 6657, "loilKm": 5864, "lrevKm": 0, "val": 487, "dia": "DOM", "on": true}, {"id": "m57", "placa": "TMM0E41", "nome": "WEVERTON KAIQUE BONFIM COSTA", "odo": 2803, "loilKm": 2644, "lrevKm": 0, "val": 487, "dia": "SEG", "on": true}, {"id": "m58", "placa": "TMM0H64", "nome": "FERNANDO DE JESUS SOUSA", "odo": 7261, "loilKm": 7012, "lrevKm": 0, "val": 487, "dia": "SEX", "on": true}, {"id": "m59", "placa": "TMM0H72", "nome": "MILENA CASTRO SANTOS", "odo": 2000, "loilKm": 2000, "lrevKm": 0, "val": 487, "dia": "SEG", "on": true}, {"id": "m60", "placa": "TMM0J30", "nome": "DOUGLAS VINICIUS CERQUEIRA", "odo": 8937.57, "loilKm": 0, "lrevKm": 0, "val": 487, "dia": "SAB", "on": true}, {"id": "m61", "placa": "TMM1D90", "nome": "ELIOMAR INOCENCIO BONFIM", "odo": 3149, "loilKm": 3149, "lrevKm": 0, "val": 487, "dia": "SEX", "on": true}, {"id": "m62", "placa": "TMM1D91", "nome": "FABIO DA SILVA ALVES", "odo": 6639, "loilKm": 6639, "lrevKm": 0, "val": 487, "dia": "SEX", "on": true}, {"id": "m63", "placa": "TMM1G77", "nome": "YURI SENA PERRI", "odo": 105212, "loilKm": 5295, "lrevKm": 0, "val": 487, "dia": "QUA", "on": true}, {"id": "m64", "placa": "TMM1J88", "nome": "DOUGLAS PEREIRA DA SILVA", "odo": 7548, "loilKm": 7080, "lrevKm": 0, "val": 487, "dia": "SEG", "on": true}, {"id": "m65", "placa": "TMM2A80", "nome": "DANILO FERREIRA DOS SANTOS", "odo": 9032, "loilKm": 9032, "lrevKm": 0, "val": 487, "dia": "SEX", "on": true}, {"id": "m66", "placa": "TMM2F63", "nome": "JAMILE DOS SANTOS XAVIER", "odo": 1047, "loilKm": 1000, "lrevKm": 0, "val": 487, "dia": "QUA", "on": true}, {"id": "m67", "placa": "TMM2H99", "nome": "LUIS ALEXANDRE FRANCA ALVES", "odo": 9714, "loilKm": 8714, "lrevKm": 0, "val": 487, "dia": "TER", "on": true}, {"id": "m68", "placa": "TMM3H81", "nome": "GABRIEL LUCAS SANTOS PAIM", "odo": 153, "loilKm": 0, "lrevKm": 0, "val": 487, "dia": "QUA", "on": true}, {"id": "m69", "placa": "TMM3J66", "nome": "MICAEL SILVA DOS SANTOS", "odo": 9893, "loilKm": 9893, "lrevKm": 0, "val": 487, "dia": "QUA", "on": true}, {"id": "m70", "placa": "TMM4A61", "nome": "GEOVANE DE JESUS SANTOS", "odo": 8407, "loilKm": 8407, "lrevKm": 0, "val": 487, "dia": "QUI", "on": true}, {"id": "m71", "placa": "TMM4B46", "nome": "ALDRIN FREIRE RAMOS", "odo": 2000, "loilKm": 2000, "lrevKm": 0, "val": 487, "dia": "SEG", "on": true}, {"id": "m72", "placa": "TMM4F31", "nome": "MARCUS VINICIUS CORREIA DOS SANTOS", "odo": 275763, "loilKm": 5775, "lrevKm": 0, "val": 487, "dia": "SEX", "on": true}, {"id": "m73", "placa": "TMP4F88", "nome": "FABIANO ANDRADE", "odo": 3114, "loilKm": 2955, "lrevKm": 0, "val": 487, "dia": "QUA", "on": true}, {"id": "m74", "placa": "TMM4J01", "nome": "GENILSON NASCIMENTO GUIMARÃES", "odo": 5941, "loilKm": 5173, "lrevKm": 0, "val": 487, "dia": "SAB", "on": true}, {"id": "m75", "placa": "TMM5A99", "nome": "RICARDO LUIS SANTOS DO NASCIMENTO", "odo": 9867, "loilKm": 8610, "lrevKm": 0, "val": 487, "dia": "SEG", "on": true}, {"id": "m76", "placa": "TMM5F42", "nome": "SERGIO CONCEIÇÃO OLIVEIRA JUNIOR", "odo": 4904, "loilKm": 0, "lrevKm": 0, "val": 487, "dia": "TER", "on": true}, {"id": "m77", "placa": "TMM5G18", "nome": "IGOR SILVA MERCES", "odo": 11.654, "loilKm": 11654, "lrevKm": 11654, "val": 487, "dia": "DOM", "on": true, "lpneuKm": 30000}, {"id": "m78", "placa": "TMM5H73", "nome": "LEONEL BASTOS DOS SANTOS", "odo": 6978, "loilKm": 6880, "lrevKm": 0, "val": 487, "dia": "TER", "on": true}, {"id": "m79", "placa": "TMM6A98", "nome": "LAERCIO SANTOS DE SOUZA", "odo": 4666, "loilKm": 3393, "lrevKm": 0, "val": 487, "dia": "SEX", "on": true}, {"id": "m80", "placa": "TMM6D65", "nome": "SAMUEL DE JESUS SOARES", "odo": 0, "loilKm": 12571, "lrevKm": 12571, "val": 487, "dia": "SEG", "on": true, "lpneuKm": 20000, "status": "alugada"}, {"id": "m81", "placa": "TMM6E40", "nome": "ALEX SANTOS XAVIER", "odo": 12313, "loilKm": 0, "lrevKm": 0, "val": 500.38, "dia": "SEG", "on": true}, {"id": "m82", "placa": "TMM7A19", "nome": "MATHEUS CAMPOS SILVA", "odo": 8472, "loilKm": 7472, "lrevKm": 0, "val": 487, "dia": "QUA", "on": true}, {"id": "m83", "placa": "TMM8H70", "nome": "JONAS RODRIGUES DE SOUZA JUNIOR", "odo": 7268, "loilKm": 7467, "lrevKm": 0, "val": 487, "dia": "QUI", "on": true}, {"id": "m84", "placa": "TMM9B53", "nome": "ANTONIO CARLOS DE JESUS JUNIOR", "odo": 147, "loilKm": 0, "lrevKm": 0, "val": 487, "dia": "SEX", "on": true}, {"id": "m85", "placa": "TMM9E48", "nome": "CARLOS HENRIQUE PEREIRA SANTOS", "odo": 9651, "loilKm": 9595, "lrevKm": 0, "val": 487, "dia": "QUA", "on": true}, {"id": "m86", "placa": "TMM9F10", "nome": "KAUAN DE JESUS PORTUGAL", "odo": 1569, "loilKm": 1061, "lrevKm": 0, "val": 487, "dia": "QUA", "on": true}, {"id": "m87", "placa": "TMM9F38", "nome": "ALEX ROCHA DA SILVA", "odo": 20256, "loilKm": 20536, "lrevKm": 20000, "val": 487, "dia": "QUA", "on": true}, {"id": "m88", "placa": "TMM9I91", "nome": "ADRIANO CABICEIRA BATISTA FILHO", "odo": 15908, "loilKm": 0, "lrevKm": 0, "val": 377, "dia": "TER", "on": true}, {"id": "m89", "placa": "TMP0F94", "nome": "ALEF SOUZA LUBARINO", "odo": 1324, "loilKm": 922, "lrevKm": 0, "val": 487, "dia": "SEX", "on": true}, {"id": "m90", "placa": "TMP4F91", "nome": "LUIS HENRIQUE SANTOS DA SILVA", "odo": 1458, "loilKm": 0, "lrevKm": 0, "val": 487, "dia": "SAB", "on": true}, {"id": "m91", "placa": "TMP5G81", "nome": "MAURICIO SANTOS BORJA", "odo": 937, "loilKm": 0, "lrevKm": 0, "val": 487, "dia": "SEX", "on": true}, {"id": "m92", "placa": "TMP7D19", "nome": "ADRIANO DOS SANTOS SILVA", "odo": 5361, "loilKm": 5361, "lrevKm": 0, "val": 487, "dia": "TER", "on": true}, {"id": "m93", "placa": "TMP8H67", "nome": "BRUNO DOS SANTOS", "odo": 4774, "loilKm": 4476, "lrevKm": 0, "val": 487, "dia": "SEG", "on": true}, {"id": "m95", "placa": "TMP8A45", "nome": "JAMES SANTOS LIMA", "odo": 218, "loilKm": 0, "lrevKm": 0, "val": 423, "dia": "SEX", "on": true}, {"id": "m94", "placa": "TMP9A31", "nome": "LEONARDO VICENTE DOS SANTOS", "odo": 3744, "loilKm": 3744, "lrevKm": 0, "val": 487, "dia": "TER", "on": true}]');
-  localStorage.setItem('mg_l',    '[{"id": "1773372574332_8v8l", "mId": "m1", "data": "2026-03-12", "km": 33618}, {"id": "1773372574332_xdjb", "mId": "m2", "data": "2026-03-12", "km": 31817}, {"id": "1773372574332_3od2", "mId": "m3", "data": "2026-03-12", "km": 23881}, {"id": "1773372574333_xv05", "mId": "m4", "data": "2026-03-12", "km": 38742}, {"id": "1773372574333_j6tb", "mId": "m5", "data": "2026-03-12", "km": 17593}, {"id": "1773372574333_0xpy", "mId": "m6", "data": "2026-03-12", "km": 18324}, {"id": "1773372574333_zhzw", "mId": "m7", "data": "2026-03-12", "km": 40918}, {"id": "1773372574333_fat9", "mId": "m8", "data": "2026-03-12", "km": 29191}, {"id": "1773372574333_u775", "mId": "m9", "data": "2026-03-12", "km": 32802}, {"id": "1773372574333_6ygc", "mId": "m10", "data": "2026-03-12", "km": 24746}, {"id": "1773372574333_xhcl", "mId": "m11", "data": "2026-03-12", "km": 29420}, {"id": "1773372574333_q4fz", "mId": "m12", "data": "2026-03-12", "km": 27934}, {"id": "1773372574333_a7ef", "mId": "m13", "data": "2026-03-12", "km": 50022}, {"id": "1773372574333_w1mr", "mId": "m14", "data": "2026-03-12", "km": 28711}, {"id": "1773372574333_3a1t", "mId": "m15", "data": "2026-03-12", "km": 28131}, {"id": "1773372574333_zgof", "mId": "m16", "data": "2026-03-12", "km": 20588}, {"id": "1773372574333_buzz", "mId": "m17", "data": "2026-03-12", "km": 41566}, {"id": "1773372574333_xqsg", "mId": "m18", "data": "2026-03-12", "km": 44373}, {"id": "1773372574333_kt0r", "mId": "m19", "data": "2026-03-12", "km": 47843}, {"id": "1773372574333_0u4s", "mId": "m20", "data": "2026-03-12", "km": 43744}, {"id": "1773372574333_gob8", "mId": "m21", "data": "2026-03-12", "km": 21952}, {"id": "1773372574333_qt72", "mId": "m22", "data": "2026-03-12", "km": 13853}, {"id": "1773372574333_ugkd", "mId": "m24", "data": "2026-03-12", "km": 29938}, {"id": "1773372574333_8ynd", "mId": "m25", "data": "2026-03-12", "km": 45429}, {"id": "1773372574333_semk", "mId": "m26", "data": "2026-03-12", "km": 25708}, {"id": "1773372574333_jquq", "mId": "m27", "data": "2026-03-12", "km": 7001}, {"id": "1773372574333_banq", "mId": "m28", "data": "2026-03-12", "km": 40221}, {"id": "1773372574333_jm6r", "mId": "m29", "data": "2026-03-12", "km": 29862}, {"id": "1773372574333_5asy", "mId": "m30", "data": "2026-03-12", "km": 10}, {"id": "1773372574333_0b9j", "mId": "m31", "data": "2026-03-12", "km": 32839}, {"id": "1773372574333_p588", "mId": "m32", "data": "2026-03-12", "km": 40000}, {"id": "1773372574333_1yqz", "mId": "m33", "data": "2026-03-12", "km": 40947}, {"id": "1773372574333_oe8z", "mId": "m34", "data": "2026-03-12", "km": 34261}, {"id": "1773372574333_o0yz", "mId": "m35", "data": "2026-03-12", "km": 40000}, {"id": "1773372574333_u18l", "mId": "m36", "data": "2026-03-12", "km": 24912}, {"id": "1773372574333_e3rn", "mId": "m37", "data": "2026-03-12", "km": 20405}, {"id": "1773372574333_3tq5", "mId": "m38", "data": "2026-03-12", "km": 4607}, {"id": "1773372574333_wpre", "mId": "m39", "data": "2026-03-12", "km": 5177}, {"id": "1773372574333_zn7o", "mId": "m40", "data": "2026-03-12", "km": 38129}, {"id": "1773372574333_azyz", "mId": "m41", "data": "2026-03-12", "km": 33308}, {"id": "1773372574333_ckuv", "mId": "m42", "data": "2026-03-12", "km": 21653}, {"id": "1773372574333_u66d", "mId": "m43", "data": "2026-03-12", "km": 20000}, {"id": "1773372574333_u20p", "mId": "m44", "data": "2026-03-12", "km": 31650}, {"id": "1773372574333_74i7", "mId": "m45", "data": "2026-03-12", "km": 23728}, {"id": "1773372574333_9uqd", "mId": "m46", "data": "2026-03-12", "km": 24339}, {"id": "1773372574333_d7fy", "mId": "m47", "data": "2026-03-12", "km": 32053}, {"id": "1773372574333_1gvp", "mId": "m48", "data": "2026-03-12", "km": 20807}, {"id": "1773372574333_xtjf", "mId": "m49", "data": "2026-03-12", "km": 23105}, {"id": "1773372574333_0bod", "mId": "m50", "data": "2026-03-12", "km": 22205}, {"id": "1773372574333_eep7", "mId": "m51", "data": "2026-03-12", "km": 11000}, {"id": "1773372574333_ugkn", "mId": "m52", "data": "2026-03-12", "km": 25273}, {"id": "1773372574333_xcsq", "mId": "m53", "data": "2026-03-12", "km": 12971}, {"id": "1773372574333_tfue", "mId": "m54", "data": "2026-03-12", "km": 7736}, {"id": "1773372574333_o4vx", "mId": "m55", "data": "2026-03-12", "km": 6800}, {"id": "1773372574333_zotn", "mId": "m56", "data": "2026-03-12", "km": 6657}, {"id": "1773372574333_byix", "mId": "m57", "data": "2026-03-12", "km": 2803}, {"id": "1773372574333_9xdz", "mId": "m58", "data": "2026-03-12", "km": 7261}, {"id": "1773372574333_ojjp", "mId": "m59", "data": "2026-03-12", "km": 2000}, {"id": "1773372574333_y8ov", "mId": "m60", "data": "2026-03-12", "km": 8937.57}, {"id": "1773372574333_9c0b", "mId": "m61", "data": "2026-03-12", "km": 3149}, {"id": "1773372574333_0qhu", "mId": "m62", "data": "2026-03-12", "km": 6639}, {"id": "1773372574333_wedu", "mId": "m63", "data": "2026-03-12", "km": 105212}, {"id": "1773372574333_322n", "mId": "m64", "data": "2026-03-12", "km": 7548}, {"id": "1773372574333_stvt", "mId": "m65", "data": "2026-03-12", "km": 9032}, {"id": "1773372574333_ocmt", "mId": "m66", "data": "2026-03-12", "km": 1047}, {"id": "1773372574333_kkh0", "mId": "m67", "data": "2026-03-12", "km": 9714}, {"id": "1773372574333_frpb", "mId": "m68", "data": "2026-03-12", "km": 153}, {"id": "1773372574333_4fvt", "mId": "m69", "data": "2026-03-12", "km": 9893}, {"id": "1773372574333_atq0", "mId": "m70", "data": "2026-03-12", "km": 8407}, {"id": "1773372574333_t8qm", "mId": "m71", "data": "2026-03-12", "km": 2000}, {"id": "1773372574333_dn4i", "mId": "m72", "data": "2026-03-12", "km": 275763}, {"id": "1773372574333_qgke", "mId": "m73", "data": "2026-03-12", "km": 3114}, {"id": "1773372574333_dfps", "mId": "m74", "data": "2026-03-12", "km": 5941}, {"id": "1773372574333_4ixl", "mId": "m75", "data": "2026-03-12", "km": 9867}, {"id": "1773372574333_lchj", "mId": "m76", "data": "2026-03-12", "km": 4904}, {"id": "1773372574333_83ck", "mId": "m77", "data": "2026-03-12", "km": 11.654}, {"id": "1773372574333_lbmm", "mId": "m78", "data": "2026-03-12", "km": 6978}, {"id": "1773372574333_y2pv", "mId": "m79", "data": "2026-03-12", "km": 4666}, {"id": "1773372574333_3rp1", "mId": "m80", "data": "2026-03-12", "km": 20000}, {"id": "1773372574333_qbwa", "mId": "m81", "data": "2026-03-12", "km": 12313}, {"id": "1773372574333_j98e", "mId": "m82", "data": "2026-03-12", "km": 8472}, {"id": "1773372574333_cm1h", "mId": "m83", "data": "2026-03-12", "km": 7268}, {"id": "1773372574333_6vzo", "mId": "m84", "data": "2026-03-12", "km": 147}, {"id": "1773372574333_x8d0", "mId": "m85", "data": "2026-03-12", "km": 9651}, {"id": "1773372574333_ljd8", "mId": "m86", "data": "2026-03-12", "km": 1569}, {"id": "1773372574333_5497", "mId": "m87", "data": "2026-03-12", "km": 20256}, {"id": "1773372574333_43p0", "mId": "m88", "data": "2026-03-12", "km": 15908}, {"id": "1773372574333_33m1", "mId": "m89", "data": "2026-03-12", "km": 1324}, {"id": "1773372574333_7lth", "mId": "m90", "data": "2026-03-12", "km": 1458}, {"id": "1773372574333_hjlu", "mId": "m91", "data": "2026-03-12", "km": 937}, {"id": "1773372574333_215a", "mId": "m92", "data": "2026-03-12", "km": 5361}, {"id": "1773372574333_8sxw", "mId": "m93", "data": "2026-03-12", "km": 4774}, {"id": "1773372574333_xc3y", "mId": "m94", "data": "2026-03-12", "km": 3744}]');
-  localStorage.setItem('mg_s',    '[]');
-  localStorage.setItem('mg_mu',   '[{"id": "1773635608274_jaen", "mId": "m38", "data": "2026-02-07", "val": 195.23, "auto": "RD00112630", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 20% ATE 50%", "prazo": "", "st": "p"}, {"id": "1773635608274_ld7g", "mId": "m38", "data": "2026-01-28", "val": 130.16, "auto": "R007266341", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_msqv", "mId": "m38", "data": "2025-11-27", "val": 130.16, "auto": "R007192590", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_28sc", "mId": "m38", "data": "2025-10-03", "val": 130.16, "auto": "R007122082", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_vdte", "mId": "m41", "data": "2025-11-05", "val": 130.16, "auto": "R007164984", "loc": "TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE", "prazo": "", "st": "p"}, {"id": "1773635608274_dsto", "mId": "m41", "data": "2025-09-16", "val": 130.16, "auto": "R007100607", "loc": "TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE", "prazo": "", "st": "p"}, {"id": "1773635608274_qwqh", "mId": "m42", "data": "2026-01-03", "val": 130.16, "auto": "AT00031622", "loc": "ESTACIONAR EM GUIA DE CALCADA REBAIXADA DESTINADA A ENTRADA/SAIDA DE VEICULOS", "prazo": "", "st": "p"}, {"id": "1773635608274_3g2w", "mId": "m32", "data": "2026-02-13", "val": 130.16, "auto": "F001543762", "loc": "TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE", "prazo": "", "st": "p"}, {"id": "1773635608274_72pf", "mId": "m32", "data": "2026-01-12", "val": 130.16, "auto": "R007251198", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_bu76", "mId": "m32", "data": "2025-12-30", "val": 130.16, "auto": "M000274061", "loc": "DIRIGIR O VEIC USANDO CALCADO QUE N SE FIRME NOS PES/COMPROMETA UTILIZ PEDAIS", "prazo": "", "st": "p"}, {"id": "1773635608274_xad6", "mId": "m32", "data": "2025-11-25", "val": 130.16, "auto": "R007191368", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_io44", "mId": "m1", "data": "2026-01-24", "val": 293.47, "auto": "T482502067", "loc": "CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR TRANSPORTANDO PASSAGEIRO S/ CAPACETE", "prazo": "", "st": "p"}, {"id": "1773635608274_iyqb", "mId": "m1", "data": "2025-12-28", "val": 130.16, "auto": "R007233967", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_09p7", "mId": "m1", "data": "2025-12-05", "val": 130.16, "auto": "R003878897", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_bsrz", "mId": "m1", "data": "2025-12-04", "val": 130.16, "auto": "R003878859", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_qeat", "mId": "m1", "data": "2025-11-30", "val": 130.16, "auto": "R003872344", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_160l", "mId": "m1", "data": "2025-11-07", "val": 293.47, "auto": "DR00062654", "loc": "CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR TRANSPORTANDO PASSAGEIRO S/ CAPACETE", "prazo": "", "st": "p"}, {"id": "1773635608274_ol9r", "mId": "m39", "data": "2025-11-05", "val": 195.23, "auto": "RT00023125", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 20% ATE 50%", "prazo": "", "st": "p"}, {"id": "1773635608274_jeel", "mId": "m7", "data": "2025-11-05", "val": 130.16, "auto": "DR00065249", "loc": "CONDUZIR MOTOC/MOTON/CICLOM C/ UTIL CAPACETE DE SEG C/ VISEIRA/OCULOS PROT EM DES C/ REGUL CONTRAN", "prazo": "", "st": "p"}, {"id": "1773635608274_w4x6", "mId": "m25", "data": "2025-09-16", "val": 130.16, "auto": "RT00020834", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_hs3c", "mId": "m16", "data": "2026-02-28", "val": 130.16, "auto": "DR00076009", "loc": "CONDUZIR MOTOC/MOTON/CICLOM TRANSP PASS C/ CAPACETE DE SEGURANCA S/ VISEIRA/OCULOS DE PROTECAO", "prazo": "", "st": "p"}, {"id": "1773635608274_hig3", "mId": "m16", "data": "2025-08-16", "val": 130.16, "auto": "RT00020357", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_9vyl", "mId": "m16", "data": "2025-09-02", "val": 130.16, "auto": "R007081359", "loc": "TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE", "prazo": "", "st": "p"}, {"id": "1773635608274_b2kz", "mId": "m22", "data": "2025-11-26", "val": 130.16, "auto": "R007189271", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_6e09", "mId": "m37", "data": "2026-01-21", "val": 1467.35, "auto": "E543002733", "loc": "ULTRAPASSAR PELA CONTRAMAO LINHA DE DIVISAO DE FLUXOS OPOSTOS, CONTINUA AMARELA", "prazo": "", "st": "p"}, {"id": "1773635608274_l7g4", "mId": "m37", "data": "2025-08-31", "val": 130.16, "auto": "R003787988", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_tpab", "mId": "m27", "data": "2025-11-29", "val": 130.16, "auto": "R007195048", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_q69o", "mId": "m19", "data": "2025-11-25", "val": 130.16, "auto": "R007191984", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_r6lo", "mId": "m19", "data": "2025-10-13", "val": 130.16, "auto": "R007133706", "loc": "TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE", "prazo": "", "st": "p"}, {"id": "1773635608274_tuka", "mId": "m13", "data": "2026-01-09", "val": 293.47, "auto": "DR00071196", "loc": "AVANCAR O SINAL VERMELHO DO SEMAFORO", "prazo": "", "st": "p"}, {"id": "1773635608274_1646", "mId": "m13", "data": "2026-01-03", "val": 293.47, "auto": "G029800421", "loc": "CONDUZIR MOTOCICLETA, MOTONETA E CICLOMOTOR TRANSPORTANDO PASSAGEIRO S/ CAPACETE", "prazo": "", "st": "p"}, {"id": "1773635608274_pc7y", "mId": "m13", "data": "2025-12-28", "val": 130.16, "auto": "R007233515", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_pykp", "mId": "m13", "data": "2025-12-24", "val": 195.23, "auto": "R007227110", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 20% ATE 50%", "prazo": "", "st": "p"}, {"id": "1773635608274_4clj", "mId": "m33", "data": "2026-02-26", "val": 195.23, "auto": "M000284649", "loc": "EXECUTAR OPERACAO DE CONVERSAO A ESQUERDA EM LOCAL PROIBIDO PELA SINALIZACAO", "prazo": "", "st": "p"}, {"id": "1773635608274_2zcp", "mId": "m33", "data": "2026-02-14", "val": 130.16, "auto": "F001547146", "loc": "TRANSITAR EM LOCAL/HORARIO NAO PERMITIDO PELA REGUL ESTABELECIDA PELA AUTORIDADE", "prazo": "", "st": "p"}, {"id": "1773635608274_agv4", "mId": "m33", "data": "2026-02-12", "val": 293.47, "auto": "F001541054", "loc": "TRANSITAR NA FAIXA OU VIA EXCLUSIVA REGULAM. P/ TRANSP. PUBL. COLETIVO PASSAG.", "prazo": "", "st": "p"}, {"id": "1773635608274_73f6", "mId": "m33", "data": "2026-02-12", "val": 293.47, "auto": "F001542282", "loc": "TRANSITAR NA FAIXA OU VIA EXCLUSIVA REGULAM. P/ TRANSP. PUBL. COLETIVO PASSAG.", "prazo": "", "st": "p"}, {"id": "1773635608274_3388", "mId": "m33", "data": "2026-01-14", "val": 195.23, "auto": "T139433554", "loc": "ESTACIONAR EM DESACORDO COM A REGULAMENTACAO - ESTACIONAMENTO ROTATIVO", "prazo": "", "st": "p"}, {"id": "1773635608274_wodp", "mId": "m33", "data": "2026-01-09", "val": 130.16, "auto": "R007247265", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_ce4z", "mId": "m33", "data": "2025-12-23", "val": 130.16, "auto": "R007224536", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_qszn", "mId": "m33", "data": "2025-12-19", "val": 130.16, "auto": "R003902935", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_xmum", "mId": "m33", "data": "2025-12-05", "val": 130.16, "auto": "M000270960", "loc": "DIRIGIR O VEIC USANDO CALCADO QUE N SE FIRME NOS PES/COMPROMETA UTILIZ PEDAIS", "prazo": "", "st": "p"}, {"id": "1773635608274_48jc", "mId": "m33", "data": "2025-12-02", "val": 880.41, "auto": "M000270373", "loc": "TRANSITAR COM O VEICULO EM MARCAS DE CANALIZACAO", "prazo": "", "st": "p"}, {"id": "1773635608274_x132", "mId": "m33", "data": "2025-12-01", "val": 195.23, "auto": "RT00024467", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 20% ATE 50%", "prazo": "", "st": "p"}, {"id": "1773635608274_szu2", "mId": "m33", "data": "2025-12-02", "val": 130.16, "auto": "R007198654", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_bkft", "mId": "m33", "data": "2025-10-24", "val": 130.16, "auto": "R007148726", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_lpu6", "mId": "m33", "data": "2025-10-24", "val": 130.16, "auto": "R007148717", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_haoh", "mId": "m17", "data": "2026-01-20", "val": 130.16, "auto": "T396001305", "loc": "DIRIGIR O VEIC USANDO CALCADO QUE N SE FIRME NOS PES/COMPROMETA UTILIZ PEDAIS", "prazo": "", "st": "p"}, {"id": "1773635608274_27b3", "mId": "m17", "data": "2026-01-17", "val": 130.16, "auto": "T501200425", "loc": "DIRIGIR O VEIC USANDO CALCADO QUE N SE FIRME NOS PES/COMPROMETA UTILIZ PEDAIS", "prazo": "", "st": "p"}, {"id": "1773635608274_morr", "mId": "m17", "data": "2026-01-11", "val": 130.16, "auto": "R007250146", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_qtrh", "mId": "m17", "data": "2026-01-10", "val": 130.16, "auto": "DR00071691", "loc": "CONDUZIR MOTOC/MOTON/CICLOM C/ UTIL CAPACETE DE SEG C/ VISEIRA/OCULOS PROT EM DES C/ REGUL CONTRAN", "prazo": "", "st": "p"}, {"id": "1773635608274_gqn4", "mId": "m17", "data": "2025-11-23", "val": 293.47, "auto": "T493703957", "loc": "TRANSITAR PELA CONTRAMAO DE DIRECAO EM VIA C/ SINALIZACAO DE REGUL SENTIDO UNICO", "prazo": "", "st": "p"}, {"id": "1773635608274_vu71", "mId": "m17", "data": "2025-09-21", "val": 130.16, "auto": "T421512047", "loc": "DIRIGIR O VEIC USANDO CALCADO QUE N SE FIRME NOS PES/COMPROMETA UTILIZ PEDAIS", "prazo": "", "st": "p"}, {"id": "1773635608274_j03e", "mId": "m28", "data": "2025-10-30", "val": 130.16, "auto": "M000265416", "loc": "ESTACIONAR EM LOCAL/HORARIO PROIBIDO ESPECIFICAMENTE PELA SINALIZACAO", "prazo": "", "st": "p"}, {"id": "1773635608274_450o", "mId": "m34", "data": "2026-02-15", "val": 130.16, "auto": "M000282227", "loc": "PARAR EM LOCAL/HORARIO PROIBIDOS ESPECIFICAMENTE PELA SINALIZACAO", "prazo": "", "st": "p"}, {"id": "1773635608274_uh7o", "mId": "m34", "data": "2026-01-19", "val": 130.16, "auto": "R007257662", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_y83s", "mId": "m34", "data": "2025-12-04", "val": 130.16, "auto": "R007201795", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}, {"id": "1773635608274_6q53", "mId": "m11", "data": "2026-02-13", "val": 293.47, "auto": "F001547106", "loc": "TRANSITAR NA FAIXA OU VIA EXCLUSIVA REGULAM. P/ TRANSP. PUBL. COLETIVO PASSAG.", "prazo": "", "st": "p"}, {"id": "1773635608274_71ng", "mId": "m2", "data": "2025-11-28", "val": 2934.7, "auto": "EZ00001566", "loc": "UTILIZ VEIC DEMONST/EXIBIR MANOBRA PERIGOSA MEDIANTE ARRACADA BRUSCA", "prazo": "", "st": "p"}, {"id": "1773635608274_mafm", "mId": "m23", "data": "2025-11-01", "val": 880.41, "auto": "DR00061594", "loc": "DIRIGIR VEICULO SEM POSSUIR CNH/PPD/ACC", "prazo": "", "st": "p"}, {"id": "1773635608274_03v4", "mId": "m23", "data": "2025-11-04", "val": 195.23, "auto": "T139215805", "loc": "ESTACIONAR EM DESACORDO COM A REGULAMENTACAO - ESTACIONAMENTO ROTATIVO", "prazo": "", "st": "p"}, {"id": "1773635608274_m93p", "mId": "m23", "data": "2025-11-01", "val": 880.41, "auto": "DR00061595", "loc": "PERMITIR POSSE/CONDUCAO DO VEICULO A PESSOA SEM CNH/PPD/AAC", "prazo": "", "st": "p"}, {"id": "1773635608274_70e5", "mId": "m3", "data": "2025-12-25", "val": 195.23, "auto": "R007229024", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM MAIS DE 20% ATE 50%", "prazo": "", "st": "p"}, {"id": "1773635608274_jzr2", "mId": "m3", "data": "2025-12-10", "val": 130.16, "auto": "R007210727", "loc": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%", "prazo": "", "st": "p"}]');
-  localStorage.setItem('mg_e',    '[{"id": "e1", "nome": "Pneu Traseiro", "un": "un", "qtd": 4, "min": 2, "custo": 220}, {"id": "e2", "nome": "Pneu Dianteiro", "un": "un", "qtd": 3, "min": 2, "custo": 180}, {"id": "e3", "nome": "Lona de Freio", "un": "un", "qtd": 6, "min": 4, "custo": 45}, {"id": "e4", "nome": "Filtro de Ar", "un": "un", "qtd": 6, "min": 3, "custo": 28}, {"id": "e5", "nome": "Oleo de Bengala", "un": "L", "qtd": 5, "min": 2, "custo": 35}, {"id": "e6", "nome": "Graxa", "un": "kg", "qtd": 3, "min": 1, "custo": 22}, {"id": "e7", "nome": "Estopa", "un": "kg", "qtd": 2, "min": 1, "custo": 15}, {"id": "e8", "nome": "Oleo de Motor", "un": "L", "qtd": 104, "min": 4, "custo": 42}, {"id": "e9", "nome": "Pastilha de Freio", "un": "par", "qtd": 63, "min": 3, "custo": 65}, {"id": "e10", "nome": "Filtro de Oleo", "un": "un", "qtd": 7, "min": 3, "custo": 32}, {"id": "e11", "nome": "Vela de Ignicao", "un": "un", "qtd": 10, "min": 4, "custo": 18}, {"id": "e12", "nome": "Cabo de Embreagem", "un": "un", "qtd": 83, "min": 2, "custo": 38}, {"id": "e13", "nome": "Cabo AB", "un": "un", "qtd": 38, "min": 5, "custo": 0}, {"id": "e14", "nome": "Oleo ATF", "un": "L", "qtd": 17, "min": 2, "custo": 0}, {"id": "e15", "nome": "Escova de Arranque", "un": "un", "qtd": 16, "min": 2, "custo": 0}, {"id": "e16", "nome": "Kit Transmissao", "un": "un", "qtd": 28, "min": 2, "custo": 0}, {"id": "e17", "nome": "Bucha da Coroa", "un": "un", "qtd": 15, "min": 2, "custo": 0}, {"id": "e18", "nome": "Cabo de Acelerador", "un": "un", "qtd": 30, "min": 2, "custo": 0}, {"id": "e19", "nome": "Pneu Matrix Dianteiro", "un": "un", "qtd": 10, "min": 2, "custo": 0}, {"id": "e20", "nome": "Pneu Matrix Traseiro", "un": "un", "qtd": 10, "min": 2, "custo": 0}]');
-  localStorage.setItem('mg_mv',   '[]');
-  localStorage.setItem('mg_os',   '[]');
-  localStorage.setItem('mg_pg',   '[{"id": "1773371067361_vivm", "mId": "m36", "sem": "2026-03-08", "data": "2026-03-13", "valor": 414, "obs": "Importado do extrato"}, {"id": "1773371067361_bglm", "mId": "m46", "sem": "2026-03-08", "data": "2026-03-13", "valor": 543.7, "obs": "Importado do extrato"}, {"id": "1773371067361_ytau", "mId": "m76", "sem": "2026-03-08", "data": "2026-03-13", "valor": 500, "obs": "Importado do extrato"}, {"id": "1773371067361_i21y", "mId": "m51", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067361_3bv6", "mId": "m56", "sem": "2026-03-08", "data": "2026-03-13", "valor": 300, "obs": "Importado do extrato"}, {"id": "1773371067361_yirq", "mId": "m19", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067361_kw8u", "mId": "m32", "sem": "2026-03-08", "data": "2026-03-13", "valor": 100, "obs": "Importado do extrato"}, {"id": "1773371067361_iirb", "mId": "m22", "sem": "2026-03-08", "data": "2026-03-13", "valor": 363, "obs": "Importado do extrato"}, {"id": "1773371067361_rxio", "mId": "m79", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773371067361_10zz", "mId": "m88", "sem": "2026-03-08", "data": "2026-03-13", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773371067361_tp42", "mId": "m75", "sem": "2026-03-08", "data": "2026-03-13", "valor": 535.7, "obs": "Importado do extrato"}, {"id": "1773371067361_s3ro", "mId": "m49", "sem": "2026-03-08", "data": "2026-03-13", "valor": 500, "obs": "Importado do extrato"}, {"id": "1773371067361_h14g", "mId": "m29", "sem": "2026-03-08", "data": "2026-03-13", "valor": 497, "obs": "Importado do extrato"}, {"id": "1773371067361_x9hx", "mId": "m44", "sem": "2026-03-08", "data": "2026-03-13", "valor": 600, "obs": "Importado do extrato"}, {"id": "1773371067362_li0k", "mId": "m35", "sem": "2026-03-08", "data": "2026-03-13", "valor": 414.7, "obs": "Importado do extrato"}, {"id": "1773371067362_y552", "mId": "m1", "sem": "2026-03-08", "data": "2026-03-13", "valor": 414.65, "obs": "Importado do extrato"}, {"id": "1773371067362_ch99", "mId": "m27", "sem": "2026-03-08", "data": "2026-03-13", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773371067362_ruiu", "mId": "m59", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773371067362_oht1", "mId": "m90", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773371067362_06pt", "mId": "m84", "sem": "2026-03-08", "data": "2026-03-13", "valor": 536, "obs": "Importado do extrato"}, {"id": "1773371067362_ix5n", "mId": "m42", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067362_1mad", "mId": "m48", "sem": "2026-03-08", "data": "2026-03-13", "valor": 467, "obs": "Importado do extrato"}, {"id": "1773371067362_emqp", "mId": "m81", "sem": "2026-03-08", "data": "2026-03-13", "valor": 1000.38, "obs": "Importado do extrato"}, {"id": "1773371067362_64z4", "mId": "m10", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067362_c2ub", "mId": "m12", "sem": "2026-03-08", "data": "2026-03-13", "valor": 232.3, "obs": "Importado do extrato"}, {"id": "1773371067362_c61e", "mId": "m43", "sem": "2026-03-08", "data": "2026-03-13", "valor": 393, "obs": "Importado do extrato"}, {"id": "1773371067362_ip6e", "mId": "m86", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067362_yy8w", "mId": "m13", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067362_hbnl", "mId": "m38", "sem": "2026-03-08", "data": "2026-03-13", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773371067362_lq28", "mId": "m61", "sem": "2026-03-08", "data": "2026-03-13", "valor": 582.89, "obs": "Importado do extrato"}, {"id": "1773371067362_rr3s", "mId": "m55", "sem": "2026-03-08", "data": "2026-03-13", "valor": 423, "obs": "Importado do extrato"}, {"id": "1773371067362_mzyi", "mId": "m40", "sem": "2026-03-08", "data": "2026-03-13", "valor": 363, "obs": "Importado do extrato"}, {"id": "1773371067362_0d0m", "mId": "m54", "sem": "2026-03-08", "data": "2026-03-13", "valor": 352, "obs": "Importado do extrato"}, {"id": "1773371067362_r7hi", "mId": "m15", "sem": "2026-03-08", "data": "2026-03-13", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773371067362_202x", "mId": "m78", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773371067362_stw1", "mId": "m41", "sem": "2026-03-08", "data": "2026-03-13", "valor": 627, "obs": "Importado do extrato"}, {"id": "1773371067362_at9c", "mId": "m50", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067362_eymt", "mId": "m6", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067362_4try", "mId": "m58", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067362_6gmg", "mId": "m69", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773371067362_yxl8", "mId": "m2", "sem": "2026-03-08", "data": "2026-03-13", "valor": 400, "obs": "Importado do extrato"}, {"id": "1773371067363_hosf", "mId": "m85", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773371067363_a1oc", "mId": "m87", "sem": "2026-03-08", "data": "2026-03-13", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773371067363_98nk", "mId": "m5", "sem": "2026-03-08", "data": "2026-03-13", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773371067363_r64x", "mId": "m74", "sem": "2026-03-08", "data": "2026-03-13", "valor": 10, "obs": "Importado do extrato"}, {"id": "1773371067363_rdmw", "mId": "m45", "sem": "2026-03-08", "data": "2026-03-13", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773371067363_fi6i", "mId": "m68", "sem": "2026-03-08", "data": "2026-03-13", "valor": 987, "obs": "Importado do extrato"}, {"id": "1773371067363_pu0g", "mId": "m39", "sem": "2026-03-08", "data": "2026-03-13", "valor": 677, "obs": "Importado do extrato"}, {"id": "1773371067363_ck82", "mId": "m28", "sem": "2026-03-08", "data": "2026-03-13", "valor": 100, "obs": "Importado do extrato"}, {"id": "1773371067363_g4te", "mId": "m65", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_8jbz", "mId": "m89", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_n1tq", "mId": "m93", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_tmwo", "mId": "m73", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_ecgi", "mId": "m7", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_jm7h", "mId": "m21", "sem": "2026-03-08", "data": "2026-03-13", "valor": 150, "obs": "Importado do extrato"}, {"id": "1773371067363_y5as", "mId": "m26", "sem": "2026-03-08", "data": "2026-03-13", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773371067363_hwhq", "mId": "m9", "sem": "2026-03-08", "data": "2026-03-13", "valor": 513.4, "obs": "Importado do extrato"}, {"id": "1773371067363_dcl7", "mId": "m82", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773371067363_vj72", "mId": "m20", "sem": "2026-03-08", "data": "2026-03-13", "valor": 398, "obs": "Importado do extrato"}, {"id": "1773371067363_4iyv", "mId": "m91", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773371067363_zmiu", "mId": "m31", "sem": "2026-03-08", "data": "2026-03-13", "valor": 390, "obs": "Importado do extrato"}, {"id": "1773371067363_fc3u", "mId": "m37", "sem": "2026-03-08", "data": "2026-03-13", "valor": 393, "obs": "Importado do extrato"}, {"id": "1773371067363_hzcz", "mId": "m67", "sem": "2026-03-08", "data": "2026-03-13", "valor": 535, "obs": "Importado do extrato"}, {"id": "1773371067363_9bb0", "mId": "m60", "sem": "2026-03-08", "data": "2026-03-13", "valor": 600, "obs": "Importado do extrato"}, {"id": "1773371067363_qyb1", "mId": "m4", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_av9u", "mId": "m53", "sem": "2026-03-08", "data": "2026-03-13", "valor": 100, "obs": "Importado do extrato"}, {"id": "1773371067363_6vgb", "mId": "m24", "sem": "2026-03-08", "data": "2026-03-13", "valor": 393, "obs": "Importado do extrato"}, {"id": "1773371067363_ttab", "mId": "m66", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_z4n0", "mId": "m47", "sem": "2026-03-08", "data": "2026-03-13", "valor": 2400, "obs": "Importado do extrato"}, {"id": "1773371067363_6qam", "mId": "m33", "sem": "2026-03-08", "data": "2026-03-13", "valor": 432.3, "obs": "Importado do extrato"}, {"id": "1773371067363_olx8", "mId": "m25", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_ykeh", "mId": "m92", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_8e0y", "mId": "m62", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_yyhb", "mId": "m18", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_rqpo", "mId": "m70", "sem": "2026-03-08", "data": "2026-03-13", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773371067363_69pb", "mId": "m17", "sem": "2026-03-08", "data": "2026-03-13", "valor": 135, "obs": "Importado do extrato"}, {"id": "1773371217163_hyjw", "mId": "m64", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": ""}, {"id": "1773372356297_p140", "mId": "m77", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": ""}, {"id": "1773373607514_g4v4", "mId": "m71", "sem": "2026-03-08", "data": "2026-03-13", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773705799053_vexj", "mId": "m59", "sem": "2026-03-15", "data": "2026-03-17", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773705799053_j65d", "mId": "m84", "sem": "2026-03-15", "data": "2026-03-17", "valor": 536, "obs": "Importado do extrato"}, {"id": "1773705799054_agwa", "mId": "m55", "sem": "2026-03-15", "data": "2026-03-17", "valor": 423, "obs": "Importado do extrato"}, {"id": "1773705799054_1ddm", "mId": "m40", "sem": "2026-03-15", "data": "2026-03-17", "valor": 363, "obs": "Importado do extrato"}, {"id": "1773705799054_wwlt", "mId": "m71", "sem": "2026-03-15", "data": "2026-03-17", "valor": 457, "obs": "Importado do extrato"}, {"id": "1773705799054_e06i", "mId": "m15", "sem": "2026-03-15", "data": "2026-03-17", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773705799054_k1p8", "mId": "m41", "sem": "2026-03-15", "data": "2026-03-17", "valor": 627, "obs": "Importado do extrato"}, {"id": "1773705799054_6w8g", "mId": "m69", "sem": "2026-03-15", "data": "2026-03-17", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773705799054_ehc9", "mId": "m5", "sem": "2026-03-15", "data": "2026-03-17", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773705799054_qdp7", "mId": "m68", "sem": "2026-03-15", "data": "2026-03-17", "valor": 987, "obs": "Importado do extrato"}, {"id": "1773705799054_rzxg", "mId": "m28", "sem": "2026-03-15", "data": "2026-03-17", "valor": 100, "obs": "Importado do extrato"}, {"id": "1773705799054_im4q", "mId": "m73", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799054_p7hb", "mId": "m9", "sem": "2026-03-15", "data": "2026-03-17", "valor": 513.4, "obs": "Importado do extrato"}, {"id": "1773705799054_ajen", "mId": "m82", "sem": "2026-03-15", "data": "2026-03-17", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773705799054_eshb", "mId": "m31", "sem": "2026-03-15", "data": "2026-03-17", "valor": 390, "obs": "Importado do extrato"}, {"id": "1773705799054_p1zo", "mId": "m37", "sem": "2026-03-15", "data": "2026-03-17", "valor": 393, "obs": "Importado do extrato"}, {"id": "1773705799054_oe40", "mId": "m60", "sem": "2026-03-15", "data": "2026-03-17", "valor": 600, "obs": "Importado do extrato"}, {"id": "1773705799054_p1bx", "mId": "m24", "sem": "2026-03-15", "data": "2026-03-17", "valor": 393, "obs": "Importado do extrato"}, {"id": "1773705799054_5hte", "mId": "m66", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799054_vta0", "mId": "m95", "sem": "2026-03-15", "data": "2026-03-17", "valor": 2400, "obs": "Importado do extrato"}, {"id": "1773705799055_k3ca", "mId": "m46", "sem": "2026-03-15", "data": "2026-03-17", "valor": 513.7, "obs": "Importado do extrato"}, {"id": "1773705799055_0h43", "mId": "m10", "sem": "2026-03-15", "data": "2026-03-17", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773705799055_xa8l", "mId": "m36", "sem": "2026-03-15", "data": "2026-03-17", "valor": 414, "obs": "Importado do extrato"}, {"id": "1773705799055_rren", "mId": "m91", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799055_dang", "mId": "m45", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799055_9whi", "mId": "m42", "sem": "2026-03-15", "data": "2026-03-17", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773705799055_hvui", "mId": "m4", "sem": "2026-03-15", "data": "2026-03-17", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773705799055_n0bg", "mId": "m87", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799055_bqdj", "mId": "m85", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799055_2jbt", "mId": "m26", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799055_qpkt", "mId": "m77", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799055_qe7s", "mId": "m27", "sem": "2026-03-15", "data": "2026-03-17", "valor": 10, "obs": "Importado do extrato"}, {"id": "1773705799055_ht2z", "mId": "m39", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799055_kwub", "mId": "m35", "sem": "2026-03-15", "data": "2026-03-17", "valor": 414.7, "obs": "Importado do extrato"}, {"id": "1773705799055_8qyr", "mId": "m90", "sem": "2026-03-15", "data": "2026-03-17", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773705799055_829d", "mId": "m88", "sem": "2026-03-15", "data": "2026-03-17", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773705799055_x6li", "mId": "m25", "sem": "2026-03-15", "data": "2026-03-17", "valor": 67, "obs": "Importado do extrato"}, {"id": "1773705799055_6brz", "mId": "m51", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799055_q0h5", "mId": "m49", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799055_4zdi", "mId": "m1", "sem": "2026-03-15", "data": "2026-03-17", "valor": 414.65, "obs": "Importado do extrato"}, {"id": "1773705799056_6cwa", "mId": "m6", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799056_0z10", "mId": "m16", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799056_vjbn", "mId": "m7", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799056_9tez", "mId": "m22", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799056_3fl3", "mId": "m86", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799056_tlsd", "mId": "m44", "sem": "2026-03-15", "data": "2026-03-17", "valor": 450, "obs": "Importado do extrato"}, {"id": "1773705799056_mdeu", "mId": "m29", "sem": "2026-03-15", "data": "2026-03-17", "valor": 467, "obs": "Importado do extrato"}, {"id": "1773705799056_r2rl", "mId": "m92", "sem": "2026-03-15", "data": "2026-03-17", "valor": 120, "obs": "Importado do extrato"}, {"id": "1773705799056_epn9", "mId": "m19", "sem": "2026-03-15", "data": "2026-03-17", "valor": 250, "obs": "Importado do extrato"}, {"id": "1773705799056_mg7v", "mId": "m63", "sem": "2026-03-15", "data": "2026-03-17", "valor": 550, "obs": "Importado do extrato"}, {"id": "1773705799056_i3eq", "mId": "m62", "sem": "2026-03-15", "data": "2026-03-17", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773705799056_z1je", "mId": "m32", "sem": "2026-03-15", "data": "2026-03-17", "valor": 100, "obs": "Importado do extrato"}, {"id": "1773705799056_ii5k", "mId": "m79", "sem": "2026-03-15", "data": "2026-03-17", "valor": 535.7, "obs": "Importado do extrato"}, {"id": "1773705799056_owlj", "mId": "m43", "sem": "2026-03-15", "data": "2026-03-17", "valor": 393, "obs": "Importado do extrato"}, {"id": "1773705799056_vor4", "mId": "m11", "sem": "2026-03-15", "data": "2026-03-17", "valor": 400, "obs": "Importado do extrato"}, {"id": "1773705799056_pke6", "mId": "m21", "sem": "2026-03-15", "data": "2026-03-17", "valor": 200, "obs": "Importado do extrato"}, {"id": "1773705799056_zj68", "mId": "m47", "sem": "2026-03-15", "data": "2026-03-17", "valor": 400, "obs": "Importado do extrato"}, {"id": "1773705799056_j2qz", "mId": "m65", "sem": "2026-03-15", "data": "2026-03-17", "valor": 500, "obs": "Importado do extrato"}, {"id": "1773705799056_uazw", "mId": "m83", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799056_wzqc", "mId": "m53", "sem": "2026-03-15", "data": "2026-03-17", "valor": 50, "obs": "Importado do extrato"}, {"id": "1773705799056_rta4", "mId": "m56", "sem": "2026-03-15", "data": "2026-03-17", "valor": 860, "obs": "Importado do extrato"}, {"id": "1773705799056_ptqo", "mId": "m38", "sem": "2026-03-15", "data": "2026-03-17", "valor": 377, "obs": "Importado do extrato"}, {"id": "1773705799056_nv9f", "mId": "m18", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799056_vxgr", "mId": "m33", "sem": "2026-03-15", "data": "2026-03-17", "valor": 120, "obs": "Importado do extrato"}, {"id": "1773705799056_mo9i", "mId": "m58", "sem": "2026-03-15", "data": "2026-03-17", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773705799056_m5fw", "mId": "m50", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799056_2ws9", "mId": "m13", "sem": "2026-03-15", "data": "2026-03-17", "valor": 432.3, "obs": "Importado do extrato"}, {"id": "1773705799056_8ufd", "mId": "m89", "sem": "2026-03-15", "data": "2026-03-17", "valor": 30, "obs": "Importado do extrato"}, {"id": "1773705799056_ydc3", "mId": "m70", "sem": "2026-03-15", "data": "2026-03-17", "valor": 350, "obs": "Importado do extrato"}, {"id": "1773705799056_34sq", "mId": "m81", "sem": "2026-03-15", "data": "2026-03-17", "valor": 500.38, "obs": "Importado do extrato"}, {"id": "1773705799056_e54x", "mId": "m48", "sem": "2026-03-15", "data": "2026-03-17", "valor": 467, "obs": "Importado do extrato"}, {"id": "1773709614336_irob", "mId": "m74", "sem": "2026-03-15", "data": "2026-03-17", "valor": 964, "obs": "Importado do extrato"}, {"id": "1773716136284_mej0", "mId": "m57", "sem": "2026-03-08", "data": "2026-03-17", "valor": 487, "obs": "Importado do extrato"}, {"id": "1773716152832_hxvv", "mId": "m80", "sem": "2026-03-08", "data": "2026-03-17", "valor": 487, "obs": ""}]');
-  localStorage.setItem('mg_mhist','[{"id": "1773362223696_hn9c", "mId": "m4", "tipo": "oil", "km": 38721, "obs": "", "data": "2026-03-13"}, {"id": "1773362251910_4smr", "mId": "m4", "tipo": "rev", "km": 30000, "obs": "", "data": "2026-03-13"}, {"id": "1773362274925_20ey", "mId": "m4", "tipo": "pneu", "km": 30000, "obs": "", "data": "2026-03-13"}, {"id": "1773362395913_ywxo", "mId": "m21", "tipo": "oil", "km": 21951, "obs": "Troca de oleo, troca de kit, troca de partilha", "data": "2026-03-13"}, {"id": "1773362462863_hahv", "mId": "m33", "tipo": "oil", "km": 40947, "obs": "Troca de Embreagem e placa de partida", "data": "2026-03-13"}, {"id": "1773362480045_jlk8", "mId": "m33", "tipo": "rev", "km": 40000, "obs": "", "data": "2026-03-13"}, {"id": "1773362501512_7vsn", "mId": "m32", "tipo": "pneu", "km": 40000, "obs": "", "data": "2026-03-13"}, {"id": "1773362512630_6plq", "mId": "m33", "tipo": "pneu", "km": 40000, "obs": "", "data": "2026-03-13"}, {"id": "1773362607363_6ztu", "mId": "m66", "tipo": "oil", "km": 1000, "obs": "", "data": "2026-03-13"}, {"id": "1773362648147_7834", "mId": "m25", "tipo": "oil", "km": 45370, "obs": "", "data": "2026-03-13"}, {"id": "1773362660163_rtt2", "mId": "m25", "tipo": "rev", "km": 40000, "obs": "", "data": "2026-03-13"}, {"id": "1773362673280_jaoa", "mId": "m25", "tipo": "pneu", "km": 40000, "obs": "", "data": "2026-03-13"}, {"id": "1773362722494_ke9j", "mId": "m92", "tipo": "oil", "km": 5361, "obs": "", "data": "2026-03-13"}, {"id": "1773362792580_whrp", "mId": "m62", "tipo": "oil", "km": 6639, "obs": "", "data": "2026-03-13"}, {"id": "1773362825480_0cys", "mId": "m18", "tipo": "oil", "km": 44373, "obs": "", "data": "2026-03-13"}, {"id": "1773362842696_5kdn", "mId": "m18", "tipo": "pneu", "km": 50000, "obs": "", "data": "2026-03-13"}, {"id": "1773362867264_zv9j", "mId": "m70", "tipo": "oil", "km": 8407, "obs": "", "data": "2026-03-13"}, {"id": "1773362899745_7rv3", "mId": "m77", "tipo": "oil", "km": 11654, "obs": "", "data": "2026-03-13"}, {"id": "1773362913364_ubp5", "mId": "m77", "tipo": "rev", "km": 11654, "obs": "", "data": "2026-03-13"}, {"id": "1773362926264_rofl", "mId": "m77", "tipo": "pneu", "km": 30000, "obs": "", "data": "2026-03-13"}, {"id": "1773362949447_9aw5", "mId": "m20", "tipo": "oil", "km": 43744, "obs": "", "data": "2026-03-13"}, {"id": "1773362961797_4mwq", "mId": "m20", "tipo": "pneu", "km": 50000, "obs": "", "data": "2026-03-13"}, {"id": "1773362988247_3oln", "mId": "m65", "tipo": "oil", "km": 9032, "obs": "", "data": "2026-03-13"}, {"id": "1773363009631_0540", "mId": "m61", "tipo": "oil", "km": 3149, "obs": "", "data": "2026-03-13"}, {"id": "1773363033414_6sj4", "mId": "m17", "tipo": "oil", "km": 41453, "obs": "", "data": "2026-03-13"}, {"id": "1773363064781_35yj", "mId": "m17", "tipo": "pneu", "km": 40000, "obs": "", "data": "2026-03-13"}, {"id": "1773363085831_2cbr", "mId": "m20", "tipo": "oil", "km": 43744, "obs": "", "data": "2026-03-13"}, {"id": "1773363101464_7p38", "mId": "m20", "tipo": "rev", "km": 40000, "obs": "", "data": "2026-03-13"}, {"id": "1773363201264_n4wm", "mId": "m37", "tipo": "oil", "km": 20305, "obs": "", "data": "2026-03-13"}, {"id": "1773363216796_95i5", "mId": "m37", "tipo": "pneu", "km": 30000, "obs": "", "data": "2026-03-13"}, {"id": "1773363674296_3sdj", "mId": "m89", "tipo": "oil", "km": 922, "obs": "", "data": "2026-03-13"}, {"id": "1773363692529_e9qc", "mId": "m9", "tipo": "oil", "km": 32467, "obs": "", "data": "2026-03-13"}, {"id": "1773363703365_ivpn", "mId": "m9", "tipo": "pneu", "km": 30000, "obs": "", "data": "2026-03-13"}, {"id": "1773363742531_suiz", "mId": "m28", "tipo": "oil", "km": 40151, "obs": "", "data": "2026-03-13"}, {"id": "1773363761065_os6p", "mId": "m28", "tipo": "rev", "km": 40000, "obs": "", "data": "2026-03-13"}, {"id": "1773363769949_3bz4", "mId": "m28", "tipo": "pneu", "km": 40000, "obs": "", "data": "2026-03-13"}, {"id": "1773363795448_gon2", "mId": "m35", "tipo": "oil", "km": 39275, "obs": "", "data": "2026-03-13"}, {"id": "1773363806233_zwvj", "mId": "m35", "tipo": "rev", "km": 30000, "obs": "", "data": "2026-03-13"}, {"id": "1773363889982_1xt1", "mId": "m35", "tipo": "rev", "km": 41000, "obs": "", "data": "2026-03-13"}, {"id": "1773364004481_30nn", "mId": "m35", "tipo": "pneu", "km": 40000, "obs": "", "data": "2026-03-13"}, {"id": "1773364031884_soyq", "mId": "m93", "tipo": "oil", "km": 4476, "obs": "", "data": "2026-03-13"}, {"id": "1773364068398_wjqm", "mId": "m73", "tipo": "oil", "km": 2955, "obs": "", "data": "2026-03-13"}, {"id": "1773364088798_6121", "mId": "m7", "tipo": "oil", "km": 40516, "obs": "", "data": "2026-03-13"}, {"id": "1773364097867_7lmo", "mId": "m7", "tipo": "pneu", "km": 50000, "obs": "", "data": "2026-03-13"}, {"id": "1773364156318_32ik", "mId": "m80", "tipo": "oil", "km": 12571, "obs": "", "data": "2026-03-13"}, {"id": "1773364180100_jyvs", "mId": "m80", "tipo": "rev", "km": 12571, "obs": "", "data": "2026-03-13"}, {"id": "1773364189267_6gop", "mId": "m80", "tipo": "pneu", "km": 20000, "obs": "", "data": "2026-03-13"}, {"id": "1773364212917_k1tm", "mId": "m3", "tipo": "oil", "km": 23881, "obs": "", "data": "2026-03-13"}, {"id": "1773364224584_7sgh", "mId": "m3", "tipo": "rev", "km": 20000, "obs": "", "data": "2026-03-13"}, {"id": "1773364232134_zz5d", "mId": "m3", "tipo": "pneu", "km": 20000, "obs": "", "data": "2026-03-13"}, {"id": "1773364261635_y3ed", "mId": "m31", "tipo": "oil", "km": 32555, "obs": "", "data": "2026-03-13"}, {"id": "1773364277068_d781", "mId": "m31", "tipo": "pneu", "km": 30000, "obs": "", "data": "2026-03-13"}, {"id": "1773364336967_ajgp", "mId": "m41", "tipo": "oil", "km": 33308, "obs": "", "data": "2026-03-13"}, {"id": "1773364359134_2ssc", "mId": "m41", "tipo": "rev", "km": 30000, "obs": "", "data": "2026-03-13"}, {"id": "1773364364015_9b65", "mId": "m41", "tipo": "rev", "km": 30000, "obs": "", "data": "2026-03-13"}, {"id": "1773364376084_1jqf", "mId": "m41", "tipo": "pneu", "km": 30000, "obs": "", "data": "2026-03-13"}, {"id": "1773364405766_f4ha", "mId": "m50", "tipo": "pneu", "km": 30000, "obs": "", "data": "2026-03-13"}, {"id": "1773364424849_xu8g", "mId": "m50", "tipo": "pneu", "km": 20000, "obs": "", "data": "2026-03-13"}, {"id": "1773364575368_edh0", "mId": "m77", "tipo": "rev", "km": 11654, "obs": "", "data": "2026-03-13"}, {"id": "1773364858052_fthm", "mId": "m6", "tipo": "oil", "km": 18324, "obs": "", "data": "2026-03-13"}, {"id": "1773364886435_18rm", "mId": "m6", "tipo": "pneu", "km": 10000, "obs": "", "data": "2026-03-13"}, {"id": "1773364903267_vnv5", "mId": "m7", "tipo": "rev", "km": 40000, "obs": "", "data": "2026-03-13"}, {"id": "1773364917684_bitw", "mId": "m7", "tipo": "pneu", "km": 40000, "obs": "", "data": "2026-03-13"}, {"id": "1773364930869_4lpm", "mId": "m7", "tipo": "rev", "km": 40000, "obs": "", "data": "2026-03-13"}, {"id": "1773365166470_tajg", "mId": "m24", "tipo": "pneu", "km": 20000, "obs": "", "data": "2026-03-13"}, {"id": "1773365471370_hu8l", "mId": "m52", "tipo": "pneu", "km": 24624, "obs": "", "data": "2026-03-13"}, {"id": "1773365760804_i7m6", "mId": "m29", "tipo": "oil", "km": 20000, "obs": "", "data": "2026-03-13"}, {"id": "1773365770121_kifc", "mId": "m29", "tipo": "pneu", "km": 20000, "obs": "", "data": "2026-03-13"}, {"id": "1773365780151_0akv", "mId": "m29", "tipo": "rev", "km": 20000, "obs": "", "data": "2026-03-13"}, {"id": "1773365796436_4o36", "mId": "m29", "tipo": "oil", "km": 29862, "obs": "", "data": "2026-03-13"}, {"id": "1773365823369_ul6x", "mId": "m29", "tipo": "pneu", "km": 29862, "obs": "", "data": "2026-03-13"}, {"id": "1773365849671_re50", "mId": "m29", "tipo": "rev", "km": 29862, "obs": "", "data": "2026-03-13"}, {"id": "1773365958469_vmsg", "mId": "m29", "tipo": "rev", "km": 23382, "obs": "", "data": "2026-03-13"}, {"id": "1773366009155_dqb9", "mId": "m15", "tipo": "pneu", "km": 20000, "obs": "", "data": "2026-03-13"}, {"id": "1773366019323_6hzm", "mId": "m16", "tipo": "pneu", "km": 20000, "obs": "", "data": "2026-03-13"}, {"id": "1773366035986_3b7f", "mId": "m18", "tipo": "rev", "km": 40000, "obs": "", "data": "2026-03-13"}, {"id": "1773366044820_x5pz", "mId": "m18", "tipo": "rev", "km": 40000, "obs": "", "data": "2026-03-13"}, {"id": "1773366059706_p1zl", "mId": "m18", "tipo": "oil", "km": 44, "obs": "", "data": "2026-03-13"}, {"id": "1773366147536_genf", "mId": "m18", "tipo": "oil", "km": 44, "obs": "", "data": "2026-03-13"}, {"id": "1773366164921_sk5i", "mId": "m18", "tipo": "oil", "km": 44373, "obs": "", "data": "2026-03-13"}, {"id": "1773366182072_p3ix", "mId": "m19", "tipo": "pneu", "km": 40000, "obs": "", "data": "2026-03-13"}, {"id": "1773366195423_r84b", "mId": "m20", "tipo": "rev", "km": 40000, "obs": "", "data": "2026-03-13"}, {"id": "1773366215589_3pqm", "mId": "m20", "tipo": "oil", "km": 43744, "obs": "", "data": "2026-03-13"}, {"id": "1773366227135_5d1r", "mId": "m20", "tipo": "pneu", "km": 40000, "obs": "", "data": "2026-03-13"}, {"id": "1773366237556_4tlb", "mId": "m20", "tipo": "oil", "km": 43744, "obs": "", "data": "2026-03-13"}, {"id": "1773366291556_och0", "mId": "m21", "tipo": "pneu", "km": 20000, "obs": "", "data": "2026-03-13"}, {"id": "1773366446572_w65l", "mId": "m22", "tipo": "oil", "km": 12734, "obs": "", "data": "2026-03-13"}, {"id": "1773366455147_pn70", "mId": "m22", "tipo": "rev", "km": 10000, "obs": "", "data": "2026-03-13"}, {"id": "1773366461402_67m6", "mId": "m22", "tipo": "pneu", "km": 10000, "obs": "", "data": "2026-03-13"}, {"id": "1773368257271_d2bd", "mId": "m49", "tipo": "pneu", "km": 20000, "obs": "", "data": "2026-03-13"}, {"id": "1773368316368_d7s9", "mId": "m45", "tipo": "pneu", "km": 20000, "obs": "", "data": "2026-03-13"}, {"id": "1773368341872_8ssa", "mId": "m48", "tipo": "pneu", "km": 20000, "obs": "", "data": "2026-03-13"}, {"id": "1773368860455_et58", "mId": "m40", "tipo": "oil", "km": 37129, "obs": "", "data": "2026-03-13"}, {"id": "1773368871039_9gm1", "mId": "m40", "tipo": "pneu", "km": 37000, "obs": "", "data": "2026-03-13"}, {"id": "1773372391161_byam", "mId": "m1", "tipo": "pneu", "km": 30000, "obs": "", "data": "2026-03-13"}, {"id": "1773372398297_x3ue", "mId": "m2", "tipo": "pneu", "km": 30000, "obs": "", "data": "2026-03-13"}, {"id": "1773372405882_bh9d", "mId": "m5", "tipo": "pneu", "km": 15000, "obs": "", "data": "2026-03-13"}, {"id": "1773372417498_1v3t", "mId": "m8", "tipo": "pneu", "km": 25000, "obs": "", "data": "2026-03-13"}, {"id": "1773372429783_i7dn", "mId": "m10", "tipo": "pneu", "km": 24000, "obs": "", "data": "2026-03-13"}, {"id": "1773372438048_ldcx", "mId": "m11", "tipo": "pneu", "km": 25000, "obs": "", "data": "2026-03-13"}, {"id": "1773372450012_noiu", "mId": "m12", "tipo": "pneu", "km": 15000, "obs": "", "data": "2026-03-13"}, {"id": "1773372460665_cglm", "mId": "m12", "tipo": "pneu", "km": 25000, "obs": "", "data": "2026-03-13"}, {"id": "1773372479782_ii68", "mId": "m13", "tipo": "pneu", "km": 50000, "obs": "", "data": "2026-03-13"}, {"id": "1773372502432_edqw", "mId": "m26", "tipo": "pneu", "km": 25000, "obs": "", "data": "2026-03-13"}]');
-  localStorage.setItem('mg_seed_20260316f','1');
+  // Dados das motos armazenados no localStorage do navegador
+  if(!localStorage.getItem('mg_seed_done')) localStorage.setItem('mg_seed_done','1');
 })();
 const DB={
   motos: S.get('mg_m')||JSON.parse(JSON.stringify(SEED)),
@@ -1172,10 +1067,8 @@ function editarPneu(mId, tipo){
   const label=tipo==='D'?'Dianteiro':'Traseiro';
   const key=tipo==='D'?'lpneuDKm':'lpneuTKm';
   const valorAtual=m[key]||m.lpneuKm||0;
-  const modal=document.createElement('div');
-  modal.id='modalEditPneu';
-  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px';
-  modal.innerHTML=`<div class="modal" style="max-width:360px">
+  document.getElementById('modalEditPneu')?.remove();
+  showM(mWrap('modalEditPneu',`<div class="modal" style="max-width:360px">
     <div class="mh"><span class="ct">🔵 Pneu ${label} — ${m.placa}</span><button class="btn bx" onclick="closeM('modalEditPneu')">✕</button></div>
     <p style="font-size:12px;color:var(--sub);margin-bottom:14px">Odômetro atual: <b style="color:var(--acc)">${fN(m.odo)} km</b></p>
     <div class="fg"><label>KM da última troca do pneu ${label.toLowerCase()}</label>
@@ -1185,22 +1078,21 @@ function editarPneu(mId, tipo){
       <button class="btn bx" onclick="closeM('modalEditPneu')">Cancelar</button>
       <button class="btn ba" onclick="salvarPneu('${mId}','${key}')">✓ Salvar</button>
     </div>
-  </div>`;
-  showM(modal);
+  </div>`));
 }
 
 function salvarPneu(mId,key){
   const m=DB.motos.find(x=>x.id===mId);if(!m)return;
   const km=Number(document.getElementById('pneuKmInp')?.value||0);
+  if(!km){alert('Digite o KM da troca.');return;}
   m[key]=km;
+  // Atualiza lpneuKm (campo geral) se o novo valor for maior — mantém cálculos de status corretos
+  if(km>=(m.lpneuKm||0)) m.lpneuKm=km;
   sv('m');
-  if(window._fbRef){
-    const patch={};patch[key]=km;
-    window._fbRef.child('motos_lista').once('value').then(()=>publicarMotosFirebase());
-  }
+  publicarMotosFirebase();
   closeM('modalEditPneu');
   render();
-  toast('✅ Pneu atualizado!','grn');
+  toast('✅ Pneu atualizado: '+fN(km)+' km','grn');
 }
 
 function aprovarSolicitacaoOficina(id){
@@ -1373,7 +1265,11 @@ function saveMnt(id,tipo){
   const data=document.getElementById('mntDataInp')?.value||tod();
   if(!km){alert('Digite o km em que foi realizado.');return;}
   const t=TIPOS_MNT[tipo]||TIPOS_MNT.outro;
-  if(t.key){m[t.key]=km;}
+  // Só atualiza o campo de última manutenção se o KM for maior que o atual (preserva o mais recente)
+  if(t.key){
+    const atual=m[t.key]||0;
+    if(km>=atual) m[t.key]=km;
+  }
   if(km>m.odo) m.odo=km;
   // Baixa peças do estoque
   const pecas=window._mntPecas||[];
@@ -2033,7 +1929,7 @@ function vOficina(){
       window['_com_'+idx]=c.texto;
       return`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bor)">
         <span style="font-size:13px;flex:1;font-weight:600">${c.label}</span>
-        <button class="btn bx bxs" style="white-space:nowrap" onclick="navigator.clipboard.writeText(window['_com_${idx}']).then(()=>{this.textContent='✅ Copiado!';setTimeout(()=>this.textContent='📋 Copiar',2000)}).catch(()=>prompt('Copie:',window['_com_${idx}']))">📋 Copiar</button>
+        <button class="btn bx bxs" style="white-space:nowrap" onclick="copiarComun(${idx},this)">📋 Copiar</button>
         <button class="btn bxs" style="background:#25d366;color:#fff;border:none;white-space:nowrap" onclick="window.open('https://wa.me/?text='+encodeURIComponent(window['_com_${idx}']),'_blank')">📱 WA</button>
       </div>`;
     }).join('')}
@@ -2293,7 +2189,7 @@ function exportarOficinaWA(){
   const totConf=conf.reduce((a,i)=>a+Number(i.total||0),0);
   const totPend=pend.reduce((a,i)=>a+Number(i.total||0),0);
   const totGeral=totConf+totPend;
-  const mesLabel=new Date(mesAtual+'-01').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const mesLabel=new Date(mesAtual+'-01T12:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   let msg=`🛠️ *Resumo Oficina — ${mesLabel.charAt(0).toUpperCase()+mesLabel.slice(1)}*\n\n`;
   msg+=`✅ Aprovados: *${conf.length} serviço(s)* — ${fR(totConf)}\n`;
   msg+=`⏳ Pendentes: *${pend.length} serviço(s)* — ${fR(totPend)}\n`;
@@ -2312,14 +2208,14 @@ function exportarOficinaWA(){
     <div class="mh"><span class="ct">📱 Resumo da Oficina — WhatsApp</span><button class="btn bx" onclick="closeM('mWAOficina')">✕</button></div>
     <div style="background:var(--sur);border-radius:10px;padding:14px;font-size:12px;white-space:pre-wrap;line-height:1.7;max-height:50vh;overflow-y:auto">${msg}</div>
     <div class="row" style="gap:8px;justify-content:flex-end;margin-top:12px">
-      <button class="btn bx" onclick="navigator.clipboard.writeText(${JSON.stringify(msg)}).then(()=>alert('✅ Copiado!'))">📋 Copiar</button>
+      <button class="btn bx" onclick="copiarComun(-1,this)">📋 Copiar</button>
       <button class="btn bx" onclick="closeM('mWAOficina')">Fechar</button>
       <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="window.open('https://wa.me/?text='+encodeURIComponent(${JSON.stringify(msg)}),'_blank')">📱 Abrir WA</button>
     </div>
   </div>`));
 }
 
-// Ao APROVAR intervenção: atualiza manutenção + baixa estoque + gera OS
+
 function confirmarIntervencao(id){
   const intv=DB.intervencoes.find(x=>x.id===id);if(!intv)return;
   const m=DB.motos.find(x=>x.id===intv.mId);
@@ -2346,16 +2242,15 @@ function confirmarIntervencao(id){
   // 1. Atualiza manutenção da moto
   if(m){
     mapeamento.forEach(({regex,tipo})=>{
-      // Detecta pelo texto completo OU pelo tipo selecionado no portal
-      if(!regex.test(servDescs) && tipoIntv!==tipo &&
-         !(intv.servicos||[]).some(s=>(s.tipo||'')=== tipo)) return;
-      if(tiposDetectados.includes(tipo)) return;
+      const detectado=regex.test(servDescs)||tipoIntv===tipo||
+        (intv.servicos||[]).some(s=>(s.tipo||'')=== tipo);
+      if(!detectado||tiposDetectados.includes(tipo)) return;
       tiposDetectados.push(tipo);
       const t=TIPOS_MNT[tipo];
-      // Atualiza km da última manutenção deste tipo
+      // Atualiza km da última manutenção — SOMENTE se o novo km for maior (evita sobrescrever mais recente)
       if(t&&t.key&&km>0){
-        m[t.key]=km;
-        console.log(`✅ Atualizado ${t.key} = ${km} para moto ${m.placa}`);
+        const atual=m[t.key]||0;
+        if(km>=atual) m[t.key]=km; // aceita igual para permitir correção manual
       }
       // Registra no histórico
       const jaExiste=DB.mhist.find(h=>
@@ -2372,7 +2267,7 @@ function confirmarIntervencao(id){
         obs:'Oficina: '+(intv.servicos||[]).map(s=>s.desc).join(', '),
         custo:intv.total||0,ofic:'Oficina Parceira',data:intv.data||tod(),origem:'portal'});
     }
-    // Atualiza odômetro se km maior
+    // Atualiza odômetro apenas se km da intervenção for maior
     if(km>0&&km>(m.odo||0)) m.odo=km;
     sv('m');sv('mhist');
     publicarMotosFirebase();
@@ -2415,9 +2310,22 @@ function confirmarIntervencao(id){
   const resumo=[]
     .concat(tiposDetectados.length?['✅ Manutenção: '+tiposDetectados.map(t=>TIPOS_MNT[t]?.label||t).join(', ')]:[])
     .concat(pecasBaixadas.length?['📦 Estoque baixado: '+pecasBaixadas.join(', ')]:[])
-    .concat(km>0?['📏 KM atualizado: '+fN(km)+'']:['⚠️ KM não informado — odômetro não atualizado']);
+    .concat(km>0?['📏 KM: '+fN(km)+' km']:['⚠️ KM não informado']);
   alert('✅ Aprovado!\n\n'+resumo.join('\n'));
   render();
+}
+
+function copiarComun(idx,btn){
+  const txt=idx===-1?(window._waMsg||window['_com_-1']||''):window['_com_'+idx];
+  if(!txt){alert('Nenhum texto para copiar.');return;}
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(()=>{
+      if(btn){const orig=btn.textContent;btn.textContent='✅ Copiado!';setTimeout(()=>btn.textContent=orig,2000);}
+      else alert('✅ Copiado!');
+    }).catch(()=>prompt('Copie o texto abaixo:',txt));
+  } else {
+    prompt('Copie o texto abaixo:',txt);
+  }
 }
 function rejeitarIntervencao(id){
   if(!confirm('Rejeitar esta intervenção?'))return;
@@ -2768,111 +2676,6 @@ function aplicarIntervencaoAutomatico(intv){
   if(TAB==='oficina') render();
 }
 
-// Ao APROVAR intervenção: atualiza manutenção + baixa estoque + gera OS
-function confirmarIntervencao(id){
-  const intv=DB.intervencoes.find(x=>x.id===id);if(!intv)return;
-  const m=DB.motos.find(x=>x.id===intv.mId);
-  // Usa KM da intervenção; se não preenchido, usa odômetro atual da moto
-  const km=Number(intv.km||0)||(m?m.odo:0)||0;
-  const servDescs=(intv.servicos||[]).map(s=>(s.desc||'').toLowerCase()).join(' ');
-  // Também verifica o tipo principal da intervenção (ex: 'oil', 'rev')
-  const tipoIntv=(intv.tipo||'').toLowerCase();
-  const tiposDetectados=[];
-  const mapeamento=[
-    {regex:/\bóleo\b|oleo|oil|lubrif/,tipo:'oil',tipoKey:'oil'},
-    {regex:/revisão|revisao|revis/,tipo:'rev',tipoKey:'rev'},
-    {regex:/pneu|borracha/,tipo:'pneu',tipoKey:'pneu'},
-    {regex:/correia|corrente|kit\s*trans/,tipo:'corr',tipoKey:'corr'},
-    {regex:/pastilha/,tipo:'past',tipoKey:'past'},
-    {regex:/vela|igni/,tipo:'vela',tipoKey:'vela'},
-    {regex:/filtro\s*de?\s*ar/,tipo:'filtrar',tipoKey:'filtrar'},
-    {regex:/filtro\s*de?\s*óleo|filtro\s*oleo/,tipo:'filtoleo',tipoKey:'filtoleo'},
-    {regex:/escova|arranque/,tipo:'escova',tipoKey:'escova'},
-    {regex:/embreagem|embreia/,tipo:'embreia',tipoKey:'embreia'},
-    {regex:/bucha|coroa/,tipo:'bucha',tipoKey:'bucha'},
-  ];
-  // 1. Atualiza manutenção da moto — sempre executa (usa odo como fallback de km)
-  if(m){
-    mapeamento.forEach(({regex,tipo,tipoKey})=>{
-      // Detecta pelo texto dos serviços OU pelo tipo principal da intervenção
-      const detectado=regex.test(servDescs)||(tipoIntv===tipoKey)||
-        (intv.servicos||[]).some(s=>(s.tipo||'')=== tipoKey);
-      if(!detectado)return;
-      tiposDetectados.push(tipo);
-      const t=TIPOS_MNT[tipo];
-      if(t&&t.key&&km>0)m[t.key]=km;
-      // Registra no histórico de manutenção
-      const jaExiste=DB.mhist.find(h=>
-        h.mId===intv.mId&&h.tipo===tipo&&h.data===intv.data&&Math.abs((h.km||0)-(km||0))<=50);
-      if(!jaExiste){
-        DB.mhist.push({id:uid(),mId:intv.mId,tipo,km:km||0,
-          obs:'Oficina: '+(intv.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join(', ')||tipo,
-          custo:intv.total||0,ofic:'Oficina Parceira',data:intv.data||tod(),origem:'portal'});
-      }
-    });
-    // Se nenhum tipo detectado mas há serviços, registra como 'outro' no histórico
-    if(tiposDetectados.length===0&&(intv.servicos||[]).length>0){
-      const descGeral=(intv.servicos||[]).map(s=>s.desc).join(', ');
-      DB.mhist.push({id:uid(),mId:intv.mId,tipo:'outro',km:km||0,
-        obs:'Oficina: '+descGeral,custo:intv.total||0,
-        ofic:'Oficina Parceira',data:intv.data||tod(),origem:'portal'});
-    }
-    if(km>0&&km>(m.odo||0))m.odo=km;
-    sv('m');sv('mhist');
-    publicarMotosFirebase();
-  }
-  // 2. Baixa peças do estoque
-  const pecasBaixadas=[];
-  (intv.servicos||[]).forEach(s=>{
-    if(!s.peca||!s.peca.trim())return;
-    const nomePeca=s.peca.toLowerCase().trim();
-    const item=DB.est.find(e=>{
-      const n=e.nome.toLowerCase();
-      return n===nomePeca||n.includes(nomePeca)||nomePeca.includes(n.split(' ')[0]);
-    });
-    if(item){
-      const qtdBaixar=Math.min(1,item.qtd);
-      if(qtdBaixar>0){
-        item.qtd-=qtdBaixar;
-        DB.mov.push({id:uid(),eId:item.id,tipo:'out',qtd:qtdBaixar,data:intv.data||tod(),
-          obs:'Oficina: '+s.desc+' — '+(m?.placa||intv.mId),ref:'oficina',intvId:intv.id});
-        pecasBaixadas.push(item.nome+' ×'+qtdBaixar);
-      }
-    }
-  });
-  if(pecasBaixadas.length){sv('e');sv('mv');}
-  // 3. Gera OS
-  const jaTemOs=DB.os.find(o=>o.intvId===intv.id);
-  if(!jaTemOs){
-    const descObs=(km?'KM: '+fN(km)+' — ':'')+((intv.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join('; '));
-    // Monta itens estruturados com peças e descrições
-    const itensOs=(intv.servicos||[]).filter(s=>s.peca&&s.peca.trim()).map(s=>({
-      nome:s.peca,desc:s.desc,qtd:1
-    }));
-    // Revisão geral tem valor fixo de R$100 para a AMS, independente dos serviços realizados
-    const temRevisao=tiposDetectados.includes('rev');
-    const maoFinal=temRevisao?100:Number(intv.mao||0);
-    const pecasFinal=temRevisao?0:Number(intv.pecas||0);
-    const totalFinal=temRevisao?100:(Number(intv.pecas||0)+Number(intv.mao||0));
-    const obsRevFinal=descObs+(temRevisao?' [Revisão Geral — valor fixo R$ 100,00]':'');
-    DB.os.push({id:uid(),mId:intv.mId,data:intv.data,km:km||0,
-      ofic:'Oficina Parceira',pec:pecasFinal,mao:maoFinal,
-      nf:'',obs:obsRevFinal,st:'pendente',origem:'oficina',itens:itensOs,intvId:intv.id,
-      foto:intv.foto||null,autor:intv.autor||'Oficina',totalFixo:temRevisao});
-    sv('os');
-  }
-  intv.st='confirmado';
-  sv('intv');
-  if(window._fbRef){
-    window._fbRef.child('intervencoes/'+id+'/st').set('confirmado');
-  }
-  const resumo=[]
-    .concat(tiposDetectados.length?['Manutenção: '+tiposDetectados.map(t=>TIPOS_MNT[t]?.label||t).join(', ')]:[])
-    .concat(pecasBaixadas.length?['Estoque baixado: '+pecasBaixadas.join(', ')]:[])
-    .join('\n');
-  alert('✅ Aprovado!\nTotal: '+fR(intv.total||0)+(km?'\nKM: '+fN(km)+' km':'')+(resumo?'\n\n'+resumo:''));
-  render();
-}
 function publicarMotosFirebase(){
   if(!window._fbRef)return;
   // Publica lista simplificada de motos (placa + nome + id + odo) para a oficina
@@ -3088,7 +2891,7 @@ function vPag(){
         <td style="font-size:12px"><div>${m.nome||'—'}</div>${pagoPor}</td>
         <td style="font-size:12px">${fR(m.val)}</td>
         <td style="font-size:12px">${p?`${fR(valPago)}${diffStr}`:'—'}</td>
-        <td style="font-size:12px">${saldo>0?`<span style="color:var(--red);font-weight:700">${fR(saldo)}</span>`:'<span style="color:var(--grn)">—</span>'}</td>
+        <td style="font-size:12px">${saldo>0?`<span style="color:var(--red);font-weight:700">${fR(saldo)}</span><button class="btn br bxs" style="font-size:9px;padding:1px 5px;margin-left:4px" onclick="ajustarSaldo('${m.id}')">✏️</button>`:'<span style="color:var(--grn)">—</span>'}</td>
         <td><span style="font-size:11px;display:flex;align-items:center;color:${semCor};font-weight:700">${semLabel}</span></td>
         <td class="row" style="gap:4px">${p
           ?`<button class="btn bx bxs" title="Editar" onclick="openPgModal('${m.id}','${ws}')">✏️</button><button class="btn bx bxs" title="Alterar pagador" onclick="openPagadorModal('${m.id}','${ws}')">👤</button><button class="btn br bxs" title="Desfazer" onclick="uPg('${m.id}','${ws}')">✕</button>`
@@ -3254,6 +3057,35 @@ function savePgFromModal(mId){
   DB.pg=DB.pg.filter(p=>!(p.mId===mId&&p.sem===sem));
   if(val>0) DB.pg.push({id:uid(),mId,sem,data:tod(),valor:val,obs});
   sv('pg');closeM('mPgM');render();
+}
+
+function ajustarSaldo(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const saldo=calcSaldo(mId);
+  showM(mWrap('mAjSaldo',`<div class="modal" style="max-width:400px">
+    <div class="mh"><span class="ct">💰 Ajustar Saldo — ${m.placa}</span><button class="btn bx" onclick="closeM('mAjSaldo')">✕</button></div>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:12px">Saldo devedor atual: <b style="color:var(--red)">${fR(saldo)}</b><br>
+    Use este campo para registrar um crédito/ajuste que zerará ou reduzirá o saldo.</p>
+    <div class="fg"><label>Valor do ajuste / crédito (R$)</label>
+      <input type="number" id="ajSaldoVal" class="inp" value="${saldo.toFixed(2)}" step="0.01" min="0">
+    </div>
+    <div class="fg"><label>Motivo</label>
+      <input id="ajSaldoObs" class="inp" placeholder="Ex: Pagamento não registrado, desconto acordado...">
+    </div>
+    <div class="mact">
+      <button class="btn br" onclick="if(confirm('Zerar todo o saldo de ${m.placa}?')){DB.pg.push({id:uid(),mId:'${mId}',sem:tod(),valor:calcSaldo('${mId}'),obs:'Ajuste manual — zeramento de saldo',pagoPor:'Sistema'});sv('pg');closeM('mAjSaldo');render();}">🗑️ Zerar Saldo</button>
+      <button class="btn bx" onclick="closeM('mAjSaldo')">Cancelar</button>
+      <button class="btn ba" onclick="salvarAjSaldo('${mId}')">✓ Aplicar Ajuste</button>
+    </div>
+  </div>`));
+}
+function salvarAjSaldo(mId){
+  const val=parseFloat(document.getElementById('ajSaldoVal').value||0);
+  const obs=document.getElementById('ajSaldoObs').value.trim()||'Ajuste manual de saldo';
+  if(!val||val<=0){alert('Digite um valor válido.');return;}
+  DB.pg.push({id:uid(),mId,sem:tod(),valor:val,obs,pagoPor:'Ajuste',ajuste:true});
+  sv('pg');closeM('mAjSaldo');render();
+  toast('✅ Ajuste de saldo registrado!','grn');
 }
 function calcSaldo(mId){
   const m=DB.motos.find(x=>x.id===mId);if(!m||!m.val)return 0;
@@ -3967,6 +3799,7 @@ function vInd(){
           <button class="btn bg bxs" style="font-size:11px" onclick="sPgHoje('${m.id}')">✓ Pago</button>
           <button class="btn bxs" style="background:#25d366;color:#fff;font-size:11px;border:none" onclick="abrirWhatsApp('${m.id}')">📱</button>
           <button class="btn bxs" style="background:#0ea5e9;color:#fff;font-size:11px;border:none" onclick="gerarQRPix('${m.id}')">PIX</button>
+          <button class="btn bx bxs" style="font-size:10px" onclick="editarSaldoDevedor('${m.id}')">✏️ Saldo</button>
         </td>
       </tr>`;
     }).join('');
@@ -3989,6 +3822,93 @@ function vInd(){
     <button class="btn ba bxs" onclick="abrirCobOleo()">🛢️ Lançar Cobrança de Óleo</button>
   </div>`;
   return html;
+}
+
+// ── Cobranças avulsas de óleo (R$30) ─────────────────────────────────────────
+function editarSaldoDevedor(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const pgs=(DB.pg||[]).filter(p=>p.mId===mId).sort((a,b)=>(b.sem||b.data||'').localeCompare(a.sem||a.data||'')).slice(0,20);
+  const rows=pgs.map(p=>`<tr>
+    <td style="font-size:11px">${p.sem||fD(p.data)||'—'}</td>
+    <td style="font-weight:700;color:var(--grn)">${fR(p.valor||p.val||m.val||0)}</td>
+    <td style="font-size:11px;color:var(--sub)">${p.obs||'—'}</td>
+    <td class="row" style="gap:3px">
+      <button class="btn bx bxs" onclick="editarPgInd('${p.id}','${mId}')">✏️</button>
+      <button class="btn br bxs" onclick="apagarPgInd('${p.id}','${mId}')">✕</button>
+    </td>
+  </tr>`).join('');
+  showM(mWrap('mSaldoEdit',`<div class="modal" style="max-width:520px">
+    <div class="mh">
+      <span class="ct">💰 Saldo Devedor — ${m.placa} · ${m.nome?.split(' ')[0]||'—'}</span>
+      <button class="btn bx" onclick="closeM('mSaldoEdit')">✕</button>
+    </div>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:12px">Adicione pagamentos avulsos ou remova lançamentos incorretos para ajustar o saldo.</p>
+    <div class="fr" style="gap:8px;margin-bottom:14px">
+      <div class="fg">
+        <label>Semana (AAAA-MM-DD)</label>
+        <input type="date" id="sdSem" class="inp" value="${tod()}">
+      </div>
+      <div class="fg">
+        <label>Valor pago (R$)</label>
+        <input type="number" id="sdVal" class="inp" value="${m.val||0}" step="0.01">
+      </div>
+      <div class="fg">
+        <label>Obs.</label>
+        <input id="sdObs" class="inp" placeholder="Ex: Pago via PIX">
+      </div>
+    </div>
+    <div class="row" style="gap:8px;margin-bottom:16px">
+      <button class="btn ba" onclick="lancarPgInd('${mId}')">+ Registrar Pagamento</button>
+      <button class="btn br" onclick="zerarSaldoInd('${mId}')">🗑️ Zerar Saldo</button>
+    </div>
+    ${pgs.length?`<div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:6px;text-transform:uppercase">Últimos pagamentos</div>
+    <div style="overflow-x:auto;max-height:200px;overflow-y:auto">
+      <table class="tbl"><thead><tr><th>Semana</th><th>Valor</th><th>Obs</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`:'<div class="empty">Nenhum pagamento registrado</div>'}
+    <div style="text-align:right;margin-top:12px"><button class="btn bx" onclick="closeM('mSaldoEdit');render()">Fechar</button></div>
+  </div>`));
+}
+
+function lancarPgInd(mId){
+  const sem=document.getElementById('sdSem')?.value||tod();
+  const val=parseFloat(document.getElementById('sdVal')?.value||0);
+  const obs=document.getElementById('sdObs')?.value?.trim()||'';
+  if(!val||val<=0){alert('Digite um valor válido.');return;}
+  DB.pg.push({id:uid(),mId,sem:wS(sem),data:sem,valor:val,obs:obs||'Lançamento manual'});
+  sv('pg');closeM('mSaldoEdit');render();
+  alert('✅ Pagamento registrado! Saldo atualizado.');
+}
+
+function apagarPgInd(pgId, mId){
+  if(!confirm('Remover este pagamento?\nO saldo devedor será recalculado.'))return;
+  DB.pg=DB.pg.filter(p=>p.id!==pgId);
+  sv('pg');closeM('mSaldoEdit');render();
+  editarSaldoDevedor(mId);
+}
+
+function editarPgInd(pgId, mId){
+  const p=DB.pg.find(x=>x.id===pgId);if(!p)return;
+  const novoVal=parseFloat(prompt('Novo valor pago (R$):', p.valor||p.val||0)||'0');
+  if(isNaN(novoVal)||novoVal<0)return;
+  p.valor=novoVal;
+  sv('pg');closeM('mSaldoEdit');render();
+  editarSaldoDevedor(mId);
+}
+
+function zerarSaldoInd(mId){
+  const m=DB.motos.find(x=>x.id===mId);
+  if(!confirm('Zerar o saldo de '+m?.placa+'?\nIsso registra pagamento de todas as semanas em aberto.'))return;
+  // Marca todas as semanas dos últimos 12 meses como pagas
+  const hoje=new Date();hoje.setHours(12,0,0,0);
+  for(let i=0;i<12;i++){
+    const ref=new Date(hoje);ref.setDate(ref.getDate()-i*7);
+    const sem=wS(ref.toISOString().split('T')[0]);
+    if(!DB.pg.find(p=>p.mId===mId&&p.sem===sem)){
+      DB.pg.push({id:uid(),mId,sem,valor:Number(m?.val||0),obs:'Quitado manualmente'});
+    }
+  }
+  sv('pg');closeM('mSaldoEdit');render();
 }
 
 // ── Cobranças avulsas de óleo (R$30) ─────────────────────────────────────────
@@ -4234,7 +4154,7 @@ function abrirWhatsAppGrupo(dia){
     <div class="mh"><span class="ct">📱 Cobrança em Grupo — ${inadDia.length} locatários</span><button class="btn bx" onclick="closeM('mWAG')">✕</button></div>
     <div style="background:var(--sur);border-radius:10px;padding:14px;font-size:13px;white-space:pre-wrap;line-height:1.6;max-height:50vh;overflow-y:auto;font-family:monospace">${msg}</div>
     <div class="row" style="gap:8px;justify-content:flex-end;margin-top:14px">
-      <button class="btn bx" onclick="navigator.clipboard.writeText(${JSON.stringify(msg)}).then(()=>alert('✅ Copiado!'))">📋 Copiar</button>
+      <button class="btn bx" onclick="copiarComun(-1,this)">📋 Copiar</button>
       <button class="btn bx" onclick="closeM('mWAG')">Fechar</button>
       <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="window.open('https://wa.me/?text='+encodeURIComponent(${JSON.stringify(msg)}),'_blank')">📱 Abrir WhatsApp</button>
     </div>
@@ -5518,7 +5438,7 @@ function waMotosParadas(){
     <div class="mh"><span class="ct">🏍️ Alertar Motos Paradas (${paradas.length})</span><button class="btn bx" onclick="closeM('mWAP')">✕</button></div>
     <div style="background:var(--sur);border-radius:8px;padding:12px;font-size:12px;white-space:pre-wrap;line-height:1.7;max-height:50vh;overflow-y:auto;margin-bottom:14px">${msg}</div>
     <div class="row" style="gap:8px;justify-content:flex-end">
-      <button class="btn bx" onclick="navigator.clipboard.writeText(${JSON.stringify(msg)}).then(()=>alert('✅ Copiado!'))">📋 Copiar</button>
+      <button class="btn bx" onclick="copiarComun(-1,this)">📋 Copiar</button>
       <button class="btn bx" onclick="closeM('mWAP')">Fechar</button>
       <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="window.open('https://wa.me/?text='+encodeURIComponent(${JSON.stringify(msg)}),'_blank')">📱 WhatsApp</button>
     </div>
@@ -5907,7 +5827,7 @@ function vAgendaTab(){
     const ultimoDia=new Date(ano,mes,0);
     const dias=[];
     for(let d=new Date(primeiroDia);d<=ultimoDia;d.setDate(d.getDate()+1)){
-      const dStr=d.toISOString().split('T')[0];
+      const dStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       const isUtil=DIAS_UTEIS.includes(d.getDay());
       const agsD=(DB.agenda||[]).filter(a=>a.data===dStr&&a.st!=='feito');
       dias.push({
@@ -5923,11 +5843,11 @@ function vAgendaTab(){
   const calDias=buildCalMes(_agendaMes);
 
   // Navegação de mês
-  const mesAnterior=new Date(_agendaMes+'-01');mesAnterior.setMonth(mesAnterior.getMonth()-1);
-  const mesSeguinte=new Date(_agendaMes+'-01');mesSeguinte.setMonth(mesSeguinte.getMonth()+1);
+  const mesAnterior=new Date(_agendaMes+'-01T12:00');mesAnterior.setMonth(mesAnterior.getMonth()-1);
+  const mesSeguinte=new Date(_agendaMes+'-01T12:00');mesSeguinte.setMonth(mesSeguinte.getMonth()+1);
   const mesAnt=mesAnterior.toISOString().slice(0,7);
   const mesProx=mesSeguinte.toISOString().slice(0,7);
-  const mesLabel=new Date(_agendaMes+'-01').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const mesLabel=new Date(_agendaMes+'-01T12:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
 
   const calHTML=calDias.map(d=>{
     const ehHoje=d.data===tod();
@@ -6055,7 +5975,7 @@ function novaAgenda(dataPre, horarioPre){
     // Avança para próximo dia útil com vaga
     for(let i=0;i<30;i++){
       const d=new Date(hoje2);d.setDate(d.getDate()+i);
-      const dStr=d.toISOString().split('T')[0];
+      const dStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       if(DIAS_UTEIS.includes(d.getDay())&&vagasLivresNaDia(dStr).length>0){dataDefault=dStr;break;}
     }
   }
@@ -6212,14 +6132,15 @@ function avisarLocatarioAgenda(id){
   const m=DB.motos.find(x=>x.id===a.mId);if(!m){alert('Moto não encontrada.');return;}
   if(!m.nome){alert('Esta moto não tem locatário cadastrado.');return;}
   const msg=`🏍️ *AMS Motos — Aviso de Revisão*\n\nOlá ${m.nome.split(' ')[0]}!\n\nSua moto *${m.placa}* tem *Revisão Geral* agendada:\n\n📅 Data: *${fD(a.data)}*\n🕐 Horário: *${a.horario||'08:00'}*\n🔧 Serviço: *Revisão Geral*${a.obs?'\n📝 Obs: '+a.obs:''}\n\n⚠️ Por favor, leve a moto *na hora marcada* para não perder a vaga.\n\nDúvidas? Entre em contato com a AMS.\n\n_AMS Motos 🏍️_`;
+  window._waMsg=msg;
   showM(mWrap('mWAAgenda',`<div class="modal">
     <div class="mh"><span class="ct">📱 Notificar Locatário — ${m.placa}</span><button class="btn bx" onclick="closeM('mWAAgenda')">✕</button></div>
     <div style="font-size:12px;color:var(--sub);margin-bottom:10px">${m.nome} · ${fD(a.data)} ${a.horario||''}</div>
     <div style="background:var(--sur);border-radius:10px;padding:14px;font-size:12px;white-space:pre-wrap;line-height:1.7;max-height:50vh;overflow-y:auto">${msg}</div>
     <div class="row" style="gap:8px;justify-content:flex-end;margin-top:12px">
-      <button class="btn bx" onclick="navigator.clipboard.writeText(${JSON.stringify(msg)}).then(()=>alert('✅ Copiado!'))">📋 Copiar</button>
+      <button class="btn bx" onclick="copiarComun(-1,this)">📋 Copiar</button>
       <button class="btn bx" onclick="closeM('mWAAgenda')">Fechar</button>
-      <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="marcarNotifEnviada('${id}');window.open('https://wa.me/?text='+encodeURIComponent(${JSON.stringify(msg)}),'_blank')">📱 Abrir WA</button>
+      <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="marcarNotifEnviada('${id}');window.open('https://wa.me/?text='+encodeURIComponent(window._waMsg),'_blank')">📱 Abrir WA</button>
     </div>
   </div>`));
 }
@@ -6247,7 +6168,7 @@ function agendarProximas(){
     for(let i=1;i<60;i++){
       const d=new Date(hoje2);d.setDate(d.getDate()+i);
       if(!DIAS_UTEIS.includes(d.getDay()))continue;
-      const dStr=d.toISOString().split('T')[0];
+      const dStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       const vagas=vagasLivresNaDia(dStr);
       if(vagas.length>0)return{data:dStr,horario:vagas[0]};
     }
@@ -6313,7 +6234,7 @@ function waResumoDiario(){
     <div class="mh"><span class="ct">📱 Resumo do Dia</span><button class="btn bx" onclick="closeM('mReDia')">✕</button></div>
     <div style="background:var(--sur);border-radius:8px;padding:14px;font-size:12px;white-space:pre-wrap;line-height:1.7;max-height:55vh;overflow-y:auto">${msg}</div>
     <div class="row" style="gap:8px;justify-content:flex-end;margin-top:12px">
-      <button class="btn bx" onclick="navigator.clipboard.writeText(${JSON.stringify(msg)}).then(()=>alert('✅ Copiado!'))">📋 Copiar</button>
+      <button class="btn bx" onclick="copiarComun(-1,this)">📋 Copiar</button>
       <button class="btn bx" onclick="closeM('mReDia')">Fechar</button>
       <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="window.open('https://wa.me/?text='+encodeURIComponent(${JSON.stringify(msg)}),'_blank')">📱 Abrir WA</button>
     </div>
