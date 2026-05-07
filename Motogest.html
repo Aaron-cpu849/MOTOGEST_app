@@ -84,6 +84,7 @@ label{display:block;font-size:11px;color:var(--sub);margin-bottom:3px;font-weigh
   <button id="fbBtn" onclick="openFirebaseConfig()" title="Sincronização Firebase" style="display:flex;align-items:center;gap:5px;background:#ff6b00;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px" id="fbBtn">🔥 Sync</button>
   <button id="saveBtn" onclick="saveAll()" style="display:flex;align-items:center;gap:6px;background:#22c55e;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-left:auto;margin-right:8px">💾 Salvar</button>
   <button onclick="exportBackup()" title="Exportar backup" style="display:flex;align-items:center;gap:5px;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">📥 Backup</button>
+  <button onclick="gerarRelatorioSemanal()" title="Gerar relatório semanal em PDF" style="display:flex;align-items:center;gap:5px;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">📊 Relatório</button>
   <label title="Importar backup" style="display:flex;align-items:center;gap:5px;background:#7c3aed;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:8px">📤 Restaurar<input type="file" accept=".json" onchange="importBackup(event)" style="display:none"></label>
   <div id="tabs"><button class="tab active" onclick="go(&#39;dash&#39;)">📊 Dashboard</button><button class="tab" onclick="go(&#39;odo&#39;)">📏 Odômetro</button><button class="tab" onclick="go(&#39;mnt&#39;)">🔧 Manutenção</button><button class="tab" onclick="go(&#39;seg&#39;)">🛡️ Seguros</button><button class="tab" onclick="go(&#39;mul&#39;)">🚨 Multas</button><button class="tab" onclick="go(&#39;est&#39;)">📦 Estoque</button><button class="tab" onclick="go(&#39;os&#39;)">🔩 OS</button><button class="tab" onclick="go(&#39;pag&#39;)">💰 Pagamentos</button><button class="tab" onclick="go(&#39;rel&#39;)">📈 Relatórios</button><button class="tab" onclick="go(&#39;mts&#39;)">🏍️ Motos</button><button class="tab" onclick="go(&#39;ind&#39;)">⚠️ Inadimplência</button></div>
 </div>
@@ -95,7 +96,8 @@ label{display:block;font-size:11px;color:var(--sub);margin-bottom:3px;font-weigh
   </div>
   ${buildCentralAlertas()}
   <div class="card" style="margin-bottom:12px">
-    <div class="ch"><span class="ct">📡 GPS / Rastreadores</span><div class="row" style="gap:6px"><button id="btnSyncGps" class="btn bg bs" onclick="pasteGps()">📋 Colar GPS</button><a class="btn bx bs" href="javascript:(async()=>{try{const[posR,devR]=await Promise.all([fetch('/api/positions',{headers:{'Accept':'application/json'},credentials:'include'}),fetch('/api/devices',{headers:{'Accept':'application/json'},credentials:'include'})]);if(!posR.ok||!devR.ok){alert('Erro: verifique se esta logado no Rastrear System.');return;}const pos=await posR.json();const dev=await devR.json();const devMap={};dev.forEach(d=>{devMap[d.id]=d;});const result=pos.map(p=>{const d=devMap[p.deviceId]||{};const km=Math.round(((p.attributes&&(p.attributes.totalDistance||p.attributes.odometer))||0)/1000);return{nome:d.name||'',uid:(d.uniqueId||'').toUpperCase(),km,status:d.status||'',lastUpdate:p.fixTime||p.deviceTime||'',address:p.address||'',lat:p.latitude||0,lng:p.longitude||0,speed:p.speed||0};}).filter(x=>x.km>0||x.status);const txt=JSON.stringify(result);await navigator.clipboard.writeText(txt);alert('OK '+result.length+' veiculos copiados! Agora clique em Colar GPS.');}catch(e){alert('Erro: '+e.message);}})();" title="⚠️ ATUALIZE: arraste este botão para favoritos novamente" style="text-decoration:none" onclick="return false" id="bmLink">🔖 Bookmarklet ⚠️NOVO</a></div><span style="font-size:11px;color:var(--sub)">atualizado 07/04/2026</span></div>
+    <div class="ch"><span class="ct">📡 GPS / Rastreadores</span><div class="row" style="gap:6px"><button id="btnSyncGps" class="btn bg bs" onclick="pasteGps()">📋 Colar GPS</button>
+      <button class="btn bx bs" id="btnAutoSync" onclick="if(_gpsAutoSyncInterval){stopGpsAutoSync();this.textContent='▶ Auto-sync OFF';this.style.background='var(--redbg)';this.style.color='var(--red)';}else{startGpsAutoSync();this.textContent='⏸ Auto-sync ON';this.style.background='var(--grnbg)';this.style.color='var(--grn)';}" title="Liga/desliga sincronização automática a cada 5 minutos">⏸ Auto-sync ON</button><a class="btn bx bs" href="javascript:(async()=>{try{const[posR,devR]=await Promise.all([fetch('/api/positions',{headers:{'Accept':'application/json'},credentials:'include'}),fetch('/api/devices',{headers:{'Accept':'application/json'},credentials:'include'})]);if(!posR.ok||!devR.ok){alert('Erro: verifique se esta logado no Rastrear System.');return;}const pos=await posR.json();const dev=await devR.json();const devMap={};dev.forEach(d=>{devMap[d.id]=d;});const result=pos.map(p=>{const d=devMap[p.deviceId]||{};const km=Math.round(((p.attributes&&(p.attributes.totalDistance||p.attributes.odometer))||0)/1000);return{nome:d.name||'',uid:(d.uniqueId||'').toUpperCase(),km,status:d.status||'',lastUpdate:p.fixTime||p.deviceTime||'',address:p.address||'',lat:p.latitude||0,lng:p.longitude||0,speed:p.speed||0};}).filter(x=>x.km>0||x.status);const txt=JSON.stringify(result);await navigator.clipboard.writeText(txt);alert('OK '+result.length+' veiculos copiados! Agora clique em Colar GPS.');}catch(e){alert('Erro: '+e.message);}})();" title="⚠️ ATUALIZE: arraste este botão para favoritos novamente" style="text-decoration:none" onclick="return false" id="bmLink">🔖 Bookmarklet ⚠️NOVO</a></div><span style="font-size:11px;color:var(--sub)">atualizado 07/04/2026</span></div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
       <div style="background:var(--grnbg);border-radius:8px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800;color:var(--grn)">67</div><div style="font-size:11px;color:var(--sub);margin-top:3px">🟢 Conectados</div></div>
       <div style="background:var(--yelbg);border-radius:8px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800;color:var(--yel)">20</div><div style="font-size:11px;color:var(--sub);margin-top:3px">🟡 Desconhecidos</div></div>
@@ -359,12 +361,15 @@ const OIL=1000,REV=10000,PNEU=10000,CORR=6000;
 // ── Cálculo central de semanas em atraso ─────────────────────────────────────
 // Respeita dataInicio: semanas antes da retirada não são cobradas
 const _diaJS_GLOBAL={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
+function getPgCorte(){return localStorage.getItem('mg_pg_corte')||null;}
 function wLateCalc(m, paidByMMap){
   if(!m.dia||!_diaJS_GLOBAL.hasOwnProperty(m.dia)) return 0;
   const paid=new Set((paidByMMap?paidByMMap[m.id]:null)||DB.pg.filter(p=>p.mId===m.id).map(p=>p.sem));
   const hoje=new Date();hoje.setHours(12,0,0,0);
   // Semana de início da cobrança (semana da retirada)
   const semInicio=m.dataInicio?wS(m.dataInicio):null;
+  // Data de corte: pagamentos anteriores são arquivados (não aparecem como pendentes)
+  const corte=getPgCorte();
   let ref=new Date(hoje);
   ref.setDate(ref.getDate()-((ref.getDay()-_diaJS_GLOBAL[m.dia]+7)%7));
   let late=0;
@@ -373,6 +378,8 @@ function wLateCalc(m, paidByMMap){
     const sem=wS(check.toISOString().split('T')[0]);
     // Para se chegou antes da data de início
     if(semInicio && sem < semInicio) break;
+    // Para se chegou antes do corte (semanas anteriores arquivadas)
+    if(corte && sem < corte) break;
     if(!paid.has(sem)) late++;
     else break;
     check.setDate(check.getDate()-7);
@@ -761,7 +768,17 @@ async function saveGpsSettings(){
   GPS_CFG.pass=document.getElementById('gpsCfgPass').value;
   saveGpsCfg();closeM('mGpsM');
   await syncGps(true);
+  startGpsAutoSync();
 }
+// ── GPS Auto-sync Background ─────────────────────────────────────────────────
+let _gpsAutoSyncInterval=null;
+function startGpsAutoSync(){
+  if(_gpsAutoSyncInterval) return;
+  if(!GPS_CFG.user||!GPS_CFG.pass) return;
+  _gpsAutoSyncInterval=setInterval(async()=>{try{await syncGps(false);}catch(e){}},5*60*1000);
+  console.log('[MotoGest] GPS auto-sync iniciado (5 min)');
+}
+function stopGpsAutoSync(){if(_gpsAutoSyncInterval){clearInterval(_gpsAutoSyncInterval);_gpsAutoSyncInterval=null;}}
 async function syncGps(verbose=false){
   if(!GPS_CFG.user||!GPS_CFG.pass){openGpsSettings();return;}
   const btn=document.getElementById('btnSyncGps');
@@ -829,6 +846,11 @@ function buildCentralAlertas(){
     msg:`${oleovenc.length} moto(s) com óleo vencido`,
     btn:`onclick="go('mnt')"`});
 
+  // 3b. Óleo quase vencendo (<=200km)
+  if(oilQuase.length) alertas.push({tipo:'oleoquase',cor:'var(--acc)',icon:'⚠️',
+    msg:`${oilQuase.length} moto(s) com óleo vencendo em breve (≤200km)`,
+    btn:`onclick="go('mnt')"`});
+
   // 4. Revisão vencida
   const revVenc=ativ.filter(m=>m.odo>0&&(m.odo-(m.lrevKm||0))>=REV);
   if(revVenc.length) alertas.push({tipo:'rev',cor:'var(--yel)',icon:'🔧',
@@ -894,6 +916,7 @@ function vDash(){
   const sl=ativ.filter(m=>!lh.find(l=>l.mId===m.id));
   const ma=ativ.filter(m=>{const s=ms(m);return s.u==='ov'||s.u==='cr'});
   const sa=DB.seg.filter(s=>{const d=dTo(s.venc);return d!==null&&d<=10&&d>=0});
+  const oilQuase=ativ.filter(m=>{const ol=OIL-(m.odo-(m.loilKm||0));return ol>0&&ol<=200;});
   const mp=DB.multas.filter(m=>m.st==='p');
   const eb=DB.est.filter(e=>e.qtd<=e.min);
   const sc=(n,v,c,sub)=>`<div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">${n}</div><div class="num" style="color:${c}">${v}</div>${sub?`<div style="font-size:11px;color:var(--sub);margin-top:4px">${sub}</div>`:''}</div>`;
@@ -999,6 +1022,7 @@ function vDash(){
       <div class="row" style="gap:6px;flex-wrap:wrap">
         <button id="btnSyncGps" class="btn bg bs" onclick="pasteGps()">📋 Colar GPS</button>
         <button class="btn bx bs" onclick="syncGps(true)" title="Sincronizar diretamente via API">🔄 Sync Direto</button>
+        <button class="btn bx bs" id="btnAutoSync" onclick="if(_gpsAutoSyncInterval){stopGpsAutoSync();this.textContent='▶ Auto OFF';this.style.color='var(--red)';}else{startGpsAutoSync();this.textContent='⏸ Auto ON';this.style.color='var(--grn)';}" style="color:var(--grn)">⏸ Auto ON</button>
         <a class="btn bx bs" href="javascript:(async()=>{try{const[posR,devR]=await Promise.all([fetch('/api/positions',{headers:{'Accept':'application/json'},credentials:'include'}),fetch('/api/devices',{headers:{'Accept':'application/json'},credentials:'include'})]);if(!posR.ok||!devR.ok){alert('Erro: verifique se esta logado no Rastrear System.');return;}const pos=await posR.json();const dev=await devR.json();const devMap={};dev.forEach(d=>{devMap[d.id]=d;});const result=pos.map(p=>{const d=devMap[p.deviceId]||{};const km=Math.round(((p.attributes&&(p.attributes.totalDistance||p.attributes.odometer))||0)/1000);return{nome:d.name||'',uid:(d.uniqueId||'').toUpperCase(),km,status:d.status||'',lastUpdate:p.fixTime||p.deviceTime||'',address:p.address||'',lat:p.latitude||0,lng:p.longitude||0,speed:p.speed||0};}).filter(x=>x.km>0||x.status);await navigator.clipboard.writeText(JSON.stringify(result));alert('OK - '+result.length+' veiculos copiados! Agora va ao MotoGest e clique em Colar GPS.');}catch(e){alert('Erro: '+e.message);}})();"
            title="🔁 RE-ARRASTE para a barra de favoritos — versão atualizada 07/04/2026" style="text-decoration:none;background:#f97316;color:#000;font-weight:800" onclick="alert('⚠️ ATENÇÃO: Você precisa ARRASTAR este botão para a barra de favoritos do navegador para atualizar.\\n\\nApenas clicar aqui não funciona.\\n\\n1. Certifique-se que a barra de favoritos está visível (Ctrl+Shift+B)\\n2. Arraste este botão laranja até a barra\\n3. Abra rastrearcomgps.com.br\\n4. Clique no favorito salvo\\n5. Volte aqui e clique Colar GPS');return false" id="bmLink">🔖 Bookmarklet — ARRASTE NOVAMENTE</a>
         <button class="btn bx bs" onclick="openGpsSettings()">⚙️ Config</button>
@@ -1064,7 +1088,10 @@ function vOdo(){
         ${leit?'<span style="color:var(--grn);font-size:11px;font-weight:700">✓</span>':''}
       </div>
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-        <input type="number" placeholder="${fN(m.odo)} km" value="${km||''}" id="o_${m.id}" onchange="oV['${m.id}']=Number(this.value)" style="flex:1">
+        <input type="number" placeholder="últ. 4 dígitos" value="${km||''}" id="o_${m.id}" 
+          oninput="autocompletarOdo('${m.id}',this);oV['${m.id}']=getOdoVal('${m.id}',this)" 
+          onchange="oV['${m.id}']=getOdoVal('${m.id}',this)" 
+          style="flex:1" title="Digite os últimos 4 dígitos — o sistema autocompleta">
         <span style="font-size:11px;color:var(--sub)">km</span>
       </div>
       <div style="font-size:10px;color:var(--sub);margin-bottom:4px">
@@ -1087,11 +1114,38 @@ function vOdo(){
   </div>
   <div class="g3">${cards}</div>`;
 }
+// ── Entrada rápida de odômetro (últimos 4 dígitos) ───────────────────────────
+function autocompletarOdo(mId, inp){
+  const m=DB.motos.find(x=>x.id===mId);if(!m||!inp.value)return;
+  const v=inp.value.replace(/\D/g,'');if(v.length<4)return;
+  const odoAtual=m.odo||0;
+  const base=Math.floor(odoAtual/10000)*10000;
+  const candidato=base+parseInt(v.slice(-4));
+  // Se o candidato é maior que o atual, autocompleta
+  if(candidato>odoAtual){
+    inp.dataset.full=candidato;
+    inp.title='Será registrado como: '+candidato.toLocaleString('pt-BR')+' km';
+    inp.style.background='rgba(34,197,94,.1)';
+    inp.style.borderColor='var(--grn)';
+  }else if(base+10000+parseInt(v.slice(-4))>odoAtual){
+    // Provavelmente passou da centena
+    const cand2=base+10000+parseInt(v.slice(-4));
+    inp.dataset.full=cand2;
+    inp.title='Será registrado como: '+cand2.toLocaleString('pt-BR')+' km';
+    inp.style.background='rgba(34,197,94,.1)';
+    inp.style.borderColor='var(--grn)';
+  }
+}
+function getOdoVal(mId, inp){
+  if(inp.dataset.full) return parseInt(inp.dataset.full);
+  return parseInt(inp.value)||0;
+}
+
 function saveOdo(){
   DB.motos.filter(m=>m.on).forEach(m=>{
     const el=document.getElementById('o_'+m.id);
     if(!el)return;
-    const km=Number(el.value);
+    const km=getOdoVal(m.id,el);
     if(!km)return;
     const idx=DB.leit.findIndex(l=>l.mId===m.id&&l.data===oDate);
     if(idx>=0)DB.leit[idx].km=km;else DB.leit.push({id:uid(),mId:m.id,data:oDate,km});
@@ -1151,24 +1205,121 @@ function vMnt(){
   }).join('');
   const totalVenc=ativ.filter(m=>ms(m).u==='ov').length;
   const totalCrit=ativ.filter(m=>ms(m).u==='cr').length;
-  return`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
-    <div class="card" style="padding:12px;text-align:center">
+  const totalAlerta=ativ.filter(m=>ms(m).u==='wa').length;
+  const custoMes=(()=>{const mesAtual=tod().slice(0,7);return DB.mhist.filter(h=>h.data&&h.data.startsWith(mesAtual)).reduce((a,h)=>a+Number(h.custo||0),0);})();
+  return`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">
+    <div class="card" style="padding:12px;text-align:center;border-color:rgba(239,68,68,.3)">
       <div style="font-size:10px;color:var(--sub);margin-bottom:4px">VENCIDOS</div>
       <div style="font-size:22px;font-weight:700;color:var(--red)">${totalVenc}</div>
+      <div style="font-size:10px;color:var(--sub)">óleo ou revisão</div>
     </div>
-    <div class="card" style="padding:12px;text-align:center">
+    <div class="card" style="padding:12px;text-align:center;border-color:rgba(249,115,22,.3)">
       <div style="font-size:10px;color:var(--sub);margin-bottom:4px">CRÍTICOS</div>
       <div style="font-size:22px;font-weight:700;color:var(--acc)">${totalCrit}</div>
+      <div style="font-size:10px;color:var(--sub)">menos de 100km</div>
+    </div>
+    <div class="card" style="padding:12px;text-align:center;border-color:rgba(234,179,8,.3)">
+      <div style="font-size:10px;color:var(--sub);margin-bottom:4px">ATENÇÃO</div>
+      <div style="font-size:22px;font-weight:700;color:var(--yel)">${totalAlerta}</div>
+      <div style="font-size:10px;color:var(--sub)">100–200km restantes</div>
     </div>
     <div class="card" style="padding:12px;text-align:center">
-      <div style="font-size:10px;color:var(--sub);margin-bottom:4px">EM DIA</div>
-      <div style="font-size:22px;font-weight:700;color:var(--grn)">${ativ.length-totalVenc-totalCrit}</div>
+      <div style="font-size:10px;color:var(--sub);margin-bottom:4px">CUSTO MÊS</div>
+      <div style="font-size:18px;font-weight:700;color:var(--acc)">${fR(custoMes)}</div>
+      <div style="font-size:10px;color:var(--sub)">manutenções</div>
     </div>
   </div>
+  ${(()=>{
+    // Painel Rápido: motos com óleo <= 200km para vencer
+    const alertOil=ativ.filter(m=>ms(m).ol<=200).sort((a,b)=>ms(a).ol-ms(b).ol);
+    if(!alertOil.length) return '';
+    return `<div class="card" style="margin-bottom:12px;border-color:rgba(249,115,22,.4)">
+      <div class="ch" style="margin-bottom:10px">
+        <span class="ct" style="color:var(--acc)">⚡ Troca de Óleo Urgente (${alertOil.length} motos)</span>
+        <button class="btn ba bs" onclick="registrarOleoLote()" title="Registrar troca para todas as motos vencidas de uma vez">🛢️ Registrar em Lote</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${alertOil.map(m=>{const{ol}=ms(m);const cor=ol<=0?'var(--red)':ol<=100?'var(--acc)':'var(--yel)';return`<div style="background:var(--sur);border:1px solid ${cor}44;border-radius:10px;padding:10px 14px;min-width:160px;flex:1">
+          <div style="font-weight:700;font-size:13px">${m.placa}</div>
+          <div style="font-size:11px;color:var(--sub)">${m.nome||'sem nome'}</div>
+          <div style="font-size:12px;font-weight:700;color:${cor};margin:4px 0">${ol<=0?'⚠️ VENCIDO '+Math.abs(ol)+'km atrás':'⏳ '+ol+'km restantes'}</div>
+          <div style="font-size:10px;color:var(--sub)">Odo: ${fN(m.odo)} km</div>
+          <button class="btn bx bxs" style="font-size:11px;margin-top:6px;width:100%" onclick="quickOilChange('${m.id}')">🛢️ Registrar troca</button>
+        </div>`}).join('')}
+      </div>
+    </div>`;
+  })()}
   <div class="card"><div style="overflow-x:auto"><table class="tbl">
     <thead><tr><th>Moto</th><th>Odo (km)</th><th>🛢 Óleo</th><th>🔧 Revisão</th><th>🔵 Pneu Diant.</th><th>🔵 Pneu Tras.</th><th>Status</th><th>Ação</th></tr></thead>
     <tbody>${rows}</tbody>
   </table></div></div>`;
+}
+
+
+// ── Quick Oil Change (registro rápido de troca de óleo) ───────────────────────
+function quickOilChange(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const kmSug=m.odo||0;
+  showM(mWrap('mQuickOil',`<div class="modal" style="max-width:380px">
+    <div class="mh"><span class="ct">🛢️ Troca de Óleo Rápida — ${m.placa}</span><button class="btn bx" onclick="closeM('mQuickOil')">✕</button></div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:12px">${m.nome||'—'} · Odo atual: <b>${fN(m.odo)} km</b></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div>
+        <label style="font-size:11px;color:var(--sub)">KM da troca</label>
+        <input id="qoKm" type="number" class="inp" value="${kmSug}" style="font-size:18px;font-weight:700;text-align:center">
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--sub)">Custo (R$)</label>
+        <input id="qoCusto" type="number" class="inp" value="0" step="0.01" style="font-size:18px;text-align:center">
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:11px;color:var(--sub)">Oficina</label>
+      <input id="qoOfic" type="text" class="inp" value="Oficina Parceira">
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;color:var(--sub)">Obs (opcional)</label>
+      <input id="qoObs" type="text" class="inp" placeholder="Ex: também trocou filtro">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn bx" onclick="closeM('mQuickOil')">Cancelar</button>
+      <button class="btn bg" onclick="saveQuickOil('${mId}')">✓ Registrar</button>
+    </div>
+  </div>`));
+  setTimeout(()=>{const el=document.getElementById('qoKm');if(el){el.focus();el.select();}},50);
+}
+function saveQuickOil(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const km=parseInt(document.getElementById('qoKm').value)||0;
+  const custo=parseFloat(document.getElementById('qoCusto').value)||0;
+  const ofic=document.getElementById('qoOfic').value.trim()||'Oficina Parceira';
+  const obs=document.getElementById('qoObs').value.trim()||'';
+  if(!km){alert('Digite o km da troca.');return;}
+  if(km>=m.loilKm||!m.loilKm) m.loilKm=km;
+  if(km>m.odo) m.odo=km;
+  const data=tod();
+  DB.mhist.push({id:uid(),mId,tipo:'oil',km,obs,custo,ofic,data,itens:[]});
+  if(custo>0){
+    DB.os.push({id:uid(),mId,data,ofic,pec:0,mao:custo,nf:'',obs:'Troca de Óleo'+(obs?' — '+obs:''),st:'pendente',origem:'manutencao'});
+    sv('os');
+  }
+  sv('m');sv('mhist');
+  closeM('mQuickOil');render();
+  toast('✅ Óleo registrado! Próxima em '+fN(km+OIL)+' km','grn');
+}
+function registrarOleoLote(){
+  const ativ=DB.motos.filter(m=>m.on);
+  const vencidas=ativ.filter(m=>ms(m).ol<=0);
+  if(!vencidas.length){alert('Nenhuma moto com óleo vencido.');return;}
+  const lista=vencidas.map(m=>`• ${m.placa} (${m.nome||'—'}) — ${fN(m.odo)} km`).join('\n');
+  if(!confirm(`Registrar troca de óleo para ${vencidas.length} moto(s) vencidas?\n\n${lista}\n\nSerá registrado com o KM atual de cada uma.`))return;
+  const data=tod();
+  vencidas.forEach(m=>{
+    m.loilKm=m.odo;
+    DB.mhist.push({id:uid(),mId:m.id,tipo:'oil',km:m.odo,obs:'Registro em lote',custo:0,ofic:'',data,itens:[]});
+  });
+  sv('m');sv('mhist');render();
+  toast('✅ '+vencidas.length+' trocas registradas!','grn');
 }
 
 function editarPneu(mId, tipo){
@@ -1294,7 +1445,7 @@ function mntModal(id, tipo){
     <div class="fr">
       <div class="fg" style="flex:2">
         <label>KM em que foi realizado</label>
-        <input id="mntKmInp" class="inp" type="number" placeholder="Ex: ${m.odo}" style="font-size:16px;font-weight:700;text-align:center">
+        <input id="mntKmInp" class="inp" type="number" value="${m.odo||''}" placeholder="Ex: ${m.odo}" style="font-size:16px;font-weight:700;text-align:center">
       </div>
       <div class="fg">
         <label>Data</label>
@@ -1395,13 +1546,22 @@ function saveMnt(id,tipo){
   sv('m');sv('mhist');sv('est');sv('mov');
   window._mntPecas=[];
   closeM('mMntM');render();
-  alert('✅ Registrado!\n'+t.label+' em '+fN(km)+' km'+(custo?' — '+fR(custo):''));
+  const _proxKm=tipo==='oil'?(km+OIL):tipo==='rev'?(km+REV):km;
+  toast('✅ '+t.label+' registrado em '+fN(km)+' km! Próxima: '+fN(_proxKm)+' km','grn');
 }
 
 function vHistMnt(id){
   const m=DB.motos.find(x=>x.id===id);if(!m)return;
   const hist=DB.mhist.filter(h=>h.mId===id).sort((a,b)=>b.km-a.km);
-  const totCusto=hist.reduce((a,h)=>a+Number(h.custo||0),0);
+  // Agrupar manutenções por tipo para resumo visual
+  const tiposCount={};const tiposCusto={};
+  hist.forEach(h=>{
+    const t=TIPOS_MNT[h.tipo]||TIPOS_MNT.outro;
+    tiposCount[t.label]=(tiposCount[t.label]||0)+1;
+    tiposCusto[t.label]=(tiposCusto[t.label]||0)+Number(h.custo||0);
+  });
+  const custoTotal=hist.reduce((a,h)=>a+Number(h.custo||0),0);
+  // custoTotal calculated in enhanced vHistMnt header
   const rows=hist.map(h=>{
     const t=TIPOS_MNT[h.tipo];
     return`<tr>
@@ -1416,18 +1576,21 @@ function vHistMnt(id){
     </tr>`;
   }).join('');
   showM(mWrap('mHistM',`<div class="modal" style="max-width:700px">
-    <div class="mh"><span class="ct">📋 Histórico Completo — ${m.placa}</span><button class="btn bx" onclick="closeM('mHistM')">✕</button></div>
+    <div class="mh"><span class="ct">📋 Histórico de Manutenção — ${m.placa}</span><button class="btn bx" onclick="closeM('mHistM')">✕</button></div>
     <div style="font-size:12px;color:var(--sub);margin-bottom:8px">${m.nome||'—'}</div>
     <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <div style="background:var(--redbg);border-radius:8px;padding:8px 14px;text-align:center;flex:1">
         <div style="font-size:10px;color:var(--sub)">TOTAL GASTO</div>
-        <div style="font-size:16px;font-weight:800;color:var(--red)">${fR(totCusto)}</div>
+        <div style="font-size:16px;font-weight:800;color:var(--red)">${fR(custoTotal)}</div>
       </div>
       <div style="background:var(--sur);border-radius:8px;padding:8px 14px;text-align:center;flex:1">
         <div style="font-size:10px;color:var(--sub)">INTERVENÇÕES</div>
         <div style="font-size:16px;font-weight:800">${hist.length}</div>
       </div>
     </div>
+    ${Object.keys(tiposCount).length>0?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
+      ${Object.entries(tiposCount).map(([tipo,qtd])=>'<div style="background:var(--sur);border-radius:8px;padding:5px 10px;font-size:11px"><b>'+tipo+'</b>: '+qtd+'x — '+fR(tiposCusto[tipo]||0)+'</div>').join('')}
+    </div>`:''}
     ${hist.length?`<div style="overflow-x:auto"><table class="tbl">
       <thead><tr><th>Tipo</th><th>Data</th><th>KM</th><th>Custo</th><th>Oficina</th><th>Obs</th><th>Peças</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
@@ -2020,9 +2183,12 @@ function vOficina(){
       <div style="font-size:11px;color:var(--sub);margin-top:2px">${fR(totalPend)}</div>
     </div>
     <div class="card" style="padding:14px;text-align:center">
-      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">ESTE MÊS</div>
-      <div style="font-size:24px;font-weight:800;color:var(--grn)">${todas.filter(i=>(i.data||'').startsWith(hoje2.slice(0,7))).length}</div>
-      <div style="font-size:11px;color:var(--grn);margin-top:2px">${fR(totalMes)}</div>
+      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">
+        <select id="oficMesSel" onchange="render()" style="background:transparent;border:none;color:var(--sub);font-size:10px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.3px">
+          ${(()=>{const meses=[...new Set(todas.filter(i=>i.data).map(i=>i.data.slice(0,7)))].sort().reverse();if(!meses.includes(hoje2.slice(0,7)))meses.unshift(hoje2.slice(0,7));return meses.slice(0,6).map(m=>`<option value="${m}" ${m===hoje2.slice(0,7)?'selected':''}>${new Date(m+'-01T12:00').toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}).toUpperCase()}</option>`).join('');})()}
+        </select>
+      </div>
+      ${(()=>{const sel=document.getElementById('oficMesSel')?.value||hoje2.slice(0,7);const items=todas.filter(i=>(i.data||'').startsWith(sel));const tot=items.reduce((a,i)=>a+Number(i.total||0),0);return`<div style="font-size:24px;font-weight:800;color:var(--grn)">${items.length}</div><div style="font-size:11px;color:var(--grn);margin-top:2px">${fR(tot)}</div>`;})()}
     </div>
     <div class="card" style="padding:14px;text-align:center">
       <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">SINCRONIZAÇÃO</div>
@@ -2216,22 +2382,39 @@ function aprovarTodasIntervencoes(){
   render();
 }
 
+function calcPagOficinaMes(mes){
+  const conf=(DB.intervencoes||[]).filter(i=>i.st==='confirmado'&&(i.data||'').startsWith(mes));
+  const totMes=conf.reduce((a,i)=>a+Number(i.total||0),0);
+  const jaPago=(DB.pgOficina||[]).filter(p=>p.mes===mes).reduce((a,p)=>a+Number(p.valor||0),0);
+  return{conf,totMes,jaPago,sugerido:Math.max(0,totMes-jaPago)};
+}
+function atualizarResumoOfi(){
+  const mes=document.getElementById('pgOfiMes')?.value;if(!mes)return;
+  const{totMes,jaPago,sugerido}=calcPagOficinaMes(mes);
+  const el=document.getElementById('resumoPagOfi');
+  if(el) el.innerHTML=`📊 Total serviços: <b>${fR(totMes)}</b> &nbsp;|&nbsp; Já pago: <b>${fR(jaPago)}</b><br>Saldo: <b style="color:${sugerido>0?'var(--red)':'var(--grn)'}">${fR(sugerido)}</b>`;
+  const v=document.getElementById('pgOfiVal');if(v) v.value=sugerido.toFixed(2);
+}
 function abrirPagOficina(){
   if(!DB.pgOficina)DB.pgOficina=[];
-  const mesAtual=tod().slice(0,7);
-  // Calcula total de serviços do mês para sugerir valor
-  const confirmadas=(DB.intervencoes||[]).filter(i=>i.st==='confirmado'&&(i.data||'').startsWith(mesAtual));
-  const totMes=confirmadas.reduce((a,i)=>a+Number(i.total||0),0);
-  const jaPago=(DB.pgOficina||[]).filter(p=>p.mes===mesAtual).reduce((a,p)=>a+Number(p.valor||0),0);
-  const sugerido=Math.max(0,totMes-jaPago);
+  // Detecta o mês com saldo pendente mais antigo (ex: abril aprovado em maio)
+  const meses=[...new Set((DB.intervencoes||[]).filter(i=>i.st==='confirmado'&&i.data).map(i=>i.data.slice(0,7)))].sort().reverse();
+  const mesComPendente=meses.find(mes=>calcPagOficinaMes(mes).sugerido>0);
+  const mesRef=mesComPendente||tod().slice(0,7);
+  const{totMes,jaPago,sugerido}=calcPagOficinaMes(mesRef);
+  const aviso=mesComPendente&&mesComPendente!==tod().slice(0,7)
+    ?`<div style="background:rgba(249,115,22,.15);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--acc);margin-bottom:10px">⚡ Saldo pendente detectado em <b>${new Date(mesComPendente+'-01T12:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</b> — mês ajustado automaticamente</div>`
+    :'';
   showM(mWrap('mPagOfi',`<div class="modal" style="max-width:420px">
     <div class="mh"><span class="ct">💰 Lançar Pagamento à Oficina</span><button class="btn bx" onclick="closeM('mPagOfi')">✕</button></div>
-    <div style="background:var(--blubg);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--blu);margin-bottom:14px">
-      📊 Total serviços do mês: <b>${fR(totMes)}</b> &nbsp;|&nbsp; Já pago: <b>${fR(jaPago)}</b><br>
-      Saldo restante: <b style="color:${sugerido>0?'var(--red)':'var(--grn)'}">${fR(sugerido)}</b>
+    ${aviso}
+    <div style="background:var(--blubg);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--blu);margin-bottom:14px" id="resumoPagOfi">
+      📊 Total serviços: <b>${fR(totMes)}</b> &nbsp;|&nbsp; Já pago: <b>${fR(jaPago)}</b><br>
+      Saldo: <b style="color:${sugerido>0?'var(--red)':'var(--grn)'}">${fR(sugerido)}</b>
     </div>
     <div class="fg"><label>Mês de referência</label>
-      <input type="month" id="pgOfiMes" class="inp" value="${mesAtual}">
+      <input type="month" id="pgOfiMes" class="inp" value="${mesRef}" onchange="atualizarResumoOfi()">
+      <div style="font-size:11px;color:var(--sub);margin-top:3px">ℹ️ Altere o mês se precisar registrar pagamento de outro período</div>
     </div>
     <div class="fg"><label>Valor pago (R$)</label>
       <input type="number" id="pgOfiVal" class="inp" value="${sugerido.toFixed(2)}" step="0.01" placeholder="0,00">
@@ -2240,7 +2423,7 @@ function abrirPagOficina(){
       <input type="date" id="pgOfiData" class="inp" value="${tod()}">
     </div>
     <div class="fg"><label>Observação (opcional)</label>
-      <input type="text" id="pgOfiObs" class="inp" placeholder="Ex: PIX para Arilane, semana 14–20/04">
+      <input type="text" id="pgOfiObs" class="inp" placeholder="Ex: PIX para Arilane, serviços de abril">
     </div>
     <div class="mact">
       <button class="btn bx" onclick="closeM('mPagOfi')">Cancelar</button>
@@ -2248,7 +2431,6 @@ function abrirPagOficina(){
     </div>
   </div>`));
 }
-
 function salvarPagOficina(){
   if(!DB.pgOficina)DB.pgOficina=[];
   const mes=document.getElementById('pgOfiMes')?.value||tod().slice(0,7);
@@ -2318,7 +2500,10 @@ function _fazerExportCSV(){
 }
 
 function exportarOficinaWA(){
-  const mesAtual=tod().slice(0,7);
+  // Usa o mês com saldo pendente, se houver; senão o mês atual
+  const meses=[...new Set((DB.intervencoes||[]).filter(i=>i.data).map(i=>i.data.slice(0,7)))].sort().reverse();
+  const mesComPendente=meses.find(mes=>calcPagOficinaMes(mes).sugerido>0);
+  const mesAtual=mesComPendente||tod().slice(0,7);
   const lista=DB.intervencoes.filter(i=>(i.data||'').startsWith(mesAtual));
   const conf=lista.filter(i=>i.st==='confirmado');
   const pend=lista.filter(i=>i.st==='pendente'||!i.st);
@@ -3018,6 +3203,41 @@ function exportHistorico(){
   a.download=`AMS_Pagamentos_${new Date().toISOString().split('T')[0]}.csv`;
   a.click();
 }
+
+// ── Modal: Data de Corte de Pagamentos ───────────────────────────────────────
+function openCorteModal(){
+  const corte=getPgCorte();
+  const semanaAtual=wS(tod());
+  showM(mWrap('mCorteM',`<div class="modal" style="max-width:480px">
+    <div class="mh"><span class="ct">📅 Data de Corte de Pagamentos</span><button class="btn bx" onclick="closeM('mCorteM')">✕</button></div>
+    <div style="background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--txt);line-height:1.6">
+      <b>Como funciona:</b><br>
+      O sistema só conta como "pendente" as semanas a partir da data de corte.<br>
+      Semanas anteriores ficam <b>arquivadas</b> — aparecem no histórico mas não geram inadimplência.<br>
+      Ideal para começar o controle a partir de um mês específico sem perder dados antigos.
+    </div>
+    <div class="fg" style="margin-bottom:6px">
+      <label>Semana de início da contagem</label>
+      <input type="date" id="corteInp" class="inp" value="${corte||semanaAtual}" style="font-size:15px;font-weight:700">
+      <div style="font-size:11px;color:var(--sub);margin-top:4px">O sistema usará o domingo da semana que contém essa data como ponto de partida.</div>
+    </div>
+    ${corte?`<div style="font-size:12px;color:var(--acc);margin-bottom:12px">⚡ Corte atual: semana de <b>${fD(corte)}</b></div>`:'<div style="font-size:12px;color:var(--sub);margin-bottom:12px">ℹ️ Nenhum corte definido — todas as semanas desde a data de início são contadas.</div>'}
+    <div class="mact">
+      ${corte?`<button class="btn br" onclick="if(confirm('Remover o corte? O sistema voltará a contar todas as semanas desde o início de cada locatário.')){localStorage.removeItem('mg_pg_corte');closeM('mCorteM');render();toast('Corte removido','acc');}">🗑️ Remover Corte</button>`:''}
+      <button class="btn bx" onclick="closeM('mCorteM')">Cancelar</button>
+      <button class="btn bg" onclick="salvarCorte()">✓ Aplicar Corte</button>
+    </div>
+  </div>`));
+}
+function salvarCorte(){
+  const d=document.getElementById('corteInp').value;
+  if(!d){alert('Selecione uma data.');return;}
+  const semCorte=wS(d);
+  localStorage.setItem('mg_pg_corte',semCorte);
+  closeM('mCorteM');render();
+  toast('✅ Corte aplicado: semanas anteriores a '+fD(semCorte)+' arquivadas','grn');
+}
+
 function vPag(){
   const ws=wS(pSem),we=wE(pSem);
   const lbl=`${fD(ws)} (Dom) – ${fD(we)} (Sáb)`;
@@ -3040,7 +3260,8 @@ function vPag(){
       // Semáforo de inadimplência
       const semAtrasadas=wLateCalc(m,paidByMLocal);
       const semCor=p?'var(--grn)':semAtrasadas>=3?'var(--red)':semAtrasadas>=2?'var(--acc)':semAtrasadas>=1?'var(--yel)':'var(--sub)';
-      const semLabel=p?'PAGO':semAtrasadas>=3?`🔴 ${semAtrasadas}s atraso`:semAtrasadas>=2?`🟠 ${semAtrasadas}s`:semAtrasadas>=1?`🟡 ${semAtrasadas}s`:'PEND.';
+      const _semCorte=getPgCorte();
+      const semLabel=p?'PAGO':semAtrasadas>=3?`🔴 ${semAtrasadas}s atraso`:semAtrasadas>=2?`🟠 ${semAtrasadas}s`:semAtrasadas>=1?`🟡 ${semAtrasadas}s`:_semCorte?'—':'PEND.';
       const rowBg=!p&&semAtrasadas>=3?'background:rgba(239,68,68,.05)':!p&&semAtrasadas>=2?'background:rgba(249,115,22,.05)':'';
       return`<tr style="${rowBg}">
         <td style="font-weight:700;font-size:12px;letter-spacing:.5px">${m.placa}</td>
@@ -3093,10 +3314,12 @@ function vPag(){
     </table></div>
   </div>`:'';
   const isCurrentWeek=wS(tod())===ws;
+  const _corteAtivoPag=getPgCorte();
   return`<div class="card" style="margin-bottom:12px"><div class="ch">
     <span class="ct">💰 Pagamentos${!isCurrentWeek?` <span style="font-size:11px;color:var(--acc);font-weight:400">(semana anterior)</span>`:''}</span>
     <div class="row" style="gap:6px;flex-wrap:wrap">
       <button class="btn bg bs" onclick="openImport()">📥 Importar Extrato</button>
+      <button class="btn bx bs" onclick="openCorteModal()" title="Define a partir de qual semana o sistema conta pendências — semanas anteriores ficam arquivadas">📅 Corte${getPgCorte()?'<span style="font-size:9px;color:var(--acc);margin-left:3px">✓</span>':''}</button>
       <button class="btn bx bs" onclick="exportSemanaCSV('${ws}','${we}','${lbl}')">📄 CSV</button>
       <button class="btn bx bs" onclick="exportSemanaPDF('${ws}','${we}','${lbl}')">🖨️ PDF</button>
       <button class="btn bx bs" onclick="exportHistorico()">⬇️ Histórico</button>
@@ -3111,6 +3334,13 @@ function vPag(){
       <div style="background:var(--sur);border-radius:8px;padding:12px"><div style="font-size:10px;color:var(--sub);margin-bottom:4px">PENDENTE</div><div class="num" style="color:var(--red)">${fR(tot-receb)}</div></div>
     </div>
   </div>
+  ${_corteAtivoPag?`<div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:8px 16px;margin-bottom:12px;font-size:12px;color:var(--sub);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+    <span>📅 <b>Data de corte ativa:</b> semanas antes de <b style="color:var(--txt)">${fD(_corteAtivoPag)}</b> estão arquivadas e não aparecem como pendentes</span>
+    <div style="display:flex;gap:6px">
+      <button class="btn bx bxs" onclick="openCorteModal()" style="font-size:11px">✏️ Alterar</button>
+      <button class="btn br bxs" onclick="if(confirm('Remover o corte? Todas as semanas desde o início de cada locatário voltarão a ser contadas.')){localStorage.removeItem('mg_pg_corte');render();toast('Corte removido','acc');}" style="font-size:11px">✕ Remover</button>
+    </div>
+  </div>`:''}
   ${blocos}${blocoSemDia}`;
 }
 function sPg(mId,sem){openPgModal(mId,sem)}
@@ -3950,8 +4180,11 @@ function vInd(){
     let diff=(ref.getDay()-jsDay+7)%7;
     ref.setDate(ref.getDate()-diff);
 
+    const _corteInd=getPgCorte();
     for(let i=0;i<12;i++){
       const semStr=wS(ref.toISOString().split('T')[0]);
+      // Para se chegou antes da data de corte
+      if(_corteInd && semStr < _corteInd){break;}
       const vencDia=new Date(ref);
       // Data de vencimento real = dia do pagamento + tolerância
       const vencComTol=new Date(vencDia);
@@ -3979,13 +4212,30 @@ function vInd(){
   const devedores=ativ.map(m=>({m,debt:calcDebt(m)})).filter(x=>x.debt.semanas.length>0);
   devedores.sort((a,b)=>b.debt.comMulta-a.debt.comMulta);
 
+  function gerarMsgWhatsApp(m,debt){
+    const semanas=debt.semanas.length;
+    const valor=fR(debt.comMulta);
+    const placa=m.placa;
+    const nome=m.nome||'locatário';
+    return encodeURIComponent(
+      '🏍️ *AMS Motos — Cobrança*\n\n'+
+      'Olá '+nome+'! 👋\n\n'+
+      'Identificamos que a moto *'+placa+'* está com *'+semanas+' semana(s)* de aluguel em aberto.\n\n'+
+      '💰 *Valor total: '+valor+'*\n\n'+
+      'Por favor, entre em contato para regularizar! 🙏\n\n'+
+      '_AMS Motos_ 🏍️'
+    );
+  }
+
   // Cobranças avulsas de óleo (R$30) — separadas da inadimplência
   const cobOleo=DB.cobOleo||[];
   const oleoPend=cobOleo.filter(c=>c.st!=='pago');
 
   if(!devedores.length&&!oleoPend.length){
+    const corteAtivo=getPgCorte();
     return`<div class="card"><div class="empty" style="padding:40px;text-align:center;font-size:14px">
       ✅ Nenhuma inadimplência registrada<br><br>
+      ${corteAtivo?`<div style="font-size:12px;color:var(--sub);margin-bottom:12px">📅 Contando a partir de: <b>${fD(corteAtivo)}</b> — <a href="#" onclick="event.preventDefault();openCorteModal()">alterar corte</a></div>`:''}
       <button class="btn ba" onclick="abrirCobOleo()">🛢️ Lançar Cobrança de Óleo</button>
     </div></div>`;
   }
@@ -4004,6 +4254,10 @@ function vInd(){
   });
 
   let html=`
+  ${getPgCorte()?`<div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:var(--sub);display:flex;justify-content:space-between;align-items:center">
+    📅 Contando semanas a partir de: <b style="color:var(--txt)">${fD(getPgCorte())}</b>
+    <a href="#" style="font-size:11px;color:var(--blu)" onclick="event.preventDefault();openCorteModal()">Alterar</a>
+  </div>`:``}
   <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px">
     <div class="card" style="padding:12px;border-color:rgba(239,68,68,.3)">
       <div style="font-size:10px;color:var(--sub);margin-bottom:2px">INADIMPLENTES</div>
@@ -6021,6 +6275,113 @@ function saveAll(){
 }
 
 // ── Backup ───────────────────────────────────────────────────────────────────
+
+// ── Relatório Semanal Automático ─────────────────────────────────────────────
+function gerarRelatorioSemanal(){
+  const hoje=tod();
+  const semAtual=wS(hoje);
+  const semFim=wE(hoje);
+  // Pagamentos da semana atual
+  const pgs=DB.pg.filter(p=>p.sem===semAtual);
+  const ativ=DB.motos.filter(m=>m.on&&m.val>0&&m.nome);
+  const recebido=pgs.reduce((a,p)=>{const m=DB.motos.find(x=>x.id===p.mId)||{val:0};return a+Number(p.valor!=null?p.valor:m.val);},0);
+  const esperado=ativ.reduce((a,m)=>a+Number(m.val||0),0);
+  // Inadimplentes
+  const paidByM={};DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.sem);});
+  const ind=ativ.filter(m=>wLateCalc(m,paidByM)>=1).map(m=>({m,sem:wLateCalc(m,paidByM)})).sort((a,b)=>b.sem-a.sem);
+  // Manutenções vencidas
+  const mntVenc=DB.motos.filter(m=>m.on&&(ms(m).u==='ov'||ms(m).u==='cr'));
+  // Seguros vencendo em 10 dias
+  const segAlert=DB.seg.filter(s=>{const d=dTo(s.venc);return d!==null&&d<=10&&d>=0;});
+  // Motos disponíveis
+  const disponiveis=DB.motos.filter(m=>m.on&&(!m.nome||!m.nome.trim()));
+
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+  <title>Relatório Semanal AMS Motos — ${fD(semAtual)}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:24px;background:#fff}
+    h1{font-size:20px;color:#f97316;margin-bottom:4px}
+    .sub{font-size:12px;color:#666;margin-bottom:20px}
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+    .card{border:1px solid #e5e5e5;border-radius:8px;padding:14px;text-align:center}
+    .card-label{font-size:10px;color:#888;font-weight:700;text-transform:uppercase;margin-bottom:4px}
+    .card-val{font-size:22px;font-weight:800}
+    .card-sub{font-size:11px;color:#888;margin-top:2px}
+    .section{margin-bottom:20px}
+    .section h2{font-size:14px;font-weight:700;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #f97316}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    th{text-align:left;padding:6px 8px;background:#f5f5f5;font-size:11px;font-weight:700;text-transform:uppercase;color:#666}
+    td{padding:7px 8px;border-bottom:1px solid #f0f0f0}
+    .ok{color:#22c55e;font-weight:700}.warn{color:#f97316;font-weight:700}.danger{color:#ef4444;font-weight:700}
+    .footer{font-size:11px;color:#aaa;margin-top:24px;text-align:center}
+    @media print{body{padding:0}}
+  </style></head><body>
+  <h1>🏍️ AMS Motos — Relatório Semanal</h1>
+  <div class="sub">Semana de ${fD(semAtual)} a ${fD(semFim)} · Gerado em ${new Date().toLocaleString('pt-BR')}</div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-label">Receita Semana</div>
+      <div class="card-val" style="color:#22c55e">${fR(recebido)}</div>
+      <div class="card-sub">de ${fR(esperado)} esperado</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Inadimplentes</div>
+      <div class="card-val" style="color:${ind.length>0?'#ef4444':'#22c55e'}">${ind.length}</div>
+      <div class="card-sub">${fR(ind.reduce((a,x)=>a+x.sem*Number(x.m.val||0),0))} em aberto</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Mnt. Vencida</div>
+      <div class="card-val" style="color:${mntVenc.length>0?'#f97316':'#22c55e'}">${mntVenc.length}</div>
+      <div class="card-sub">motos c/ óleo/revisão vencido</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Motos Ativas</div>
+      <div class="card-val">${DB.motos.filter(m=>m.on).length}</div>
+      <div class="card-sub">${disponiveis.length} disponível(is)</div>
+    </div>
+  </div>
+
+  ${ind.length?`<div class="section"><h2>⚠️ Inadimplentes (${ind.length})</h2>
+  <table><thead><tr><th>Placa</th><th>Locatário</th><th>Semanas</th><th>Valor Est.</th></tr></thead>
+  <tbody>${ind.map(({m,sem})=>`<tr><td><b>${m.placa}</b></td><td>${m.nome}</td>
+    <td class="${sem>=3?'danger':sem>=2?'warn':'ok'}">${sem} sem${sem>1?'anas':'ana'}</td>
+    <td class="danger">${fR(sem*Number(m.val||0))}</td></tr>`).join('')}
+  </tbody></table></div>`:''}
+
+  ${mntVenc.length?`<div class="section"><h2>🔧 Manutenção Vencida (${mntVenc.length})</h2>
+  <table><thead><tr><th>Placa</th><th>Locatário</th><th>Odo</th><th>Km Óleo Rest.</th><th>Status</th></tr></thead>
+  <tbody>${mntVenc.map(m=>{const{ol,rl,u}=ms(m);return`<tr><td><b>${m.placa}</b></td><td>${m.nome||'—'}</td>
+    <td>${fN(m.odo)} km</td>
+    <td class="${ol<=0?'danger':'warn'}">${ol<=0?'VENCIDO '+fN(Math.abs(ol))+'km':fN(ol)+'km'}</td>
+    <td class="${u==='ov'?'danger':'warn'}">${u==='ov'?'VENCIDO':'CRÍTICO'}</td></tr>`}).join('')}
+  </tbody></table></div>`:''}
+
+  ${segAlert.length?`<div class="section"><h2>🛡️ Seguros Vencendo (${segAlert.length})</h2>
+  <table><thead><tr><th>Placa</th><th>Seguradora</th><th>Vencimento</th><th>Dias</th></tr></thead>
+  <tbody>${segAlert.map(s=>{const m=DB.motos.find(x=>x.id===s.mId)||{placa:'?'};const d=dTo(s.venc);return`<tr>
+    <td><b>${m.placa}</b></td><td>${s.seg||'—'}</td><td>${fD(s.venc)}</td>
+    <td class="${d<=3?'danger':'warn'}">${d} dias</td></tr>`}).join('')}
+  </tbody></table></div>`:''}
+
+  <div class="section"><h2>💰 Pagamentos da Semana</h2>
+  <table><thead><tr><th>Placa</th><th>Locatário</th><th>Plano</th><th>Pago</th><th>Status</th></tr></thead>
+  <tbody>${ativ.map(m=>{const p=pgs.find(x=>x.mId===m.id);return`<tr>
+    <td><b>${m.placa}</b></td><td>${m.nome}</td><td>${fR(m.val)}</td>
+    <td>${p?fR(p.valor!=null?p.valor:m.val):'—'}</td>
+    <td class="${p?'ok':'danger'}">${p?'✓ Pago':'Pendente'}</td></tr>`}).join('')}
+  </tbody></table></div>
+
+  <div class="footer">Relatório gerado automaticamente pelo MotoGest — AMS Motos</div>
+  </body></html>`;
+
+  const w=window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(),500);
+}
+
 function exportBackup(){
   const data={version:1,date:new Date().toLocaleString('pt-BR'),
     motos:DB.motos,leit:DB.leit,seg:DB.seg,multas:DB.multas,
@@ -6628,9 +6989,14 @@ render();
     if(typeof DB==='undefined')return;
     const ativ2=DB.motos.filter(m=>m.on&&m.nome&&m.odo>0);
     const oleov2=ativ2.filter(m=>(m.odo-m.loilKm)>=1000).length;
+    const _oleoPerto=ativ2.filter(m=>{const ol=OIL-(m.odo-(m.loilKm||0));return ol>0&&ol<=200;}).length;
     if(oleov2>0)new Notification('🛢️ AMS Motos — Óleo Vencido',{body:oleov2+' moto(s) com troca vencida!'});
+    else if(_oleoPerto>0)new Notification('⚠️ AMS Motos — Óleo Próximo',{body:_oleoPerto+' moto(s) com óleo vencendo em breve!'});
   },4000);
-  window.installPWA=function(){
+  // ── Boot auto-sync GPS se já configurado ─────────────────────────────────────
+setTimeout(()=>{ if(GPS_CFG.user&&GPS_CFG.pass) startGpsAutoSync(); }, 3000);
+
+window.installPWA=function(){
     if(!deferredPrompt){
       alert('Para instalar:\n\nChrome: clique nos 3 pontinhos (⋮) → "Instalar MotoGest"\nEdge: clique no ícone + na barra de endereços');
       return;
