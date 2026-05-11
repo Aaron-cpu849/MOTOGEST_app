@@ -933,7 +933,7 @@ function vDash(){
   const diasP2=(d)=>{if(!d)return null;return Math.ceil((new Date(d+'T12:00')-hoje2)/86400000)};
   const cnhVenc=ativ.filter(m=>m.nome&&m.cnhValidade&&diasP2(m.cnhValidade)<=15&&diasP2(m.cnhValidade)>=0);
   const cnhExp=ativ.filter(m=>m.nome&&m.cnhValidade&&diasP2(m.cnhValidade)<0);
-  const ctVenc=DB.contratos.filter(c=>{const d=diasP2(c.venc);return d!==null&&d<=30&&d>=0;});
+  const ctVenc=DB.contratos.filter(c=>{const d=diasP2(c.venc);return d!==null&&d<=15&&d>=0;});
   if(cnhExp.length) al+=`<div style="background:var(--redbg);border-radius:8px;padding:10px 14px;color:var(--red);display:flex;gap:8px;cursor:pointer" onclick="go('docs')">🪪 <b>${cnhExp.length} CNH(s) VENCIDA(S):</b>&nbsp;${cnhExp.map(m=>m.nome.split(' ')[0]+' ('+m.placa+')').join(', ')}</div>`;
   if(cnhVenc.length) al+=`<div style="background:var(--yelbg);border-radius:8px;padding:10px 14px;color:var(--yel);display:flex;gap:8px;cursor:pointer" onclick="go('docs')">🪪 <b>${cnhVenc.length} CNH(s)</b>&nbsp;vence(m) em até 15 dias — clique para ver</div>`;
   if(ctVenc.length) al+=`<div style="background:var(--yelbg);border-radius:8px;padding:10px 14px;color:var(--yel);display:flex;gap:8px;cursor:pointer" onclick="go('docs')">📝 <b>${ctVenc.length} contrato(s)</b>&nbsp;vence(m) em até 15 dias — clique para ver</div>`;
@@ -1613,71 +1613,65 @@ function sOil(id){saveMnt(id,'oil')}
 function sRev(id){saveMnt(id,'rev')}
 
 
-// ── Controle de Parcelas de Caução ───────────────────────────────────────────
-function getCaucaoParcelas(mId){
-  return (DB.caucoes||[]).filter(c=>c.mId===mId&&c.totalParcelas&&c.totalParcelas>1);
-}
+// ── Caução Parcelada ─────────────────────────────────────────────────────────
 function abrirCaucaoParcelamento(mId){
   const m=DB.motos.find(x=>x.id===mId);if(!m)return;
   const cau=DB.caucoes.find(c=>c.mId===mId&&c.status==='retido')||{};
   const total=Number(cau.val||0);
-  const parcsPagas=Number(cau.parcsPagas||0);
-  const totalParcs=Number(cau.totalParcelas||3);
-  const valorParc=totalParcs>0?total/totalParcs:0;
-  showM(mWrap('mCauParc',`<div class="modal" style="max-width:420px">
-    <div class="mh"><span class="ct">💳 Parcelas da Caução — ${m.placa}</span><button class="btn bx" onclick="closeM('mCauParc')">✕</button></div>
-    <div style="font-size:12px;color:var(--sub);margin-bottom:12px">${m.nome||'—'}</div>
-    ${total?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+  const pp=Number(cau.parcsPagas||0);
+  const tp=Number(cau.totalParcelas||3);
+  const vp=tp>0?(total/tp):0;
+  const barras=Array.from({length:tp},(_,i)=>{
+    const paga=i<pp;
+    return '<div style="flex:1;border-radius:6px;padding:8px 4px;text-align:center;background:'+(paga?'var(--grnbg)':'var(--sur)')+';border:1px solid '+(paga?'rgba(34,197,94,.3)':'var(--bor)')+'"><div style="font-size:9px;color:var(--sub)">'+(i+1)+'/'+tp+'</div><div style="font-size:12px;font-weight:700;color:'+(paga?'var(--grn)':'var(--sub)')+'">'+( paga?'✓':fR(vp))+'</div></div>';
+  }).join('');
+  showM(mWrap('mCauParc',`<div class="modal" style="max-width:400px">
+    <div class="mh"><span class="ct">💳 Caução — ${m.placa}</span><button class="btn bx" onclick="closeM('mCauParc')">✕</button></div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:10px">${m.nome||'—'}</div>
+    ${total?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
       <div style="background:var(--grnbg);border-radius:8px;padding:8px;text-align:center">
-        <div style="font-size:10px;color:var(--sub)">TOTAL</div>
+        <div style="font-size:9px;color:var(--sub)">TOTAL</div>
         <div style="font-size:16px;font-weight:700;color:var(--grn)">${fR(total)}</div>
       </div>
       <div style="background:var(--blubg);border-radius:8px;padding:8px;text-align:center">
-        <div style="font-size:10px;color:var(--sub)">PAGAS</div>
-        <div style="font-size:16px;font-weight:700;color:var(--blu)">${parcsPagas}/${totalParcs}</div>
+        <div style="font-size:9px;color:var(--sub)">PAGAS</div>
+        <div style="font-size:16px;font-weight:700;color:var(--blu)">${pp}/${tp}</div>
       </div>
-      <div style="background:${parcsPagas>=totalParcs?'var(--grnbg)':' var(--redbg)'};border-radius:8px;padding:8px;text-align:center">
-        <div style="font-size:10px;color:var(--sub)">RESTANTE</div>
-        <div style="font-size:16px;font-weight:700;color:${parcsPagas>=totalParcs?'var(--grn)':'var(--red)'}">${fR(Math.max(0,(totalParcs-parcsPagas)*valorParc))}</div>
+      <div style="background:${pp>=tp?'var(--grnbg)':'var(--redbg)'};border-radius:8px;padding:8px;text-align:center">
+        <div style="font-size:9px;color:var(--sub)">RESTANTE</div>
+        <div style="font-size:16px;font-weight:700;color:${pp>=tp?'var(--grn)':'var(--red)'}">${fR(Math.max(0,(tp-pp)*vp))}</div>
       </div>
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
-      ${Array.from({length:totalParcs},(_,i)=>{const paga=i<parcsPagas;return`<div style="flex:1;min-width:70px;border-radius:8px;padding:8px;text-align:center;background:${paga?'var(--grnbg)':'var(--sur)'};border:1px solid ${paga?'rgba(34,197,94,.3)':'var(--bor)'}">
-        <div style="font-size:10px;color:var(--sub)">Parcela ${i+1}</div>
-        <div style="font-size:13px;font-weight:700;color:${paga?'var(--grn)':'var(--sub)'}">${paga?'✓ Paga':fR(valorParc)}</div>
-      </div>`;}).join('')}
-    </div>
-    ${parcsPagas<totalParcs?`<button class="btn bg" style="width:100%;margin-bottom:8px" onclick="registrarParcCaucao('${mId}',${parcsPagas+1},${totalParcs},${valorParc.toFixed(2)})">✓ Registrar Parcela ${parcsPagas+1} — ${fR(valorParc)}</button>`:''}
-    `:'<div style="color:var(--sub);font-size:13px;margin-bottom:14px">Nenhuma caução com parcelamento registrado. <a href="#" onclick="event.preventDefault();closeM('mCauParc');go('docs')">Ir para Documentos</a></div>'}
-    <div style="margin-bottom:14px">
-      <label style="font-size:11px;color:var(--sub)">Total da caução</label>
+    <div style="display:flex;gap:6px;margin-bottom:14px">${barras}</div>
+    ${pp<tp?`<button class="btn bg" style="width:100%;margin-bottom:10px" onclick="registrarParcCaucao('${mId}',${pp+1},${tp},${vp.toFixed(2)})">✓ Registrar Parcela ${pp+1}/${tp} — ${fR(vp)}</button>`:'<div style="color:var(--grn);text-align:center;margin-bottom:10px;font-weight:700">✅ Caução quitada!</div>'}
+    `:'<div style="color:var(--sub);font-size:12px;margin-bottom:12px">Nenhuma caução registrada.</div>'}
+    <div style="background:var(--sur);border-radius:8px;padding:10px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--sub);margin-bottom:6px">Configurar parcelamento</div>
       <div style="display:flex;gap:6px">
-        <input type="number" id="cpTotal" class="inp" value="${total||''}" placeholder="Ex: 750" style="flex:2">
+        <input type="number" id="cpTotal" class="inp" value="${total||''}" placeholder="Total R$" style="flex:2">
         <select id="cpParcs" class="inp" style="flex:1">
-          ${[1,2,3,4,6].map(n=>`<option value="${n}" ${n===totalParcs?'selected':''}>em ${n}x</option>`).join('')}
+          ${[1,2,3,4,6].map(n=>`<option value="${n}" ${n===tp?'selected':''}>${n}x</option>`).join('')}
         </select>
       </div>
     </div>
     <div class="mact">
       <button class="btn bx" onclick="closeM('mCauParc')">Fechar</button>
-      <button class="btn ba" onclick="salvarCfgCaucaoParc('${mId}')">💾 Salvar configuração</button>
+      <button class="btn ba" onclick="salvarCfgCaucao('${mId}')">💾 Salvar</button>
     </div>
   </div>`));
 }
-function salvarCfgCaucaoParc(mId){
+function salvarCfgCaucao(mId){
   const total=Number(document.getElementById('cpTotal').value)||0;
   const parcs=Number(document.getElementById('cpParcs').value)||3;
-  const cau=DB.caucoes.find(c=>c.mId===mId&&c.status==='retido')||null;
+  let cau=DB.caucoes.find(c=>c.mId===mId&&c.status==='retido');
   if(cau){cau.val=total;cau.totalParcelas=parcs;if(!cau.parcsPagas)cau.parcsPagas=0;}
   else DB.caucoes.push({id:uid(),mId,val:total,totalParcelas:parcs,parcsPagas:0,data:tod(),status:'retido'});
-  sv('cau');closeM('mCauParc');render();toast('✅ Caução configurada: '+fR(total)+' em '+parcs+'x','grn');
+  sv('cau');closeM('mCauParc');render();toast('✅ Caução: '+fR(total)+' em '+parcs+'x','grn');
 }
 function registrarParcCaucao(mId,parc,total,valor){
+  if(!confirm('Registrar parcela '+parc+'/'+total+' de '+fR(valor)+'?')) return;
   const cau=DB.caucoes.find(c=>c.mId===mId&&c.status==='retido');
-  if(!cau)return;
-  if(!confirm('Registrar Parcela '+parc+'/'+total+' de '+fR(valor)+'?\nISso marca esta parcela como paga.'))return;
-  cau.parcsPagas=parc;
-  sv('cau');render();toast('✅ Parcela '+parc+'/'+total+' registrada!','grn');
+  if(cau){cau.parcsPagas=parc;sv('cau');render();toast('✅ Parcela '+parc+'/'+total+' registrada!','grn');}
 }
 
 // ── Seguros ──────────────────────────────────────────────────────────────────
@@ -2237,8 +2231,7 @@ function vOficina(){
         ${osGerada?`<span style="font-size:10px;color:var(--grn);display:block">✓ OS</span>`:''}
       </td>
       <td class="row" style="gap:3px;flex-wrap:wrap">
-        ${mostrarAprovar?`<button class="btn bg bxs" onclick="confirmarIntervencao('${i.id}')" title="Aprovar e atualizar manutenção">✓ Aprovar</button>`:''}
-        ${!mostrarAprovar?`<button class="btn bx bxs" onclick="reprocessarIntervencao('${i.id}')" title="Re-processar: atualiza km de óleo/revisão da moto com os dados desta intervenção" style="font-size:10px">🔄 Re-proc.</button>`:''}
+        ${mostrarAprovar?`<button class="btn bg bxs" onclick="confirmarIntervencao('${i.id}')" title="Aprovar e atualizar manutenção">✓ Aprovar</button>`:`<button class="btn bx bxs" onclick="reprocessarIntervencao('${i.id}')" title="Re-aplica km de óleo/revisão" style="font-size:10px">🔄 Re-proc</button>`}
         <button class="btn bx bxs" onclick="editarIntervencao('${i.id}')" title="Editar">✏️</button>
         <button class="btn br bxs" onclick="deletarIntervencao('${i.id}')" title="Excluir">✕</button>
       </td>
@@ -2610,133 +2603,85 @@ function exportarOficinaWA(){
 function confirmarIntervencao(id){
   const intv=DB.intervencoes.find(x=>x.id===id);if(!intv)return;
   const m=DB.motos.find(x=>x.id===intv.mId);
-  // KM: usa da intervenção; se 0 ou vazio, usa odômetro atual da moto
-  // KM da intervenção — se não informado, bloqueia com aviso (não usa odo silenciosamente)
+  // KM: avisa se não informado em vez de usar odo silenciosamente
   const kmRaw=Number(intv.km)||0;
   if(!kmRaw){
-    const continuar=confirm(
-      '⚠️ KM NÃO INFORMADO\n\n'+
-      'Esta intervenção não tem quilometragem registrada.\n'+
-      'Sem o KM, as trocas de óleo e revisão NÃO serão atualizadas corretamente.\n\n'+
-      'Deseja aprovar mesmo assim? (o odo atual da moto será usado como referência)');
-    if(!continuar)return;
+    if(!confirm('⚠️ KM NÃO INFORMADO\n\nSem o KM, óleo e revisão NÃO serão atualizados.\nDeseja aprovar mesmo assim?')) return;
   }
   const km=kmRaw||Number(m?.odo)||0;
   // ── Proteção anti-duplicata reforçada ───────────────────────────────────
   const servsNovos=(intv.servicos||[]).map(s=>(s.desc||'').toLowerCase().trim());
-  // Checa tanto em intervencoes já confirmadas quanto no histórico de manutenção
-  const dupIntv=DB.intervencoes.find(x=>
-    x.id!==id && x.mId===intv.mId && x.st==='confirmado' && km>0 &&
-    Math.abs(Number(x.km||0)-km)<=50 &&
+  const dupIntv=km>0?DB.intervencoes.find(x=>
+    x.id!==id&&x.mId===intv.mId&&x.st==='confirmado'&&
+    Math.abs(Number(x.km||0)-km)<=50&&
     (x.servicos||[]).some(s=>servsNovos.includes((s.desc||'').toLowerCase().trim()))
-  );
-  // Checa no histórico de manutenção (mhist) por km ±100 e mesma moto
+  ):null;
+  const _regexDupMap={oil:/ol[eé]o|oil/i,rev:/revis/i,pneu:/pneu/i,corr:/correia|corrente/i,past:/pastilha|lona/i,vela:/vela/i,filtrar:/filtro.*ar/i,filtoleo:/filtro.*ol/i,escova:/escova/i,freio:/freio/i,embreia:/embreia/i,bucha:/bucha|coroa/i};
   const dupMhist=km>0?DB.mhist.find(h=>
-    h.mId===intv.mId && Math.abs((h.km||0)-km)<=100 &&
-    (h.origem==='portal'||h.origem==='oficina') &&
-    // compara se algum serviço da intervenção bate com o tipo do hist
-    servsNovos.some(desc=>{
-      const t=h.tipo;
-      if(!t||t==='outro') return false;
-      const regexMap={oil:/ol[eé]o|oil|lubrif/i,rev:/revis/i,pneu:/pneu/i,corr:/correia|corrente/i,
-        past:/pastilha/i,vela:/vela/i,filtrar:/filtro.*ar/i,filtoleo:/filtro.*ol/i,escova:/escova/i,freio:/freio/i,embreia:/embreia/i,bucha:/bucha|coroa/i};
-      return regexMap[t]&&regexMap[t].test(desc);
-    })
+    h.mId===intv.mId&&Math.abs((h.km||0)-km)<=100&&
+    (h.origem==='portal'||h.origem==='oficina')&&
+    servsNovos.some(desc=>{const rx=_regexDupMap[h.tipo];return rx&&rx.test(desc);})
   ):null;
   const duplicata=dupIntv||dupMhist;
   if(duplicata){
-    const srcLabel=dupIntv?'intervenção aprovada':'histórico de manutenção';
-    const dupKm=dupIntv?dupIntv.km:dupMhist.km;
-    const dupData=dupIntv?dupIntv.data:dupMhist.data;
-    const dupDesc=dupIntv?(dupIntv.servicos||[]).map(s=>s.desc).join(', '):(TIPOS_MNT[dupMhist.tipo]?.label||dupMhist.tipo);
-    const continuar=confirm(
-      '⚠️ POSSÍVEL DUPLICATA DETECTADA!\n\n'+
-      'Já existe registro em '+srcLabel+' para esta moto:\n'+
-      '• KM: '+fN(dupKm||0)+' km (diferença: '+Math.abs((dupKm||0)-km)+' km)\n'+
-      '• Serviço: '+dupDesc+'\n'+
-      '• Data: '+(dupData||'?')+'\n\n'+
-      'Aprovar mesmo assim duplicará os dados de manutenção.\n'+
-      'Deseja continuar?'
-    );
-    if(!continuar)return;
+    const dk=dupIntv?dupIntv.km:dupMhist.km;
+    const dd=dupIntv?dupIntv.data:dupMhist.data;
+    const ds=dupIntv?(dupIntv.servicos||[]).map(s=>s.desc).join(', '):(TIPOS_MNT[dupMhist.tipo]?.label||dupMhist.tipo);
+    if(!confirm('⚠️ POSSÍVEL DUPLICATA!\n\nRegistro existente:\n• KM: '+fN(dk||0)+' km (diff: '+Math.abs((dk||0)-km)+' km)\n• Serviço: '+ds+'\n• Data: '+(dd||'?')+'\n\nAprovar mesmo assim?')) return;
   }
-  // Texto completo para detecção: descrições + peças + tipo principal
-  const servDescs=(intv.servicos||[]).map(s=>((s.desc||'')+' '+(s.peca||'')).toLowerCase()).join(' ');
+  // Texto para detecção: desc + peça + tipo de cada serviço
+  const servDescs=(intv.servicos||[]).map(s=>((s.desc||'')+' '+(s.peca||'')+' '+(s.tipo||'')).toLowerCase()).join(' ');
   const tipoIntv=(intv.tipo||'').toLowerCase();
   const tiposDetectados=[];
-  // Peças que indicam o tipo de serviço mesmo sem palavra-chave no desc
-  const pecaTipoMap={
-    'oleo de motor':'oil','filtro de oleo':'filtoleo','filtro de óleo':'filtoleo',
-    'vela de ignição':'vela','vela de ignicao':'vela','filtro de ar':'filtrar',
-    'pneu traseiro':'pneu','pneu dianteiro':'pneu','pneu matrix':'pneu',
-    'pastilha de freio':'past','lona de freio':'past',
-    'kit transmissao':'corr','kit transmissão':'corr',
-    'cabo de embreagem':'embreia','escova de arranque':'escova','bucha da coroa':'bucha',
-  };
-  // Enriquece servDescs com peças para detecção
-  const servDescsComPecas=(intv.servicos||[]).map(s=>
-    ((s.desc||'')+' '+(s.peca||'')+' '+(s.tipo||'')).toLowerCase()
-  ).join(' ');
-  // Tipo explícito em s.tipo tem prioridade máxima
-  const tiposExplicitos=[...new Set((intv.servicos||[]).map(s=>s.tipo).filter(Boolean))];
+  // Mapa peça→tipo (garante detecção mesmo quando desc é genérico)
+  const _pecaTipo={'oleo de motor':'oil','filtro de oleo':'filtoleo','filtro de óleo':'filtoleo',
+    'vela de ignicao':'vela','vela de ignição':'vela','filtro de ar':'filtrar',
+    'pneu traseiro':'pneu','pneu dianteiro':'pneu','pneu matrix dianteiro':'pneu','pneu matrix traseiro':'pneu',
+    'pastilha de freio':'past','lona de freio':'past','kit transmissao':'corr','kit transmissão':'corr',
+    'cabo de embreagem':'embreia','escova de arranque':'escova','bucha da coroa':'bucha'};
   const mapeamento=[
-    {regex:/ol[eé]o|oil|lubrif|15w|20w|10w|5w/i,     tipo:'oil'},
-    {regex:/revis[aã]o|revisao|revis[^t]/i,            tipo:'rev'},
-    {regex:/pneu|borracha|matrix/i,                    tipo:'pneu'},
-    {regex:/correia|corrente|relacao|rela[çc][aã]o|kit.*trans/i, tipo:'corr'},
-    {regex:/pastilha|past\b|lona.*freio/i,             tipo:'past'},
-    {regex:/vela|igni[çc]/i,                           tipo:'vela'},
-    {regex:/filtro.*ar(?!.*ol)|ar.*filtro/i,           tipo:'filtrar'},
-    {regex:/filtro.*ol[eé]o|ol[eé]o.*filtro/i,        tipo:'filtoleo'},
-    {regex:/escova|arranque/i,                         tipo:'escova'},
-    {regex:/embreagem|embreia|cabo.*emb/i,             tipo:'embreia'},
-    {regex:/bucha|coroa/i,                             tipo:'bucha'},
-    {regex:/freio|cabo.*fre/i,                         tipo:'freio'},
+    {regex:/ol[eé]o|oil|lubrif|15w|20w|10w|5w/i, tipo:'oil'},
+    {regex:/revis[aã]o|revisao/i,                 tipo:'rev'},
+    {regex:/pneu|borracha|matrix/i,               tipo:'pneu'},
+    {regex:/correia|corrente|rela[çc][aã]o|kit.*trans/i, tipo:'corr'},
+    {regex:/pastilha|lona.*freio/i,               tipo:'past'},
+    {regex:/vela|igni[çc]/i,                      tipo:'vela'},
+    {regex:/filtro.*ar(?!.*[oó]l)/i,              tipo:'filtrar'},
+    {regex:/filtro.*[oó]l[eé]o|[oó]l[eé]o.*filtro/i, tipo:'filtoleo'},
+    {regex:/escova|arranque/i,                    tipo:'escova'},
+    {regex:/embreagem|embreia|cabo.*emb/i,        tipo:'embreia'},
+    {regex:/bucha|coroa/i,                        tipo:'bucha'},
+    {regex:/freio|cabo.*fre/i,                    tipo:'freio'},
   ];
   // 1. Atualiza manutenção da moto
   if(m){
-    // 1a. Tipos explícitos do campo s.tipo (prioridade máxima)
-    tiposExplicitos.forEach(tipo=>{
-      if(!tiposDetectados.includes(tipo)&&TIPOS_MNT[tipo]) tiposDetectados.push(tipo);
-    });
-    // 1b. Detecta por peça usada (mapa peça→tipo)
-    (intv.servicos||[]).forEach(s=>{
-      const pk=(s.peca||'').toLowerCase().trim();
-      const td=pecaTipoMap[pk];
-      if(td&&!tiposDetectados.includes(td)) tiposDetectados.push(td);
-    });
-    // 1c. Detecta por regex em desc+peca+tipo concatenados
-    mapeamento.forEach(({regex,tipo})=>{
-      if(tiposDetectados.includes(tipo)) return;
-      if(regex.test(servDescsComPecas)||tipoIntv===tipo) tiposDetectados.push(tipo);
-    });
-    // 1d. Atualiza campos loilKm/lrevKm/etc e histórico para cada tipo detectado
+    // Camada 1: campo s.tipo explícito
+    (intv.servicos||[]).forEach(s=>{if(s.tipo&&TIPOS_MNT[s.tipo]&&!tiposDetectados.includes(s.tipo))tiposDetectados.push(s.tipo);});
+    // Camada 2: nome da peça usada
+    (intv.servicos||[]).forEach(s=>{const pk=(s.peca||'').toLowerCase().trim();const td=_pecaTipo[pk];if(td&&!tiposDetectados.includes(td))tiposDetectados.push(td);});
+    // Camada 3: regex em desc+peça+tipo
+    mapeamento.forEach(({regex,tipo})=>{if(!tiposDetectados.includes(tipo)&&(regex.test(servDescs)||tipoIntv===tipo))tiposDetectados.push(tipo);});
+    // Atualiza campos e histórico
     tiposDetectados.forEach(tipo=>{
       const t=TIPOS_MNT[tipo];
       if(t&&t.key&&km>0){
         const atual=m[t.key]||0;
-        if(km>=atual){
-          m[t.key]=km;
-          console.log('[MotoGest] '+tipo+' atualizado em '+m.placa+': '+t.key+'='+km+'km');
-        }
+        if(km>=atual){m[t.key]=km;console.log('[MotoGest] '+m.placa+' '+tipo+': '+t.key+'='+km+'km');}
       }
-      // Anti-duplicata reforçado: ±50km + mesmo tipo + mesma moto
-      const jaExiste=DB.mhist.find(h=>
-        h.mId===intv.mId&&h.tipo===tipo&&Math.abs((h.km||0)-(km||0))<=50);
-      if(!jaExiste){
+      // Anti-duplicata: ±50km + mesmo tipo + mesma moto
+      if(!DB.mhist.find(h=>h.mId===intv.mId&&h.tipo===tipo&&Math.abs((h.km||0)-km)<=50)){
         DB.mhist.push({id:uid(),mId:intv.mId,tipo,km:km||0,
           obs:'Oficina: '+(intv.servicos||[]).map(s=>s.desc+(s.peca?' ('+s.peca+')':'')).join(', '),
           custo:intv.total||0,ofic:'Oficina Parceira',data:intv.data||tod(),origem:'portal',intvId:id});
       }
     });
-    // Se nenhum tipo detectado mas há serviços, registra como 'outro'
-    if(tiposDetectados.length===0&&(intv.servicos||[]).length>0){
-      const jaOutro=DB.mhist.find(h=>h.mId===intv.mId&&h.tipo==='outro'&&Math.abs((h.km||0)-(km||0))<=50&&h.intvId===id);
-      if(!jaOutro) DB.mhist.push({id:uid(),mId:intv.mId,tipo:'outro',km:km||0,
-        obs:'Oficina: '+(intv.servicos||[]).map(s=>s.desc).join(', '),
-        custo:intv.total||0,ofic:'Oficina Parceira',data:intv.data||tod(),origem:'portal',intvId:id});
+    // Se nenhum tipo, registra como 'outro' (sem duplicar)
+    if(!tiposDetectados.length&&(intv.servicos||[]).length>0){
+      if(!DB.mhist.find(h=>h.mId===intv.mId&&h.tipo==='outro'&&h.intvId===id))
+        DB.mhist.push({id:uid(),mId:intv.mId,tipo:'outro',km:km||0,
+          obs:'Oficina: '+(intv.servicos||[]).map(s=>s.desc).join(', '),
+          custo:intv.total||0,ofic:'Oficina Parceira',data:intv.data||tod(),origem:'portal',intvId:id});
     }
-    // Atualiza odômetro apenas se km da intervenção for maior
     if(km>0&&km>(m.odo||0)) m.odo=km;
     sv('m');sv('mhist');
     publicarMotosFirebase();
@@ -2785,30 +2730,29 @@ function confirmarIntervencao(id){
 }
 
 
-// ── Re-processar intervenção confirmada (corrige km de óleo/revisão) ──────────
+// ── Re-processar intervenção confirmada ─────────────────────────────────────
 function reprocessarIntervencao(id){
   const intv=DB.intervencoes.find(x=>x.id===id);
-  if(!intv||intv.st!=='confirmado'){alert('Só é possível re-processar intervenções confirmadas.');return;}
+  if(!intv||intv.st!=='confirmado'){toast('Só re-processa intervenções confirmadas','acc');return;}
   const m=DB.motos.find(x=>x.id===intv.mId);if(!m)return;
   const km=Number(intv.km)||Number(m.odo)||0;
-  if(!km){alert('KM não informado nesta intervenção — não é possível re-processar.');return;}
-  // Re-roda a detecção de tipo e atualização de campos
-  const servDescsRP=(intv.servicos||[]).map(s=>((s.desc||'')+' '+(s.peca||'')+' '+(s.tipo||'')).toLowerCase()).join(' ');
-  const tiposRP=[];
-  const pecaTipoMapRP={'oleo de motor':'oil','filtro de oleo':'filtoleo','filtro de óleo':'filtoleo','vela de ignição':'vela','vela de ignicao':'vela','filtro de ar':'filtrar','pneu traseiro':'pneu','pneu dianteiro':'pneu','pneu matrix':'pneu','pastilha de freio':'past','lona de freio':'past','kit transmissao':'corr','kit transmissão':'corr','cabo de embreagem':'embreia','escova de arranque':'escova','bucha da coroa':'bucha'};
-  const mapeamentoRP=[{regex:/ol[eé]o|oil|lubrif|15w|20w|10w|5w/i,tipo:'oil'},{regex:/revis[aã]o|revisao|revis[^t]/i,tipo:'rev'},{regex:/pneu|borracha|matrix/i,tipo:'pneu'},{regex:/correia|corrente|relacao|kit.*trans/i,tipo:'corr'},{regex:/pastilha|past\b|lona.*freio/i,tipo:'past'},{regex:/vela|igni/i,tipo:'vela'},{regex:/filtro.*ar(?!.*ol)|ar.*filtro/i,tipo:'filtrar'},{regex:/filtro.*ol[eé]o|ol[eé]o.*filtro/i,tipo:'filtoleo'},{regex:/escova|arranque/i,tipo:'escova'},{regex:/embreagem|embreia|cabo.*emb/i,tipo:'embreia'},{regex:/bucha|coroa/i,tipo:'bucha'},{regex:/freio|cabo.*fre/i,tipo:'freio'}];
-  (intv.servicos||[]).forEach(s=>{const t=(s.tipo||'');if(t&&TIPOS_MNT[t]&&!tiposRP.includes(t))tiposRP.push(t);});
-  (intv.servicos||[]).forEach(s=>{const pk=(s.peca||'').toLowerCase().trim();const td=pecaTipoMapRP[pk];if(td&&!tiposRP.includes(td))tiposRP.push(td);});
-  mapeamentoRP.forEach(({regex,tipo})=>{if(!tiposRP.includes(tipo)&&regex.test(servDescsRP))tiposRP.push(tipo);});
-  if(!tiposRP.length){toast('Nenhum tipo de serviço detectado para re-processar','acc');return;}
-  const atualizados=[];
-  tiposRP.forEach(tipo=>{
+  if(!km){toast('KM não informado — impossível re-processar','acc');return;}
+  const sd=(intv.servicos||[]).map(s=>((s.desc||'')+' '+(s.peca||'')+' '+(s.tipo||'')).toLowerCase()).join(' ');
+  const pt={'oleo de motor':'oil','filtro de oleo':'filtoleo','filtro de óleo':'filtoleo','vela de ignicao':'vela','vela de ignição':'vela','filtro de ar':'filtrar','pneu traseiro':'pneu','pneu dianteiro':'pneu','pneu matrix dianteiro':'pneu','pneu matrix traseiro':'pneu','pastilha de freio':'past','lona de freio':'past','kit transmissao':'corr','kit transmissão':'corr','cabo de embreagem':'embreia','escova de arranque':'escova','bucha da coroa':'bucha'};
+  const mp=[{r:/ol[eé]o|oil|lubrif|15w|20w|10w|5w/i,t:'oil'},{r:/revis[aã]o|revisao/i,t:'rev'},{r:/pneu|borracha|matrix/i,t:'pneu'},{r:/correia|corrente|rela[çc][aã]o|kit.*trans/i,t:'corr'},{r:/pastilha|lona.*freio/i,t:'past'},{r:/vela|igni[çc]/i,t:'vela'},{r:/filtro.*ar(?!.*[oó]l)/i,t:'filtrar'},{r:/filtro.*[oó]l[eé]o/i,t:'filtoleo'},{r:/escova|arranque/i,t:'escova'},{r:/embreagem|embreia/i,t:'embreia'},{r:/bucha|coroa/i,t:'bucha'},{r:/freio|cabo.*fre/i,t:'freio'}];
+  const tipos=[];
+  (intv.servicos||[]).forEach(s=>{if(s.tipo&&TIPOS_MNT[s.tipo]&&!tipos.includes(s.tipo))tipos.push(s.tipo);});
+  (intv.servicos||[]).forEach(s=>{const pk=(s.peca||'').toLowerCase().trim();const td=pt[pk];if(td&&!tipos.includes(td))tipos.push(td);});
+  mp.forEach(({r,t})=>{if(!tipos.includes(t)&&r.test(sd))tipos.push(t);});
+  if(!tipos.length){toast('Nenhum tipo detectado para re-processar','acc');return;}
+  const upd=[];
+  tipos.forEach(tipo=>{
     const t=TIPOS_MNT[tipo];
-    if(t&&t.key){const atual=m[t.key]||0;if(km>=atual){m[t.key]=km;atualizados.push(TIPOS_MNT[tipo].label+': '+fN(km)+'km');}}
+    if(t&&t.key){const a=m[t.key]||0;if(km>=a){m[t.key]=km;upd.push(TIPOS_MNT[tipo].label+': '+fN(km)+'km');}}
   });
-  if(km>(m.odo||0)) m.odo=km;
+  if(km>(m.odo||0))m.odo=km;
   sv('m');publicarMotosFirebase();render();
-  toast('✅ Re-processado: '+(atualizados.join(', ')||'sem alterações')+' | KM: '+fN(km),'grn');
+  toast('✅ Re-processado: '+(upd.join(', ')||'sem alterações'),'grn');
 }
 
 function copiarComun(idx,btn){
@@ -4257,60 +4201,38 @@ function confirmImport(){
 }
 
 
-// ── Cobrança em Massa via WhatsApp ───────────────────────────────────────────
+// ── Cobrança em Massa — WhatsApp ─────────────────────────────────────────────
 function cobrancaEmMassa(){
   const ativ=DB.motos.filter(m=>m.on&&m.val>0&&m.nome&&m.nome.trim());
   const paidByM={};
   DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.sem);});
-  const devedores=ativ.filter(m=>wLateCalc(m,paidByM)>=1)
-    .map(m=>({m,sem:wLateCalc(m,paidByM)}))
-    .sort((a,b)=>b.sem-a.sem);
-  if(!devedores.length){toast('✅ Nenhum inadimplente no momento!','grn');return;}
-  // Gera lista de mensagens individuais
-  const msgs=devedores.map(({m,sem})=>{
-    const valor=fR(sem*Number(m.val||0));
-    const semsText=sem===1?'1 semana':''+sem+' semanas';
-    return {
-      nome:m.nome.split(' ')[0],
-      placa:m.placa,
-      sem,valor,
-      texto:'Olá '+m.nome.split(' ')[0]+'! 👋\n\n'+
-        'A moto *'+m.placa+'* está com *'+semsText+'* de aluguel em aberto.\n'+
-        '💰 Valor total: *'+valor+'*\n\n'+
-        'Por favor, entre em contato para regularizar! 🙏\n\n'+
-        '_AMS Motos 🏍️_'
-    };
+  const devs=ativ.filter(m=>wLateCalc(m,paidByM)>=1)
+    .map(m=>({m,sem:wLateCalc(m,paidByM)})).sort((a,b)=>b.sem-a.sem);
+  if(!devs.length){toast('✅ Nenhum inadimplente!','grn');return;}
+  window._cobMsgs=devs.map(({m,sem})=>{
+    const val=fR(sem*Number(m.val||0));
+    const s=sem===1?'1 semana':sem+' semanas';
+    return 'Olá '+m.nome.split(' ')[0]+'! 👋\n\nA moto *'+m.placa+'* está com *'+s+'* de aluguel em aberto.\n💰 Valor total: *'+val+'*\n\nPor favor, regularize o quanto antes! 🙏\n\n_AMS Motos 🏍️_';
   });
-  const listaHTML=msgs.map((msg,i)=>`
-    <div style="background:var(--sur);border-radius:8px;padding:10px 14px;margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div>
-          <span style="font-weight:700">${msg.nome}</span>
-          <span style="font-size:11px;color:var(--sub);margin-left:6px">${msg.placa}</span>
-          <span style="font-size:11px;background:var(--redbg);color:var(--red);border-radius:4px;padding:1px 6px;margin-left:6px">${msg.sem}s — ${msg.valor}</span>
-        </div>
+  const lista=devs.map(({m,sem},i)=>`
+    <div style="background:var(--sur);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span><b>${m.nome.split(' ').slice(0,2).join(' ')}</b> <span style="font-size:11px;color:var(--sub)">${m.placa}</span> <span style="font-size:11px;background:var(--redbg);color:var(--red);border-radius:4px;padding:1px 5px;margin-left:4px">${sem}s · ${fR(sem*Number(m.val||0))}</span></span>
         <div style="display:flex;gap:4px">
-          <button class="btn bx bxs" style="font-size:11px" onclick="navigator.clipboard.writeText(window._cobMsgs[${i}]).then(()=>toast('✅ Copiado — ${msg.nome}!','grn'))">📋 Copiar</button>
+          <button class="btn bx bxs" style="font-size:11px" onclick="navigator.clipboard.writeText(window._cobMsgs[${i}]).then(()=>toast('Copiado!','grn'))">📋</button>
           <button class="btn bxs" style="font-size:11px;background:#25d366;color:#fff;border:none" onclick="window.open('https://wa.me/?text='+encodeURIComponent(window._cobMsgs[${i}]),'_blank')">📱 WA</button>
         </div>
       </div>
-      <div style="font-size:11px;color:var(--sub);white-space:pre-wrap;background:var(--bg);border-radius:6px;padding:8px;line-height:1.5">${msg.texto}</div>
+      <div style="font-size:11px;color:var(--sub);white-space:pre-wrap;line-height:1.5;padding:6px 8px;background:var(--bg);border-radius:6px">${window._cobMsgs[i]||''}</div>
     </div>`).join('');
-  window._cobMsgs=msgs.map(m=>m.texto);
-  showM(mWrap('mCobMassa',`<div class="modal" style="max-width:560px">
-    <div class="mh"><span class="ct">📱 Cobrança em Massa — ${devedores.length} locatário(s)</span><button class="btn bx" onclick="closeM('mCobMassa')">✕</button></div>
-    <div style="font-size:12px;color:var(--sub);margin-bottom:12px">Clique em 📱 para abrir o WhatsApp Web com a mensagem pronta, ou 📋 para copiar.</div>
-    <div style="max-height:60vh;overflow-y:auto">${listaHTML}</div>
+  showM(mWrap('mCobMassa',`<div class="modal" style="max-width:540px">
+    <div class="mh"><span class="ct">📱 Cobrar Todos — ${devs.length} locatário(s)</span><button class="btn bx" onclick="closeM('mCobMassa')">✕</button></div>
+    <div style="max-height:65vh;overflow-y:auto">${lista}</div>
     <div class="mact">
       <button class="btn bx" onclick="closeM('mCobMassa')">Fechar</button>
-      <button class="btn bg" onclick="copiarTodasCobrancas()">📋 Copiar Todas</button>
+      <button class="btn bg" onclick="navigator.clipboard.writeText(window._cobMsgs.join('\n\n─────────────\n\n')).then(()=>toast('Todas copiadas!','grn'))">📋 Copiar Todas</button>
     </div>
   </div>`));
-}
-function copiarTodasCobrancas(){
-  if(!window._cobMsgs||!window._cobMsgs.length) return;
-  const tudo=window._cobMsgs.join('\n\n─────────────────────\n\n');
-  navigator.clipboard.writeText(tudo).then(()=>toast('✅ Todas as mensagens copiadas!','grn'));
 }
 
 // ── Inadimplência ─────────────────────────────────────────────────────────────
@@ -4553,7 +4475,7 @@ function vInd(){
 
   html+=`<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
     <button class="btn ba bxs" onclick="abrirCobOleo()">🛢️ Lançar Cobrança de Óleo</button>
-    <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="cobrancaEmMassa()" title="Gerar mensagens para todos os inadimplentes de uma vez">📱 Cobrar Todos (WA)</button>
+    <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="cobrancaEmMassa()">📱 Cobrar Todos</button>
   </div>`;
   return html;
 }
@@ -5154,6 +5076,41 @@ function expCsv(){
 
 // ── DASHBOARD FINANCEIRO ──────────────────────────────────────────────────────
 let finMes=tod().slice(0,7);
+
+// ── Margem Líquida por Moto ──────────────────────────────────────────────────
+function verMargemMoto(mes){
+  mes=mes||finMes;
+  const rows=DB.motos.filter(m=>m.on&&m.val>0).map(m=>{
+    const recM=DB.pg.filter(p=>p.mId===m.id&&(p.data||p.sem||'').slice(0,7)===mes)
+      .reduce((a,p)=>a+(p.valor!=null?Number(p.valor):Number(m.val||0)),0);
+    const custM=DB.os.filter(o=>o.mId===m.id&&(o.data||'').startsWith(mes))
+      .reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0);
+    return{m,recM,custM,mg:recM-custM};
+  }).filter(x=>x.recM>0||x.custM>0).sort((a,b)=>b.mg-a.mg);
+  const mesLabel=new Date(mes+'-01T12:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const tRec=rows.reduce((a,x)=>a+x.recM,0);
+  const tCus=rows.reduce((a,x)=>a+x.custM,0);
+  const tMg=tRec-tCus;
+  const tblRows=rows.map(x=>{
+    const pct=x.recM>0?Math.round(x.mg/x.recM*100):0;
+    const cor=x.mg>0?'var(--grn)':x.mg<0?'var(--red)':'var(--sub)';
+    return`<tr><td><b>${x.m.placa}</b></td><td style="font-size:11px">${x.m.nome?x.m.nome.split(' ').slice(0,2).join(' '):'Disponível'}</td><td style="color:var(--grn)">${fR(x.recM)}</td><td style="color:var(--acc)">${fR(x.custM)}</td><td style="color:${cor};font-weight:700">${fR(x.mg)}</td><td style="font-size:11px;color:${cor}">${pct}%</td></tr>`;
+  }).join('');
+  showM(mWrap('mMargem',`<div class="modal" style="max-width:660px">
+    <div class="mh"><span class="ct">📊 Margem por Moto — ${mesLabel}</span><button class="btn bx" onclick="closeM('mMargem')">✕</button></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+      <div style="background:var(--grnbg);border-radius:8px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--sub)">RECEITA</div><div style="font-size:18px;font-weight:700;color:var(--grn)">${fR(tRec)}</div></div>
+      <div style="background:var(--redbg);border-radius:8px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--sub)">CUSTO MNT.</div><div style="font-size:18px;font-weight:700;color:var(--red)">${fR(tCus)}</div></div>
+      <div style="background:${tMg>=0?'var(--grnbg)':'var(--redbg)'};border-radius:8px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--sub)">MARGEM</div><div style="font-size:18px;font-weight:700;color:${tMg>=0?'var(--grn)':'var(--red)'}">${fR(tMg)}</div></div>
+    </div>
+    ${rows.length?`<div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Placa</th><th>Locatário</th><th>Receita</th><th>Custo</th><th>Margem</th><th>%</th></tr></thead>
+      <tbody>${tblRows}</tbody>
+    </table></div>`:'<div style="color:var(--sub);text-align:center;padding:20px">Nenhum dado no mês selecionado.</div>'}
+    <div style="text-align:right;margin-top:10px"><button class="btn bx" onclick="closeM('mMargem')">Fechar</button></div>
+  </div>`));
+}
+
 function vFin(){
   const ativ=DB.motos.filter(m=>m.on&&m.val>0&&m.nome);
   const pgsMes=DB.pg.filter(p=>(p.data||p.sem||'').slice(0,7)===finMes);
@@ -5254,6 +5211,7 @@ function vFin(){
     ${sc(lucro>=0?'💚 Lucro':'❌ Prejuízo',fR(Math.abs(lucro)),lucro>=0?'var(--grn)':'var(--red)',`Margem: ${margem.toFixed(1)}%`)}
     ${sc('Custos Totais',fR(totalCusto),'var(--red)',`OS ${fR(custoOs)} · Seg ${fR(custoSeg)} · Mul ${fR(custoMul)}`)}
     ${sc('💸 Inadimplência',fR(inadVal),'var(--acc)',`${ativ.filter(m=>wL(m)>=1).length} locatários em atraso`)}
+  <div style="text-align:right;margin-bottom:4px"><button class="btn bx bs" onclick="verMargemMoto(finMes)">📊 Margem por Moto</button></div>
   </div>
   <div class="g3" style="margin-bottom:12px">
     ${sc('Receita Potencial',fR(recPot),'var(--sub)',`${ativ.length} motos × 4 semanas`)}
@@ -5280,33 +5238,7 @@ function vFin(){
   <div style="overflow-x:auto"><table class="tbl">
     <thead><tr><th>#</th><th>Placa</th><th>Locatário</th><th>Plano</th><th>Recebido</th><th>OS/Manutenção</th><th>Lucro</th><th>Margem</th></tr></thead>
     <tbody>${rows||'<tr><td colspan="8" class="empty">Sem dados neste mês</td></tr>'}</tbody>
-  </table></div></div>
-
-  <div class="card" style="margin-top:10px">
-    <div class="ch" style="margin-bottom:10px">
-      <span class="ct">📊 Margem por Moto — ${new Date(finMes+'-01T12:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</span>
-    </div>
-    ${(()=>{
-      const mRows=DB.motos.filter(m=>m.on&&m.val>0).map(m=>{
-        const recM=DB.pg.filter(p=>p.mId===m.id&&(p.data||p.sem||'').slice(0,7)===finMes).reduce((a,p)=>a+(p.valor!=null?Number(p.valor):Number(m.val||0)),0);
-        const custM=DB.os.filter(o=>o.mId===m.id&&(o.data||'').startsWith(finMes)).reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0);
-        const mg=recM-custM;
-        return{m,recM,custM,mg};
-      }).filter(x=>x.recM>0||x.custM>0).sort((a,b)=>b.mg-a.mg);
-      if(!mRows.length) return '<div style="color:var(--sub);font-size:12px;padding:10px 0">Nenhum registro no mês selecionado.</div>';
-      return`<div style="overflow-x:auto"><table class="tbl">
-        <thead><tr><th>Placa</th><th>Locatário</th><th>Receita</th><th>Custo Mnt.</th><th>Margem</th><th>%</th></tr></thead>
-        <tbody>${mRows.map(x=>{const pct=x.recM>0?Math.round(x.mg/x.recM*100):0;const cor=x.mg>0?'var(--grn)':x.mg<0?'var(--red)':'var(--sub)';return`<tr>
-          <td><b>${x.m.placa}</b></td>
-          <td style="font-size:11px">${x.m.nome?x.m.nome.split(' ').slice(0,2).join(' '):'Disponível'}</td>
-          <td style="color:var(--grn)">${fR(x.recM)}</td>
-          <td style="color:var(--acc)">${fR(x.custM)}</td>
-          <td style="color:${cor};font-weight:700">${fR(x.mg)}</td>
-          <td style="font-size:11px;color:${cor}">${pct}%</td>
-        </tr>`;}).join('')}</tbody>
-      </table></div>`;
-    })()}
-  </div>`;
+  </table></div></div>`;
 }
 
 // ── DOCUMENTOS (Contratos, Caução, Fotos) ─────────────────────────────────────
@@ -6233,6 +6165,20 @@ function waMotosParadas(){
 }
 
 
+
+// ── Taxa de adimplência por locatário ────────────────────────────────────────
+function calcAdimplencia(mId){
+  const m=DB.motos.find(x=>x.id===mId);
+  if(!m||!m.dataInicio) return null;
+  const corte=getPgCorte();
+  const inicio=corte&&corte>m.dataInicio?corte:m.dataInicio;
+  const d0=new Date(wS(inicio)+'T12:00');
+  const d1=new Date(wS(tod())+'T12:00');
+  const totalSem=Math.max(1,Math.round((d1-d0)/(7*86400000))+1);
+  const pagas=new Set(DB.pg.filter(p=>p.mId===mId&&(!corte||p.sem>=corte)).map(p=>p.sem)).size;
+  return{totalSem,pagas,taxa:Math.min(100,Math.round(pagas/totalSem*100))};
+}
+
 // ── Locatários ────────────────────────────────────────────────────────────────
 let locBusca='';
 let locDia='';
@@ -6273,21 +6219,6 @@ function verHistCompleto(nome){
     <div class="mact"><button class="btn bx" onclick="closeM('mHistComp')">Fechar</button></div>
   </div>`));
 }
-// ── Adimplência por locatário ────────────────────────────────────────────────
-function calcAdimplencia(mId){
-  const m=DB.motos.find(x=>x.id===mId);if(!m||!m.dataInicio) return null;
-  const corte=getPgCorte();
-  const inicio=corte&&corte>m.dataInicio?corte:m.dataInicio;
-  const hoje=tod();
-  // conta semanas desde início até hoje
-  const d0=new Date(wS(inicio)+'T12:00');
-  const d1=new Date(wS(hoje)+'T12:00');
-  const totalSem=Math.max(0,Math.round((d1-d0)/(7*86400000)))+1;
-  const pagas=new Set(DB.pg.filter(p=>p.mId===mId&&(!corte||p.sem>=corte)).map(p=>p.sem)).size;
-  const taxa=totalSem>0?Math.round(pagas/totalSem*100):100;
-  return{totalSem,pagas,taxa};
-}
-
 function vLoc(){
   const ativos=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim()!=='');
   const hoje=wS(tod());
@@ -6318,7 +6249,7 @@ function vLoc(){
       <td>${saldo>0?`<span style="color:var(--red);font-weight:700">${fR(saldo)}</span>`:'<span style="color:var(--grn)">—</span>'}</td>
       <td><div style="display:flex;align-items:center;gap:4px">${hist||'<span style="color:var(--mut);font-size:11px">sem registros</span>'}</div></td>
       <td><span class="badge" style="background:${statusBg};color:${statusColor}">${status}</span></td>
-      <td style="font-size:11px;font-weight:700;color:${(()=>{const a=calcAdimplencia(m.id);return a?a.taxa>=90?'var(--grn)':a.taxa>=70?'var(--acc)':'var(--red)':'var(--sub)';})()}">${(()=>{const a=calcAdimplencia(m.id);return a?a.taxa+'%<div style=\'font-size:9px;color:var(--sub);font-weight:400\'>'+a.pagas+'/'+a.totalSem+' sem</div>':'—';})()}</td>
+      <td style="font-size:12px;font-weight:700;color:${(()=>{const a=calcAdimplencia(m.id);return!a?'var(--sub)':a.taxa>=90?'var(--grn)':a.taxa>=70?'var(--acc)':'var(--red)';})()}">${(()=>{const a=calcAdimplencia(m.id);return a?a.taxa+'%':'—';})()}</td>
       <td><button class="btn bx bxs" onclick="go('pag')">💰</button><button class="btn bx bxs" onclick="verHistCompleto('${m.nome.replace(/'/g,"\\'")}')">📋</button><button class="btn bx bxs" onclick="abrirCaucaoParcelamento('${m.id}')" title="Caução">💳</button></td>
     </tr>`;
   }).join('');
@@ -6356,7 +6287,7 @@ function vLoc(){
     </div>
   </div>
   <div style="overflow-x:auto"><table class="tbl">
-    <thead><tr><th>Locatário</th><th>Placa</th><th>Dia Pag.</th><th>Plano/Sem.</th><th>Total Pago</th><th>Saldo Dev.</th><th>Últimos 4</th><th>Status</th><th title="Taxa de adimplência">Adim. %</th><th></th></tr></thead>
+    <thead><tr><th>Locatário</th><th>Placa</th><th>Dia Pag.</th><th>Plano/Sem.</th><th>Total Pago</th><th>Saldo Dev.</th><th>Últimos 4</th><th>Status</th><th title="Adimplência">Adim.%</th><th></th></tr></thead>
     <tbody>${rows||'<tr><td colspan="9" class="empty">Nenhum locatário encontrado</td></tr>'}</tbody>
   </table></div></div>`;
 }
