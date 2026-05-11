@@ -1439,6 +1439,22 @@ function recusarSolicitacaoOficina(id){
 }
 
 
+const TIPOS_MNT={
+  oil:{label:'🛢️ Troca de Óleo',key:'loilKm',intervalo:OIL},
+  rev:{label:'🔧 Revisão Geral',key:'lrevKm',intervalo:REV},
+  pneu:{label:'🔵 Troca de Pneu',key:'lpneuKm',intervalo:PNEU},
+  corr:{label:'⛓️ Correia/Kit Transmissão',key:'lcorrKm',intervalo:CORR},
+  past:{label:'🔴 Troca de Pastilha',key:'lpastKm',intervalo:8000},
+  vela:{label:'🔥 Troca de Vela',key:'lvelaKm',intervalo:8000},
+  filtrar:{label:'🌪️ Filtro de Ar',key:'lfiltArKm',intervalo:5000},
+  filtoleo:{label:'🫙 Filtro de Óleo',key:'lfiltOlKm',intervalo:OIL},
+  escova:{label:'⚡ Escova de Arranque',key:'lescovaKm',intervalo:15000},
+  freio:{label:'🛑 Cabo de Freio',key:'lfreioKm',intervalo:10000},
+  embreia:{label:'🔗 Cabo de Embreagem',key:'lembKm',intervalo:10000},
+  bucha:{label:'⚙️ Bucha da Coroa',key:'lbuchaKm',intervalo:10000},
+  outro:{label:'🔩 Outro Serviço',key:null,intervalo:0},
+};
+
 // ── Sincronizar KM de Manutenção do Histórico ────────────────────────────────
 // Lê DB.mhist e DB.intervencoes e atualiza loilKm, lrevKm, etc de cada moto
 // com o KM mais recente de cada tipo. Resolve casos de aprovações antigas
@@ -1504,22 +1520,6 @@ function sincronizarKmManutencao(silencioso){
   }
   return relatorio.length;
 }
-
-const TIPOS_MNT={
-  oil:{label:'🛢️ Troca de Óleo',key:'loilKm',intervalo:OIL},
-  rev:{label:'🔧 Revisão Geral',key:'lrevKm',intervalo:REV},
-  pneu:{label:'🔵 Troca de Pneu',key:'lpneuKm',intervalo:PNEU},
-  corr:{label:'⛓️ Correia/Kit Transmissão',key:'lcorrKm',intervalo:CORR},
-  past:{label:'🔴 Troca de Pastilha',key:'lpastKm',intervalo:8000},
-  vela:{label:'🔥 Troca de Vela',key:'lvelaKm',intervalo:8000},
-  filtrar:{label:'🌪️ Filtro de Ar',key:'lfiltArKm',intervalo:5000},
-  filtoleo:{label:'🫙 Filtro de Óleo',key:'lfiltOlKm',intervalo:OIL},
-  escova:{label:'⚡ Escova de Arranque',key:'lescovaKm',intervalo:15000},
-  freio:{label:'🛑 Cabo de Freio',key:'lfreioKm',intervalo:10000},
-  embreia:{label:'🔗 Cabo de Embreagem',key:'lembKm',intervalo:10000},
-  bucha:{label:'⚙️ Bucha da Coroa',key:'lbuchaKm',intervalo:10000},
-  outro:{label:'🔩 Outro Serviço',key:null,intervalo:0},
-};
 
 function mntModal(id, tipo){
   const m=DB.motos.find(x=>x.id===id);if(!m)return;
