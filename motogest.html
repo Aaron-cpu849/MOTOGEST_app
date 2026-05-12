@@ -1265,6 +1265,7 @@ function vMnt(){
   const custoMes=(()=>{const mesAtual=tod().slice(0,7);return DB.mhist.filter(h=>h.data&&h.data.startsWith(mesAtual)).reduce((a,h)=>a+Number(h.custo||0),0);})();
   return`<div style="display:flex;justify-content:flex-end;margin-bottom:8px;gap:6px">
     <button class="btn bx bs" onclick="sincronizarKmManutencao(false)" title="Recalcula loilKm/lrevKm de cada moto baseado no histórico de manutenção">🔄 Sincronizar KM de Manutenção</button>
+    <button class="btn br bs" onclick="correcaoEmergenciaKm()" title="Corrige loilKm/lrevKm direto pelo histórico">🚨 Correção de Emergência</button>
   </div>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">
     <div class="card" style="padding:12px;text-align:center;border-color:rgba(239,68,68,.3)">
@@ -1454,6 +1455,40 @@ const TIPOS_MNT={
   bucha:{label:'⚙️ Bucha da Coroa',key:'lbuchaKm',intervalo:10000},
   outro:{label:'🔩 Outro Serviço',key:null,intervalo:0},
 };
+
+
+// ── Correção de Emergência — corrige loilKm/lrevKm sem depender de TIPOS_MNT ─
+function correcaoEmergenciaKm(){
+  let fix=0;
+  const log=[];
+  const mapa={oil:'loilKm',rev:'lrevKm',pneu:'lpneuKm',corr:'lcorrKm',past:'lpastKm',
+    vela:'lvelaKm',filtrar:'lfiltArKm',filtoleo:'lfiltOlKm',escova:'lescovaKm',
+    freio:'lfreioKm',embreia:'lembKm',bucha:'lbuchaKm'};
+  DB.motos.filter(m=>m.on).forEach(m=>{
+    const antes={oil:m.loilKm,rev:m.lrevKm};
+    Object.entries(mapa).forEach(([tipo,campo])=>{
+      const regs=DB.mhist.filter(h=>h.mId===m.id&&h.tipo===tipo&&Number(h.km)>0);
+      if(!regs.length) return;
+      const kmMax=Math.max(...regs.map(h=>Number(h.km)));
+      if(kmMax>(Number(m[campo])||0)){m[campo]=kmMax;fix++;}
+    });
+    // lrevKm=20000 padrão sem histórico → usa odo atual
+    if((m.lrevKm===20000||m.lrevKm===0)&&!DB.mhist.find(h=>h.mId===m.id&&h.tipo==='rev')){
+      m.lrevKm=m.odo||0;fix++;
+    }
+    if(m.loilKm!==antes.oil||m.lrevKm!==antes.rev){
+      log.push(m.placa+': óleo '+fN(antes.oil)+'→'+fN(m.loilKm)+' | rev '+fN(antes.rev)+'→'+fN(m.lrevKm));
+    }
+  });
+  sv('m');
+  if(fix>0){
+    const msg='✅ '+fix+' campo(s) corrigido(s):\n\n'+log.slice(0,20).join('\n')+(log.length>20?'\n...e mais '+(log.length-20):' ');
+    alert(msg);
+    render();
+  } else {
+    alert('Nenhuma correção necessária — todos os KM já estão atualizados.');
+  }
+}
 
 // ── Sincronizar KM de Manutenção do Histórico ────────────────────────────────
 // Lê DB.mhist e DB.intervencoes e atualiza loilKm, lrevKm, etc de cada moto
