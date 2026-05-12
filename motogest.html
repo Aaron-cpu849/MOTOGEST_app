@@ -82,6 +82,7 @@ label{display:block;font-size:11px;color:var(--sub);margin-bottom:3px;font-weigh
   <button id="notifBtn" onclick="habilitarNotif()" style="display:flex;align-items:center;gap:5px;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">🔔 Notificações</button>
   <button onclick="openGlobalSearch()" title="Busca global" style="display:flex;align-items:center;gap:5px;background:#1e293b;color:#94a3b8;border:1px solid #23232e;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">🔍 Buscar</button>
   <button id="fbBtn" onclick="openFirebaseConfig()" title="Sincronização Firebase" style="display:flex;align-items:center;gap:5px;background:#ff6b00;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px" id="fbBtn">🔥 Sync</button>
+  <button id="fbSyncIndicator" onclick="syncFromFirebase(false)" title="GPS sincronizado automaticamente via Cloudflare Worker — clique para forçar sync agora" style="display:flex;align-items:center;gap:4px;background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-right:4px">🛰️ GPS</button>
   <button id="saveBtn" onclick="saveAll()" style="display:flex;align-items:center;gap:6px;background:#22c55e;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-left:auto;margin-right:8px">💾 Salvar</button>
   <button onclick="exportBackup()" title="Exportar backup" style="display:flex;align-items:center;gap:5px;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">📥 Backup</button>
   <button onclick="gerarRelatorioSemanal()" title="Gerar relatório semanal em PDF" style="display:flex;align-items:center;gap:5px;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">📊 Relatório</button>
@@ -924,6 +925,83 @@ async function syncGps(verbose=false){
   }finally{
     if(btn){btn.textContent='Sincronizar GPS';btn.disabled=false;}
   }
+}
+
+// ── GPS via Firebase (Cloudflare Worker — sincronização automática) ─────────
+// O Cloudflare Worker roda a cada 5 min e escreve em ams_motos/gps_sync
+// O MotoGest lê de lá automaticamente — não precisa de bookmarklet nem clique manual
+let _gpsFirebaseInterval=null;
+let _gpsFirebaseLastSync=null;
+async function syncFromFirebase(silencioso){
+  // Requer Firebase configurado
+  if(!window._fbRef){
+    if(!silencioso) alert('⚠️ Firebase não está conectado. Configure em 🔥 Sync primeiro.');
+    return;
+  }
+  try{
+    const snap = await window._fbRef.child('gps_sync').once('value');
+    const data = snap.val();
+    if(!data || !data.veiculos || !Array.isArray(data.veiculos)){
+      if(!silencioso) alert('⚠️ Nenhum dado GPS encontrado no Firebase ainda.\n\nO Worker do Cloudflare pode não ter rodado ainda — aguarde 5 minutos.');
+      return;
+    }
+    // Verifica se já processou esta mesma sincronização (evita reprocessar)
+    if(data.ultimaSync && data.ultimaSync === _gpsFirebaseLastSync && silencioso){
+      return; // dados já aplicados, nada novo
+    }
+    _gpsFirebaseLastSync = data.ultimaSync;
+    // Reusa a função existente de processamento
+    if(silencioso){
+      // Versão silenciosa — sem alerts
+      let updated=0;
+      for(const item of data.veiculos){
+        const uid=(item.uid||'').replace(/[^A-Z0-9]/g,'').toUpperCase();
+        const nome=(item.nome||'').toUpperCase();
+        let moto=null;
+        for(const m of DB.motos){
+          const pl=m.placa.replace(/[^A-Z0-9]/g,'').toUpperCase();
+          if(uid===pl||uid.includes(pl)||nome===pl||(nome&&nome.includes(pl))){moto=m;break;}
+        }
+        const km=Number(item.km||0);
+        const status=calcularStatusGps(item);
+        const lastUpdate=formatarDataGps(item.lastUpdate||'');
+        if(moto){
+          if(km>0&&km>moto.odo){moto.odo=km;updated++;}
+          GPS[moto.placa]={e:status,u:lastUpdate,end:item.address||'',km,lat:item.lat||0,lng:item.lng||0};
+        }
+      }
+      if(updated>0) sv('m');
+      S.set('mg_gps', GPS);
+      localStorage.setItem('mg_gps_ts', Date.now().toString());
+      console.log(`[MotoGest Firebase Sync] ✅ ${data.veiculos.length} veículos lidos, ${updated} odômetros atualizados (${data.ultimaSync})`);
+      // Atualiza badge na topbar
+      const ind=document.getElementById('fbSyncIndicator');
+      if(ind){
+        const hh=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+        ind.textContent='🛰️ '+hh;
+        ind.title='Última sync GPS: '+hh+' ('+data.veiculos.length+' motos, '+updated+' atualizadas)';
+      }
+    } else {
+      // Versão verbosa — reusa processarDadosGps que mostra alert/painel
+      processarDadosGps(data.veiculos);
+    }
+  } catch(e){
+    console.error('[MotoGest Firebase Sync] ❌', e.message);
+    if(!silencioso) alert('❌ Erro ao buscar GPS do Firebase:\n'+e.message);
+  }
+}
+
+function startFirebaseGpsSync(){
+  if(_gpsFirebaseInterval) return;
+  // Primeira sync em 3s (dar tempo do Firebase conectar)
+  setTimeout(()=>syncFromFirebase(true), 3000);
+  // Depois a cada 2 minutos (Worker grava a cada 5 — assim sempre temos dado fresco)
+  _gpsFirebaseInterval=setInterval(()=>syncFromFirebase(true), 2*60*1000);
+  console.log('[MotoGest] Firebase GPS sync iniciado (2 min)');
+}
+
+function stopFirebaseGpsSync(){
+  if(_gpsFirebaseInterval){clearInterval(_gpsFirebaseInterval);_gpsFirebaseInterval=null;}
 }
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
@@ -3380,6 +3458,9 @@ function initFirebase(cfg){
     const btn=document.getElementById('fbBtn');
     if(btn){btn.textContent='🔥 Sync ✓';btn.style.background='#22c55e';btn.style.color='#000';}
     console.log('Firebase AMS conectado.');
+    // ── Sincronização GPS via Firebase (Cloudflare Worker) ─────────────────
+    // O Worker grava em ams_motos/gps_sync a cada 5 min — leitura silenciosa a cada 2 min
+    startFirebaseGpsSync();
   }catch(e){console.error('Firebase init error:',e);}
 }
 
