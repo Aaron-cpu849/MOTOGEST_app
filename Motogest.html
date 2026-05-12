@@ -1088,6 +1088,63 @@ function buildCentralAlertas(){
       btn:`onclick="go('pag')"`});
   }
 
+  // 9. GPS desconectado >24h em motos alugadas ATIVAS (possível desativação maliciosa)
+  // Diferente do alerta 6 (que cruza com inadimplência) — este é só sobre GPS sumindo
+  const agoraMs=Date.now();
+  const gpsSumido24h=ativ.filter(m=>{
+    if(!m.nome||!m.nome.trim()) return false; // só alugadas
+    const g=GPS[m.placa];
+    if(!g||!g.u) return false;
+    const tsMs=new Date(g.u).getTime();
+    if(isNaN(tsMs)) return false;
+    const horas=(agoraMs-tsMs)/3600000;
+    return horas>=24 && horas<=240; // entre 24h e 10 dias (acima é coisa antiga, ignorar)
+  });
+  if(gpsSumido24h.length) alertas.push({tipo:'gpssumido',cor:'var(--red)',icon:'📡',
+    msg:`${gpsSumido24h.length} moto(s) com GPS sem sinal há +24h: ${gpsSumido24h.slice(0,5).map(m=>m.placa).join(', ')}${gpsSumido24h.length>5?'…':''}`,
+    btn:`onclick="go('odo')"`});
+
+  // 10. Moto parada misteriosamente — GPS conectado mas KM não muda há 3+ dias
+  // (locatário não está usando — perda de receita potencial / risco de devolução)
+  const paradaMisteriosa=ativ.filter(m=>{
+    if(!m.nome||!m.nome.trim()) return false;
+    const g=GPS[m.placa];
+    // GPS precisa estar conectado (ativo)
+    if(!g||g.e!=='Conectado') return false;
+    // Última leitura de odômetro
+    const lts=DB.leit.filter(l=>l.mId===m.id).sort((a,b)=>b.data.localeCompare(a.data));
+    if(lts.length<2) return false;
+    const ult=lts[0], antes=lts[1];
+    const diasEntre=Math.floor((new Date(ult.data+'T12:00')-new Date(antes.data+'T12:00'))/86400000);
+    if(diasEntre<3) return false;
+    return ult.km===antes.km; // não rodou nada
+  });
+  if(paradaMisteriosa.length) alertas.push({tipo:'paradamist',cor:'var(--yel)',icon:'🤔',
+    msg:`${paradaMisteriosa.length} moto(s) com GPS ativo mas não rodaram +3 dias: ${paradaMisteriosa.slice(0,4).map(m=>m.placa).join(', ')}${paradaMisteriosa.length>4?'…':''}`,
+    btn:`onclick="vMotoParada()"`});
+
+  // 11. Subutilização — moto rodou <30% da média da frota nos últimos 30 dias
+  // (locatário pouco usando = pouca demanda = candidato a retomada/troca)
+  try {
+    const trintaDiasAtras=new Date();trintaDiasAtras.setDate(trintaDiasAtras.getDate()-30);
+    const trintaStr=trintaDiasAtras.toISOString().slice(0,10);
+    const kmPorMoto={};
+    ativ.forEach(m=>{
+      if(!m.nome||!m.nome.trim()) return;
+      const lts=DB.leit.filter(l=>l.mId===m.id&&l.data>=trintaStr).sort((a,b)=>a.data.localeCompare(b.data));
+      if(lts.length>=2) kmPorMoto[m.id]=lts[lts.length-1].km-lts[0].km;
+    });
+    const valores=Object.values(kmPorMoto).filter(v=>v>0);
+    if(valores.length>=10){ // só com amostra mínima
+      const media=valores.reduce((a,b)=>a+b,0)/valores.length;
+      const limite=media*0.3; // 30% da média
+      const subutil=ativ.filter(m=>m.nome&&m.nome.trim()&&kmPorMoto[m.id]!==undefined&&kmPorMoto[m.id]<limite&&kmPorMoto[m.id]>=0);
+      if(subutil.length) alertas.push({tipo:'subutil',cor:'var(--acc)',icon:'📉',
+        msg:`${subutil.length} moto(s) rodando <30% da média da frota (${Math.round(media)}km/mês): ${subutil.slice(0,4).map(m=>m.placa).join(', ')}${subutil.length>4?'…':''}`,
+        btn:`onclick="vSubutilizacao()"`});
+    }
+  } catch(e) { console.warn('alerta subutilização:',e); }
+
   if(!alertas.length) return`<div style="background:var(--grnbg);border:1px solid rgba(34,197,94,.3);border-radius:12px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
     <span style="font-size:20px">✅</span>
     <span style="font-size:13px;color:var(--grn);font-weight:600">Tudo certo! Nenhum alerta no momento.</span>
@@ -4637,7 +4694,10 @@ _AMS Motos_ 🏍️`;
     <div class="mh"><span class="ct">📱 WA em Lote — ${ind.length} inadimplentes</span><button class="btn bx" onclick="closeM('mWALote')">✕</button></div>
     <p style="font-size:11px;color:var(--sub);margin-bottom:12px">Clique em 📋 Copiar e cole no WhatsApp de cada locatário, ou 📱 WA para abrir direto.</p>
     <div style="max-height:60vh;overflow-y:auto">${cards}</div>
-    <div class="mact"><button class="btn bx" onclick="closeM('mWALote')">Fechar</button></div>
+    <div class="mact">
+      <button class="btn bx" onclick="closeM('mWALote')">Fechar</button>
+      <button id="btnAbrirTodasWA" class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="abrirTodasWALote()">📱 Abrir Todas (com pausa)</button>
+    </div>
   </div>`));
 }
 function copiarLote(i,btn){
@@ -4645,6 +4705,29 @@ function copiarLote(i,btn){
   if(navigator.clipboard?.writeText){
     navigator.clipboard.writeText(txt).then(()=>{if(btn){const o=btn.textContent;btn.textContent='✅ Copiado!';setTimeout(()=>btn.textContent=o,2000);}});
   } else {prompt('Copie:',txt);}
+}
+
+// ── WA em lote com delay (evita bloqueio por abertura rápida) ───────────────
+// Abre janelas com intervalo de 800ms entre cada — WhatsApp Web bloqueia se
+// abrir muitas janelas em sequência rápida.
+async function abrirTodasWALote(){
+  const msgs=[];
+  for(let i=0;i<200;i++){
+    const m=window['_wa_lot_'+i];
+    if(!m) break;
+    msgs.push(m);
+  }
+  if(!msgs.length){alert('Nenhuma mensagem para enviar.');return;}
+  if(!confirm(`Vou abrir ${msgs.length} janelas do WhatsApp, uma a cada 0.8s.\n\n⚠️ Pode levar ~${Math.ceil(msgs.length*0.8)}s. Continuar?`))return;
+  for(let i=0;i<msgs.length;i++){
+    window.open('https://wa.me/?text='+encodeURIComponent(msgs[i]),'_blank');
+    // Feedback visual de progresso
+    const btn=document.getElementById('btnAbrirTodasWA');
+    if(btn)btn.textContent=`⏳ ${i+1}/${msgs.length}...`;
+    await new Promise(r=>setTimeout(r,800));
+  }
+  const btn=document.getElementById('btnAbrirTodasWA');
+  if(btn){btn.textContent=`✅ ${msgs.length} abertas`;setTimeout(()=>btn.textContent='📱 Abrir Todas',3000);}
 }
 
 function vInd(){
@@ -5236,6 +5319,73 @@ function vMotoParada(){
   const rows=paradas.map(x=>{const cor=x.dias>=10?'var(--red)':x.dias>=7?'var(--yel)':'var(--sub)';return`<tr><td><b>${x.m.placa}</b></td><td>${x.m.nome.split(' ').slice(0,2).join(' ')}</td><td>${fN(x.m.odo)} km</td><td>${x.ult}</td><td style="color:${cor};font-weight:700">${x.dias} dias</td><td><button class="btn bxs" style="font-size:10px;padding:2px 7px;background:#25d366;color:#fff;border:none" onclick="abrirWhatsApp('${x.m.id}')">📱</button></td></tr>`;}).join('');
   showM(mWrap('mPar',`<div class="modal" style="max-width:680px"><div class="mh"><span class="ct">🏍️ Motos Paradas (3+ dias sem leitura)</span><button class="btn bx" onclick="closeM('mPar')">✕</button></div>${paradas.length?`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Placa</th><th>Locatário</th><th>Odômetro</th><th>Última Leitura</th><th>Dias Parada</th><th>WA</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div style="text-align:center;padding:30px;color:var(--grn)">✅ Nenhuma moto parada!</div>'}</div>`));
 }
+
+// ── Subutilização: motos rodando muito menos que a média da frota ──────────
+function vSubutilizacao(){
+  const trintaDiasAtras=new Date();trintaDiasAtras.setDate(trintaDiasAtras.getDate()-30);
+  const trintaStr=trintaDiasAtras.toISOString().slice(0,10);
+  const ativ=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim());
+
+  // Calcula km rodado nos últimos 30 dias por moto
+  const dadosMotos=ativ.map(m=>{
+    const lts=DB.leit.filter(l=>l.mId===m.id&&l.data>=trintaStr).sort((a,b)=>a.data.localeCompare(b.data));
+    const kmRodado=lts.length>=2?lts[lts.length-1].km-lts[0].km:0;
+    return {m,kmRodado,leituras:lts.length};
+  }).filter(x=>x.kmRodado>=0);
+
+  // Calcula média da frota
+  const valores=dadosMotos.map(x=>x.kmRodado).filter(v=>v>0);
+  const media=valores.length?valores.reduce((a,b)=>a+b,0)/valores.length:0;
+  const mediana=valores.length?[...valores].sort((a,b)=>a-b)[Math.floor(valores.length/2)]:0;
+  const limite=media*0.3;
+
+  // Ordena por km rodado (asc — mais subutilizadas em cima)
+  const ordenadas=[...dadosMotos].sort((a,b)=>a.kmRodado-b.kmRodado);
+  const sub=ordenadas.filter(x=>x.kmRodado<limite);
+
+  const rows=ordenadas.slice(0,40).map(x=>{
+    const pct=media>0?Math.round(x.kmRodado/media*100):0;
+    const cor=pct<30?'var(--red)':pct<60?'var(--yel)':pct<100?'var(--sub)':'var(--grn)';
+    const tag=pct<30?'🚨 Subutilizada':pct<60?'⚠️ Abaixo da média':pct<100?'OK':'🚀 Acima da média';
+    return `<tr>
+      <td><b>${x.m.placa}</b></td>
+      <td style="font-size:12px">${x.m.nome.split(' ').slice(0,2).join(' ')}</td>
+      <td>${fN(x.kmRodado)} km</td>
+      <td style="font-weight:700;color:${cor}">${pct}%</td>
+      <td style="font-size:11px;color:${cor}">${tag}</td>
+      <td><button class="btn bxs" style="font-size:10px;padding:2px 7px;background:#25d366;color:#fff;border:none" onclick="abrirWhatsApp('${x.m.id}')">📱 WA</button></td>
+    </tr>`;
+  }).join('');
+
+  showM(mWrap('mSubutil',`<div class="modal" style="max-width:720px">
+    <div class="mh"><span class="ct">📉 Subutilização — últimos 30 dias</span><button class="btn bx" onclick="closeM('mSubutil')">✕</button></div>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:12px">
+      Análise baseada em leituras de odômetro nos últimos 30 dias. Motos que rodam pouco indicam locatário pouco ativo (risco de devolução, sub-aproveitamento da frota).
+    </p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+      <div style="background:var(--sur);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--sub)">MÉDIA FROTA</div>
+        <div style="font-size:18px;font-weight:700;color:var(--blu)">${fN(Math.round(media))} km</div>
+        <div style="font-size:10px;color:var(--sub)">por moto/mês</div>
+      </div>
+      <div style="background:var(--sur);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--sub)">MEDIANA</div>
+        <div style="font-size:18px;font-weight:700;color:var(--sub)">${fN(Math.round(mediana))} km</div>
+        <div style="font-size:10px;color:var(--sub)">amostra ${valores.length}</div>
+      </div>
+      <div style="background:${sub.length?'var(--redbg)':'var(--grnbg)'};border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--sub)">SUBUTILIZADAS</div>
+        <div style="font-size:18px;font-weight:700;color:${sub.length?'var(--red)':'var(--grn)'}">${sub.length}</div>
+        <div style="font-size:10px;color:var(--sub)">< 30% da média</div>
+      </div>
+    </div>
+    <div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Placa</th><th>Locatário</th><th>Km / 30d</th><th>% Média</th><th>Status</th><th>Ação</th></tr></thead>
+      <tbody>${rows||'<tr><td colspan="6" class="empty">Sem dados suficientes (precisa pelo menos 2 leituras por moto)</td></tr>'}</tbody>
+    </table></div>
+  </div>`));
+}
+
 function vCustoReceita(){
   const paidByM={};DB.pg.forEach(p=>{const mo3=DB.motos.find(x=>x.id===p.mId)||{val:0};if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.valor!=null?Number(p.valor):Number(mo3.val||0));});
   const data=DB.motos.filter(m=>m.on).map(m=>{
@@ -6674,6 +6824,70 @@ function calcAdimplencia(mId){
   return{totalSem,pagas,taxa:Math.min(100,Math.round(pagas/totalSem*100))};
 }
 
+// ── TERMÔMETRO DE SAÚDE DO LOCATÁRIO ────────────────────────────────────────
+// Score 0-100 combinando: adimplência (50%) + atraso atual (30%) + GPS (10%) + tempo de casa (10%)
+// Retorna {score, cor, emoji, label, detalhes:[]}
+function calcSaudeLoc(mId){
+  const m=DB.motos.find(x=>x.id===mId);
+  if(!m||!m.nome||!m.nome.trim()) return null;
+
+  const detalhes=[];
+  let score=0;
+
+  // 1. Adimplência histórica (50 pontos)
+  const adimp=calcAdimplencia(mId);
+  let ptsAdimp=25; // neutro se não calcular
+  if(adimp&&adimp.totalSem>=2){
+    ptsAdimp=Math.round(adimp.taxa/2); // 0-50 pts
+    detalhes.push(`Adimplência: ${adimp.taxa}% (${adimp.pagas}/${adimp.totalSem})`);
+  } else {
+    detalhes.push('Adimplência: histórico curto');
+  }
+  score+=ptsAdimp;
+
+  // 2. Atraso atual (30 pontos — penalização)
+  const paidByM={};
+  DB.pg.forEach(p=>{
+    if(!paidByM[p.mId])paidByM[p.mId]=[];
+    paidByM[p.mId].push({sem:p.sem,valor:Number(p.valor||p.val||0),data:p.data||p.sem});
+  });
+  const atraso=calcDebtCanonical(m,paidByM).qtdSemanas;
+  let ptsAtraso=30;
+  if(atraso===0){ptsAtraso=30;detalhes.push('Sem atraso atual');}
+  else if(atraso===1){ptsAtraso=20;detalhes.push('1 semana de atraso');}
+  else if(atraso===2){ptsAtraso=10;detalhes.push('2 semanas de atraso');}
+  else if(atraso>=3){ptsAtraso=0;detalhes.push(`${atraso} semanas de atraso ⚠️`);}
+  score+=ptsAtraso;
+
+  // 3. GPS / Uso da moto (10 pontos)
+  const g=GPS[m.placa];
+  let ptsGps=5;
+  if(g&&g.e==='Conectado'){ptsGps=10;detalhes.push('GPS conectado');}
+  else if(g&&g.e==='Desconhecido'){ptsGps=5;detalhes.push('GPS sem sinal recente');}
+  else if(g&&g.e==='Desconectado'){ptsGps=0;detalhes.push('GPS desconectado ⚠️');}
+  else {ptsGps=5;detalhes.push('GPS sem dados');}
+  score+=ptsGps;
+
+  // 4. Tempo de relacionamento (10 pontos)
+  let ptsTempo=5;
+  if(m.dataInicio){
+    const diasJunto=Math.floor((new Date()-new Date(m.dataInicio+'T12:00'))/86400000);
+    if(diasJunto>=180){ptsTempo=10;detalhes.push(`${Math.floor(diasJunto/30)} meses de casa 🏆`);}
+    else if(diasJunto>=90){ptsTempo=8;detalhes.push(`${Math.floor(diasJunto/30)} meses de casa`);}
+    else if(diasJunto>=30){ptsTempo=5;detalhes.push(`${Math.floor(diasJunto/30)} meses de casa`);}
+    else {ptsTempo=3;detalhes.push(`${diasJunto} dias (novo)`);}
+  }
+  score+=ptsTempo;
+
+  // Classificação
+  let cor='var(--grn)', emoji='🟢', label='Ótimo';
+  if(score<40){cor='var(--red)';emoji='🔴';label='Risco alto';}
+  else if(score<60){cor='var(--acc)';emoji='🟠';label='Atenção';}
+  else if(score<80){cor='var(--yel)';emoji='🟡';label='Regular';}
+
+  return {score, cor, emoji, label, detalhes};
+}
+
 // ── Locatários ────────────────────────────────────────────────────────────────
 let locBusca='';
 let locDia='';
@@ -6744,6 +6958,7 @@ function vLoc(){
       <td>${saldo>0?`<span style="color:var(--red);font-weight:700">${fR(saldo)}</span>`:'<span style="color:var(--grn)">—</span>'}</td>
       <td><div style="display:flex;align-items:center;gap:4px">${hist||'<span style="color:var(--mut);font-size:11px">sem registros</span>'}</div></td>
       <td><span class="badge" style="background:${statusBg};color:${statusColor}">${status}</span></td>
+      <td style="text-align:center">${(()=>{const s=calcSaudeLoc(m.id);return s?`<span title="${s.detalhes.join(' · ')}" style="cursor:help;font-weight:700;color:${s.cor};font-size:13px">${s.emoji} ${s.score}</span>`:'<span style="color:var(--sub)">—</span>';})()}</td>
       <td style="font-size:12px;font-weight:700;color:${(()=>{const a=calcAdimplencia(m.id);return!a?'var(--sub)':a.taxa>=90?'var(--grn)':a.taxa>=70?'var(--acc)':'var(--red)';})()}">${(()=>{const a=calcAdimplencia(m.id);return a?a.taxa+'%':'—';})()}</td>
       <td><button class="btn bx bxs" onclick="go('pag')">💰</button><button class="btn bx bxs" onclick="verHistCompleto('${m.nome.replace(/'/g,"\\'")}')">📋</button><button class="btn bx bxs" onclick="abrirCaucaoParcelamento('${m.id}')" title="Caução">💳</button></td>
     </tr>`;
@@ -6782,8 +6997,8 @@ function vLoc(){
     </div>
   </div>
   <div style="overflow-x:auto"><table class="tbl">
-    <thead><tr><th>Locatário</th><th>Placa</th><th>Dia Pag.</th><th>Plano/Sem.</th><th>Total Pago</th><th>Saldo Dev.</th><th>Últimos 4</th><th>Status</th><th title="Adimplência">Adim.%</th><th></th></tr></thead>
-    <tbody>${rows||'<tr><td colspan="9" class="empty">Nenhum locatário encontrado</td></tr>'}</tbody>
+    <thead><tr><th>Locatário</th><th>Placa</th><th>Dia Pag.</th><th>Plano/Sem.</th><th>Total Pago</th><th>Saldo Dev.</th><th>Últimos 4</th><th>Status</th><th title="Termômetro de saúde (passe o mouse para detalhes)">Saúde</th><th title="Adimplência">Adim.%</th><th></th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="11" class="empty">Nenhum locatário encontrado</td></tr>'}</tbody>
   </table></div></div>`;
 }
 
