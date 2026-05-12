@@ -169,9 +169,10 @@ const DB={
   agenda: S.get('mg_agenda')||[],
   cobOleo: S.get('mg_cobOleo')||[],
   pgOficina: S.get('mg_pgOficina')||[],
+  negociacoes: S.get('mg_negoc')||[],
 };
 function sv(k){
-  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos',chats:'chats',solics:'solics',intv:'intervencoes',histloc:'histLoc',agenda:'agenda',extras:'extras'};
+  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos',chats:'chats',solics:'solics',intv:'intervencoes',histloc:'histLoc',agenda:'agenda',extras:'extras',negoc:'negociacoes'};
   const prop=map[k]||k;
   S.set('mg_'+k,DB[prop]);
 }
@@ -362,29 +363,81 @@ const OIL=1000,REV=10000,PNEU=10000,CORR=6000;
 // Respeita dataInicio: semanas antes da retirada não são cobradas
 const _diaJS_GLOBAL={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
 function getPgCorte(){return localStorage.getItem('mg_pg_corte')||null;}
-function wLateCalc(m, paidByMMap){
-  if(!m.dia||!_diaJS_GLOBAL.hasOwnProperty(m.dia)) return 0;
-  const paid=new Set((paidByMMap?paidByMMap[m.id]:null)||DB.pg.filter(p=>p.mId===m.id).map(p=>p.sem));
-  const hoje=new Date();hoje.setHours(12,0,0,0);
-  // Semana de início da cobrança (semana da retirada)
-  const semInicio=m.dataInicio?wS(m.dataInicio):null;
-  // Data de corte: pagamentos anteriores são arquivados (não aparecem como pendentes)
-  const corte=getPgCorte();
-  let ref=new Date(hoje);
-  ref.setDate(ref.getDate()-((ref.getDay()-_diaJS_GLOBAL[m.dia]+7)%7));
-  let late=0;
-  let check=new Date(ref);
-  for(let i=0;i<52;i++){
-    const sem=wS(check.toISOString().split('T')[0]);
-    // Para se chegou antes da data de início
-    if(semInicio && sem < semInicio) break;
-    // Para se chegou antes do corte (semanas anteriores arquivadas)
-    if(corte && sem < corte) break;
-    if(!paid.has(sem)) late++;
-    else break;
-    check.setDate(check.getDate()-7);
+// ── Configuração de cobrança (config global) ────────────────────────────────
+const CFG_COBRANCA = {
+  MULTA_PCT: 0.10,        // 10% de multa após tolerância
+  TOLERANCIA_DIAS: 2,     // dias de carência antes de virar inadimplente
+  MARGEM_QUITACAO: 5,     // R$5 de margem pra considerar semana paga
+  VALOR_COB_OLEO: 30      // valor padrão de cobrança avulsa de óleo
+};
+
+// ── CÁLCULO CANÔNICO DE INADIMPLÊNCIA ───────────────────────────────────────
+// Todos os lugares do sistema (Dashboard, Inadimplência, Financeiro, Relatórios)
+// usam ESTA função. Considera pagamentos parciais e tolerância de 2 dias.
+// Retorna {semanas:[{semStr,falta,totalPago,plano,multa,diasAtraso}], total, comMulta, qtdSemanas}
+function calcDebtCanonical(m, paidByMMap){
+  if(!m.dia||!_diaJS_GLOBAL.hasOwnProperty(m.dia)||!m.val){
+    return {semanas:[],total:0,comMulta:0,qtdSemanas:0};
   }
-  return late;
+  const plano=Number(m.val);
+  // paidByMMap pode ser: array de strings (sem), array de objetos {sem,valor,data}, ou null
+  let pagamentos=[];
+  if(paidByMMap && paidByMMap[m.id]){
+    const arr=paidByMMap[m.id];
+    if(arr.length && typeof arr[0]==='object'){
+      pagamentos=arr; // já é array de {sem,valor,data}
+    } else {
+      // array de strings — busca o valor real em DB.pg
+      pagamentos=DB.pg.filter(p=>p.mId===m.id).map(p=>({
+        sem:p.sem, valor:Number(p.valor||p.val||plano), data:p.data||p.sem
+      }));
+    }
+  } else {
+    pagamentos=DB.pg.filter(p=>p.mId===m.id).map(p=>({
+      sem:p.sem, valor:Number(p.valor||p.val||plano), data:p.data||p.sem
+    }));
+  }
+  const hoje=new Date();hoje.setHours(12,0,0,0);
+  const semInicio=m.dataInicio?wS(m.dataInicio):null;
+  const corte=getPgCorte();
+  const jsDay=_diaJS_GLOBAL[m.dia];
+  let ref=new Date(hoje);
+  ref.setDate(ref.getDate()-((ref.getDay()-jsDay+7)%7));
+
+  const semanas=[];
+  for(let i=0;i<52;i++){
+    const semStr=wS(ref.toISOString().split('T')[0]);
+    if(semInicio && semStr < semInicio) break;
+    if(corte && semStr < corte) break;
+    // Data de vencimento + tolerância
+    const vencComTol=new Date(ref);
+    vencComTol.setDate(vencComTol.getDate()+CFG_COBRANCA.TOLERANCIA_DIAS);
+    // Se ainda está na tolerância, não é inadimplência — para
+    if(hoje<=vencComTol){ref.setDate(ref.getDate()-7);continue;}
+    // Verifica quanto foi pago na semana (considera pagamentos parciais)
+    const pgsSem=pagamentos.filter(p=>p.sem===semStr);
+    const totalPago=pgsSem.reduce((a,p)=>a+Number(p.valor||0),0);
+    // Semana quitada (com margem) — segue para semanas anteriores
+    if(totalPago >= (plano - CFG_COBRANCA.MARGEM_QUITACAO)){
+      ref.setDate(ref.getDate()-7);
+      // Se já temos semanas em aberto, paramos (sequência mais antiga foi quitada)
+      if(semanas.length>0) break;
+      continue;
+    }
+    const falta=plano-totalPago;
+    const diasAtraso=Math.floor((hoje-vencComTol)/86400000);
+    const multa=diasAtraso>0?falta*CFG_COBRANCA.MULTA_PCT:0;
+    semanas.push({semStr,falta,totalPago,plano,multa,diasAtraso:Math.max(0,diasAtraso)});
+    ref.setDate(ref.getDate()-7);
+  }
+  const total=semanas.reduce((a,s)=>a+s.falta,0);
+  const comMulta=semanas.reduce((a,s)=>a+s.falta+s.multa,0);
+  return {semanas,total,comMulta,qtdSemanas:semanas.length};
+}
+
+// ── Compatibilidade: wLateCalc retorna apenas qtd de semanas em atraso ──────
+function wLateCalc(m, paidByMMap){
+  return calcDebtCanonical(m, paidByMMap).qtdSemanas;
 }
 
 function ms(m){const ol=OIL-(m.odo-(m.loilKm||0)),rl=REV-(m.odo-(m.lrevKm||0)),cl=CORR-(m.odo-(m.lcorrKm||m.odo||0));const pl=0;const u=(ol<=0||rl<=0)?'ov':(ol<=100||rl<=500)?'cr':(ol<=200||rl<=1000)?'wa':'ok';return{ol,rl,pl,cl,u}}
@@ -901,6 +954,7 @@ function buildCentralAlertas(){
     btn:`onclick="go('mnt')"`});
 
   // 3b. Óleo quase vencendo (<=200km)
+  const oilQuase=ativ.filter(m=>{const ol=OIL-(m.odo-(m.loilKm||0));return ol>0&&ol<=200;});
   if(oilQuase.length) alertas.push({tipo:'oleoquase',cor:'var(--acc)',icon:'⚠️',
     msg:`${oilQuase.length} moto(s) com óleo vencendo em breve (≤200km)`,
     btn:`onclick="go('mnt')"`});
@@ -930,11 +984,22 @@ function buildCentralAlertas(){
     msg:`${risco.length} moto(s) SEM GPS +2d e inadimplente(s) — risco alto!`,
     btn:`onclick="go('odo')"`});
 
-  // 7. Motos em oficina/acidente
+  // 7. Motos em oficina/acidente — com aging e prejuízo acumulado
   const emServico=ativ.filter(m=>m.status==='oficina'||m.status==='acidente'||m.status==='sinistro');
-  if(emServico.length) alertas.push({tipo:'servico',cor:'var(--yel)',icon:'🔧',
-    msg:`${emServico.length} moto(s) em serviço/acidente: `+emServico.map(m=>m.placa).join(', '),
-    btn:`onclick="go('mts')"`});
+  if(emServico.length){
+    const detalhes=emServico.map(m=>{
+      let dias=0, prejuizo=0;
+      if(m.dataStatusAlt){
+        dias=Math.max(0,Math.floor((new Date(hoje+'T12:00')-new Date(m.dataStatusAlt+'T12:00'))/86400000));
+        prejuizo=Math.floor(dias/7)*Number(m.val||0);
+      }
+      const iconStatus=m.status==='oficina'?'🔧':m.status==='acidente'?'⚠️':'🚨';
+      return `${iconStatus} ${m.placa}${dias?' ('+dias+'d, '+fR(prejuizo)+' perdido)':''}`;
+    }).join(' · ');
+    alertas.push({tipo:'servico',cor:'var(--yel)',icon:'🔧',
+      msg:`${emServico.length} moto(s) em serviço/acidente: `+detalhes,
+      btn:`onclick="go('mts')"`});
+  }
 
   // 8. Cobranças extras pendentes
   const extrasPend=(DB.extras||[]).filter(e=>!e.pago);
@@ -1010,8 +1075,8 @@ function vDash(){
   if(!al) al=`<div style="background:var(--grnbg);border-radius:8px;padding:10px 14px;color:var(--grn)">✅ Tudo em ordem hoje!</div>`;
 
   // ── Troca de óleo no dashboard ────────────────────────────────────────────
-  const oleoPend=ativ.filter(m=>m.nome&&m.nome.trim()&&m.odo>0&&(m.odo-m.loilKm)>=OIL);
-  const oleoAlert=ativ.filter(m=>m.nome&&m.nome.trim()&&m.odo>0&&(m.odo-m.loilKm)>=(OIL*0.8)&&(m.odo-m.loilKm)<OIL);
+  const oleoPend=ativ.filter(m=>m.nome&&m.nome.trim()&&m.odo>0&&(m.odo-(m.loilKm||0))>=OIL);
+  const oleoAlert=ativ.filter(m=>m.nome&&m.nome.trim()&&m.odo>0&&(m.odo-(m.loilKm||0))>=(OIL*0.8)&&(m.odo-(m.loilKm||0))<OIL);
   const revPend=ativ.filter(m=>m.nome&&m.nome.trim()&&m.odo>0&&(m.odo-(m.lrevKm||0))>=REV);
   const revAlert=ativ.filter(m=>m.nome&&m.nome.trim()&&m.odo>0&&(m.odo-(m.lrevKm||0))>=(REV*0.9)&&(m.odo-(m.lrevKm||0))<REV);
   if(oleoPend.length) al+=`<div style="background:rgba(249,115,22,.1);border-radius:8px;padding:10px 14px;color:var(--acc);display:flex;gap:8px;flex-wrap:wrap;align-items:center;cursor:pointer" onclick="go('odo')">🛢️ <b>${oleoPend.length} moto(s) com troca de óleo VENCIDA</b> — <span style="font-size:11px">${oleoPend.slice(0,4).map(m=>m.placa).join(', ')}${oleoPend.length>4?' e mais...':''}</span> <button class="btn bxs" style="font-size:11px;padding:3px 8px;background:#25d366;color:#fff;border:none;margin-left:auto" onclick="event.stopPropagation();waOleoBulk()">📱 Avisar todos</button></div>`;
@@ -1042,7 +1107,54 @@ function vDash(){
   const pctMeta=metaSemAtual>0?Math.min(100,Math.round(recSemAtual/metaSemAtual*100)):0;
   const metaCor=pctMeta>=80?'var(--grn)':pctMeta>=50?'var(--yel)':'var(--acc)';
   const emServico=ativ.filter(m=>m.status==='oficina'||m.status==='acidente'||m.status==='sinistro');
-  return _btnsAcao+`<div class="g4" style="margin-bottom:12px">
+
+  // ── PAINEL HOJE ───────────────────────────────────────────────────────────
+  // Quem vence hoje, quem pagou hoje, quanto entrou hoje, quanto falta entrar hoje
+  const diaSemHoje=['DOM','SEG','TER','QUA','QUI','SEX','SAB'][new Date(hoje+'T12:00').getDay()];
+  const vencemHoje=ativPg.filter(m=>m.dia===diaSemHoje);
+  const pagosHoje=DB.pg.filter(p=>p.data===hoje);
+  const idsPagosHoje=new Set(pagosHoje.map(p=>p.mId));
+  const aindaFaltam=vencemHoje.filter(m=>!idsPagosHoje.has(m.id));
+  const recebidoHoje=pgsSem.filter(p=>p.data===hoje).reduce((a,p)=>{
+    const m2=DB.motos.find(x=>x.id===p.mId)||{val:0};
+    return a+(p.valor!=null?Number(p.valor):Number(m2.val||0));
+  },0);
+  const aReceberHoje=aindaFaltam.reduce((a,m)=>a+Number(m.val||0),0);
+  const diaNome={'SEG':'Segunda','TER':'Terça','QUA':'Quarta','QUI':'Quinta','SEX':'Sexta','SAB':'Sábado','DOM':'Domingo'}[diaSemHoje];
+
+  const painelHoje=`<div class="card" style="margin-bottom:12px;border-color:var(--blu)">
+    <div class="ch" style="margin-bottom:10px">
+      <span class="ct">📅 Hoje — ${diaNome}, ${fD(hoje)}</span>
+      ${vencemHoje.length?`<span style="font-size:11px;color:var(--sub)">${pagosHoje.length}/${vencemHoje.length} pagaram</span>`:''}
+    </div>
+    <div class="g4" style="gap:8px">
+      <div style="background:var(--blubg);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:9px;color:var(--sub);font-weight:700;text-transform:uppercase">Vencem Hoje</div>
+        <div style="font-size:22px;font-weight:800;color:var(--blu)">${vencemHoje.length}</div>
+        <div style="font-size:10px;color:var(--sub)">${fR(vencemHoje.reduce((a,m)=>a+Number(m.val||0),0))} previsto</div>
+      </div>
+      <div style="background:var(--grnbg);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:9px;color:var(--sub);font-weight:700;text-transform:uppercase">Recebido Hoje</div>
+        <div style="font-size:22px;font-weight:800;color:var(--grn)">${fR(recebidoHoje)}</div>
+        <div style="font-size:10px;color:var(--sub)">${pagosHoje.length} pagamento(s)</div>
+      </div>
+      <div style="background:${aReceberHoje>0?'var(--accbg)':'var(--grnbg)'};border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:9px;color:var(--sub);font-weight:700;text-transform:uppercase">A Receber Hoje</div>
+        <div style="font-size:22px;font-weight:800;color:${aReceberHoje>0?'var(--acc)':'var(--grn)'}">${fR(aReceberHoje)}</div>
+        <div style="font-size:10px;color:var(--sub)">${aindaFaltam.length} ainda não pagou</div>
+      </div>
+      <div style="background:var(--sur);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:9px;color:var(--sub);font-weight:700;text-transform:uppercase">Leituras Odo</div>
+        <div style="font-size:22px;font-weight:800;color:${lh.length>=ativ.length*0.5?'var(--grn)':'var(--yel)'}">${lh.length}</div>
+        <div style="font-size:10px;color:var(--sub)">de ${ativ.length} motos</div>
+      </div>
+    </div>
+    ${aindaFaltam.length?`<div style="margin-top:10px;font-size:11px;color:var(--sub);background:var(--sur);border-radius:6px;padding:8px;border-left:3px solid var(--acc)">
+      <b style="color:var(--acc)">⏰ Cobrar hoje:</b> ${aindaFaltam.slice(0,8).map(m=>`<span style="cursor:pointer;color:var(--txt)" onclick="abrirWhatsApp('${m.id}')" title="WhatsApp ${m.nome}">${m.placa}</span>`).join(' · ')}${aindaFaltam.length>8?` <span style="color:var(--sub)">+${aindaFaltam.length-8} outros</span>`:''}
+    </div>`:vencemHoje.length?'<div style="margin-top:10px;font-size:11px;color:var(--grn);text-align:center">✅ Todos pagaram hoje!</div>':''}
+  </div>`;
+
+  return _btnsAcao+painelHoje+`<div class="g4" style="margin-bottom:12px">
     ${sc('Total de Motos',ativ.length,'var(--acc)')}
     ${sc('🟢 Alugadas',alugadas.length,'var(--grn)',Math.round(alugadas.length/ativ.length*100||0)+'% da frota')}
     ${sc('🔵 Disponíveis',disponiveis.length,'var(--blu)',Math.round(disponiveis.length/ativ.length*100||0)+'% da frota')}
@@ -1133,7 +1245,7 @@ function vOdo(){
     const leit=ld.find(l=>l.mId===m.id);
     const km=oV[m.id]!==undefined?oV[m.id]:(leit?leit.km:m.odo);
     const {u}=ms(m);
-    const kmDesdeOil=m.odo>0?Math.max(0,m.odo-m.loilKm):0;
+    const kmDesdeOil=m.odo>0?Math.max(0,m.odo-(m.loilKm||0)):0;
     const pct=m.odo>0?(m.odo%OIL)/OIL*100:0;
     const oiVenc=kmDesdeOil>=OIL;
     const oiPert=kmDesdeOil>=(OIL*0.8)&&!oiVenc;
@@ -4455,8 +4567,6 @@ function copiarLote(i,btn){
 }
 
 function vInd(){
-  const MULTA_PCT=0.10; // 10% de multa após 2 dias de tolerância
-  const TOLERANCIA_DIAS=2;
   const diaOrd=['SEG','TER','QUA','QUI','SEX','SAB','DOM'];
   const diaLabel={'SEG':'Segunda-feira','TER':'Terça-feira','QUA':'Quarta-feira','QUI':'Quinta-feira','SEX':'Sexta-feira','SAB':'Sábado','DOM':'Domingo'};
   const diaJS={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
@@ -4470,46 +4580,8 @@ function vInd(){
     paidByM[p.mId].push({sem:p.sem,valor:Number(p.valor||p.val||0),data:p.data||p.sem});
   });
 
-  // Calcula semanas em atraso COM tolerância e multa
-  function calcDebt(m){
-    if(!m.dia||!diaJS.hasOwnProperty(m.dia)||!m.val)return{semanas:[],total:0,comMulta:0};
-    const plano=Number(m.val);
-    const pagamentos=paidByM[m.id]||[];
-    const jsDay=diaJS[m.dia];
-
-    // Percorre últimas 12 semanas
-    const semanas=[];
-    let ref=new Date(hoje);
-    let diff=(ref.getDay()-jsDay+7)%7;
-    ref.setDate(ref.getDate()-diff);
-
-    const _corteInd=getPgCorte();
-    for(let i=0;i<12;i++){
-      const semStr=wS(ref.toISOString().split('T')[0]);
-      // Para se chegou antes da data de corte
-      if(_corteInd && semStr < _corteInd){break;}
-      const vencDia=new Date(ref);
-      // Data de vencimento real = dia do pagamento + tolerância
-      const vencComTol=new Date(vencDia);
-      vencComTol.setDate(vencComTol.getDate()+TOLERANCIA_DIAS);
-      // Só conta como inadimplente se o prazo com tolerância já passou
-      if(hoje<=vencComTol){ref.setDate(ref.getDate()-7);break;}
-      // Verifica quanto foi pago nessa semana
-      const pgsSem=pagamentos.filter(p=>p.sem===semStr);
-      const totalPago=pgsSem.reduce((a,p)=>a+p.valor,0);
-      // Se pagou o plano completo (com margem de R$5), semana quitada
-      if(totalPago>=(plano-5)){ref.setDate(ref.getDate()-7);break;}
-      // Calcula o que falta + multa se já passou do prazo
-      const falta=plano-totalPago;
-      const diasAtraso=Math.floor((hoje-vencComTol)/86400000);
-      const multa=diasAtraso>0?falta*MULTA_PCT:0;
-      semanas.push({semStr,falta,totalPago,plano,multa,diasAtraso:Math.max(0,diasAtraso)});
-      ref.setDate(ref.getDate()-7);
-    }
-    const total=semanas.reduce((a,s)=>a+s.falta,0);
-    const comMulta=semanas.reduce((a,s)=>a+s.falta+s.multa,0);
-    return{semanas,total,comMulta};
-  }
+  // Calcula semanas em atraso usando função canônica
+  const calcDebt=(m)=>calcDebtCanonical(m, paidByM);
 
   const ativ=DB.motos.filter(m=>m.on&&m.val>0&&m.nome&&m.nome.trim());
   const devedores=ativ.map(m=>({m,debt:calcDebt(m)})).filter(x=>x.debt.semanas.length>0);
@@ -4621,6 +4693,7 @@ function vInd(){
           <button class="btn bg bxs" style="font-size:11px" onclick="sPgHoje('${m.id}')">✓ Pago</button>
           <button class="btn bxs" style="background:#25d366;color:#fff;font-size:11px;border:none" onclick="abrirWhatsApp('${m.id}')">📱</button>
           <button class="btn bxs" style="background:#0ea5e9;color:#fff;font-size:11px;border:none" onclick="gerarQRPix('${m.id}')">PIX</button>
+          <button class="btn bxs" style="background:rgba(124,58,237,.2);color:#a78bfa;font-size:11px;border:1px solid rgba(124,58,237,.3)" onclick="abrirNegociacao('${m.id}')" title="Registrar negociação / acordo">🤝${(DB.negociacoes||[]).filter(n=>n.mId===m.id&&n.status==='pendente').length?'<span style=\"font-size:9px;background:var(--yel);color:#000;border-radius:8px;padding:1px 5px;margin-left:2px\">'+(DB.negociacoes||[]).filter(n=>n.mId===m.id&&n.status==='pendente').length+'</span>':''}</button>
           <button class="btn bx bxs" style="font-size:10px" onclick="editarSaldoDevedor('${m.id}')">✏️ Saldo</button>
         </td>
       </tr>`;
@@ -4645,6 +4718,117 @@ function vInd(){
     <button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="cobrancaEmMassa()">📱 Cobrar Todos</button>
   </div>`;
   return html;
+}
+
+// ── NEGOCIAÇÕES / ACORDOS COM LOCATÁRIOS ────────────────────────────────────
+// Tipos: 'cartao' (parcelado), 'acordo' (data combinada), 'espera' (aguardando situação)
+// Status: 'pendente', 'cumprido', 'descumprido', 'cancelado'
+function abrirNegociacao(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const negs=(DB.negociacoes||[]).filter(n=>n.mId===mId)
+    .sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  const stIcon={pendente:'⏳',cumprido:'✅',descumprido:'❌',cancelado:'🚫'};
+  const stCor={pendente:'var(--yel)',cumprido:'var(--grn)',descumprido:'var(--red)',cancelado:'var(--sub)'};
+  const tipoLabel={cartao:'💳 Cartão parcelado',acordo:'🤝 Acordo de data',espera:'⏸️ Espera'};
+
+  const rows=negs.length?negs.map(n=>`<tr>
+    <td style="font-size:11px">${fD(n.data)}</td>
+    <td style="font-size:11px">${tipoLabel[n.tipo]||n.tipo}</td>
+    <td style="font-weight:700">${fR(n.valor||0)}${n.parcelas?` <span style="font-size:10px;color:var(--sub)">em ${n.parcelas}x</span>`:''}</td>
+    <td style="font-size:11px">${n.prazo?fD(n.prazo):'—'}</td>
+    <td><span style="color:${stCor[n.status]||'var(--sub)'};font-size:11px;font-weight:700">${stIcon[n.status]||''} ${n.status}</span></td>
+    <td style="font-size:10px;color:var(--sub);max-width:140px;white-space:normal">${n.obs||'—'}</td>
+    <td class="row" style="gap:3px">
+      ${n.status==='pendente'?`<button class="btn bg bxs" onclick="marcarNegoc('${n.id}','cumprido')" title="Marcar como cumprido">✓</button>
+      <button class="btn br bxs" onclick="marcarNegoc('${n.id}','descumprido')" title="Marcar como descumprido">✕</button>`:''}
+      <button class="btn bx bxs" onclick="excluirNegoc('${n.id}')" title="Excluir">🗑️</button>
+    </td>
+  </tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--sub);padding:14px">Nenhuma negociação registrada.</td></tr>';
+
+  showM(mWrap('mNeg',`<div class="modal" style="max-width:680px">
+    <div class="mh">
+      <span class="ct">🤝 Negociações — ${m.placa} · ${m.nome?m.nome.split(' ').slice(0,2).join(' '):'—'}</span>
+      <button class="btn bx" onclick="closeM('mNeg')">✕</button>
+    </div>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:12px">Registre acordos feitos com o locatário pra ter memória institucional. Hoje: ${tod()}.</p>
+
+    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:12px;margin-bottom:14px">
+      <div style="font-size:11px;color:var(--sub);font-weight:700;margin-bottom:8px">+ NOVA NEGOCIAÇÃO</div>
+      <div class="fr" style="gap:8px;margin-bottom:8px">
+        <div class="fg" style="flex:1">
+          <label>Tipo</label>
+          <select id="negTipo" class="inp">
+            <option value="cartao">💳 Cartão parcelado</option>
+            <option value="acordo">🤝 Acordo de data</option>
+            <option value="espera">⏸️ Espera (aguardando)</option>
+          </select>
+        </div>
+        <div class="fg" style="width:140px">
+          <label>Valor (R$)</label>
+          <input type="number" id="negVal" class="inp" step="0.01" placeholder="0,00">
+        </div>
+        <div class="fg" style="width:80px">
+          <label>Parcelas</label>
+          <input type="number" id="negParc" class="inp" min="1" max="24" value="1">
+        </div>
+      </div>
+      <div class="fr" style="gap:8px;margin-bottom:8px">
+        <div class="fg" style="flex:1">
+          <label>Prazo / data combinada</label>
+          <input type="date" id="negPrazo" class="inp" value="${tod()}">
+        </div>
+        <div class="fg" style="flex:2">
+          <label>Observação</label>
+          <input id="negObs" class="inp" placeholder="Ex: Pagou caução, R$ 200 toda 6ª, levou o cartão da esposa...">
+        </div>
+      </div>
+      <button class="btn ba bxs" onclick="salvarNegoc('${mId}')">💾 Registrar</button>
+    </div>
+
+    <div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Data</th><th>Tipo</th><th>Valor</th><th>Prazo</th><th>Status</th><th>Obs.</th><th>Ação</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </div>`));
+}
+
+function salvarNegoc(mId){
+  const tipo=document.getElementById('negTipo').value;
+  const valor=Number(document.getElementById('negVal').value||0);
+  const parcelas=Number(document.getElementById('negParc').value||1);
+  const prazo=document.getElementById('negPrazo').value;
+  const obs=document.getElementById('negObs').value.trim();
+  if(!valor){alert('⚠️ Informe o valor da negociação.');return;}
+  if(!DB.negociacoes)DB.negociacoes=[];
+  DB.negociacoes.push({
+    id:uid(), mId, tipo, valor, parcelas, prazo, obs,
+    data:tod(), status:'pendente'
+  });
+  sv('negoc');
+  closeM('mNeg');
+  abrirNegociacao(mId);
+}
+
+function marcarNegoc(nId, status){
+  if(!DB.negociacoes)return;
+  const n=DB.negociacoes.find(x=>x.id===nId);
+  if(!n)return;
+  n.status=status;
+  n.dataResolucao=tod();
+  sv('negoc');
+  const mId=n.mId;
+  closeM('mNeg');
+  abrirNegociacao(mId);
+}
+
+function excluirNegoc(nId){
+  if(!confirm('Remover esta negociação?'))return;
+  if(!DB.negociacoes)return;
+  const n=DB.negociacoes.find(x=>x.id===nId);
+  const mId=n?n.mId:null;
+  DB.negociacoes=DB.negociacoes.filter(x=>x.id!==nId);
+  sv('negoc');
+  if(mId){closeM('mNeg');abrirNegociacao(mId);}
 }
 
 // ── Cobranças avulsas de óleo (R$30) ─────────────────────────────────────────
@@ -4734,7 +4918,88 @@ function zerarSaldoInd(mId){
   sv('pg');closeM('mSaldoEdit');render();
 }
 
-// ── Cobranças avulsas de óleo (R$30) ─────────────────────────────────────────
+// ── Negociações de cobrança (acordos, parcelamento, espera) ──────────────────
+function abrirNegociacao(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  // Carrega negociações existentes desta moto
+  const negs=(DB.negociacoes||[]).filter(n=>n.mId===mId).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  const histHtml=negs.length?`<div style="max-height:200px;overflow-y:auto;margin-bottom:14px;border:1px solid var(--bor);border-radius:8px">
+    <table class="tbl" style="font-size:11px"><thead><tr><th>Data</th><th>Tipo</th><th>Valor</th><th>Status</th><th></th></tr></thead><tbody>
+    ${negs.map(n=>`<tr><td>${fD(n.data)}</td><td>${n.tipo}</td><td>${n.valor?fR(n.valor):'—'}</td>
+      <td><span style="color:${n.status==='cumprido'?'var(--grn)':n.status==='quebrado'?'var(--red)':'var(--yel)'}">${n.status}</span></td>
+      <td><button class="btn bxs" style="font-size:10px;padding:1px 6px" onclick="atualizarStatusNegociacao('${n.id}','cumprido')" title="Marcar cumprida">✓</button>
+      <button class="btn bxs" style="font-size:10px;padding:1px 6px;background:var(--redbg);color:var(--red)" onclick="atualizarStatusNegociacao('${n.id}','quebrado')" title="Quebrou o acordo">✗</button>
+      <button class="btn bxs" style="font-size:10px;padding:1px 6px" onclick="excluirNegociacao('${n.id}')" title="Excluir">🗑</button></td></tr>
+    `).join('')}
+    </tbody></table></div>`:'<p style="font-size:12px;color:var(--sub);margin-bottom:14px">Nenhuma negociação registrada para este locatário.</p>';
+
+  showM(mWrap('mNeg',`<div class="modal" style="max-width:520px">
+    <div class="mh"><span class="ct">🤝 Negociação — ${m.placa} · ${m.nome.split(' ').slice(0,2).join(' ')}</span><button class="btn bx" onclick="closeM('mNeg')">✕</button></div>
+    ${histHtml}
+    <div style="background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:12px">
+      <div style="font-size:12px;font-weight:700;margin-bottom:10px">➕ Registrar nova negociação</div>
+      <div class="fg"><label>Tipo</label><select id="negTipo" class="inp">
+        <option value="cartao_parcelado">💳 Cartão parcelado</option>
+        <option value="acordo_pagamento">📋 Acordo de pagamento (sem parcelamento)</option>
+        <option value="espera_prazo">⏳ Espera com novo prazo</option>
+        <option value="caucao_descontar">💰 Descontar do caução</option>
+        <option value="aviso_retomada">⚠️ Aviso de retomada</option>
+        <option value="outro">📌 Outro</option>
+      </select></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="fg"><label>Valor acordado (R$)</label><input type="number" id="negVal" class="inp" step="0.01" placeholder="0,00"></div>
+        <div class="fg"><label>Parcelas</label><input type="number" id="negParc" class="inp" value="1" min="1" max="24"></div>
+      </div>
+      <div class="fg"><label>Próxima cobrança / prazo</label><input type="date" id="negPrazo" class="inp" value="${tod()}"></div>
+      <div class="fg"><label>Observação</label><textarea id="negObs" class="inp" rows="2" placeholder="Detalhes do acordo, condições, contato..."></textarea></div>
+      <div class="mact">
+        <button class="btn bx" onclick="closeM('mNeg')">Cancelar</button>
+        <button class="btn ba" onclick="salvarNegociacao('${mId}')">Registrar</button>
+      </div>
+    </div>
+  </div>`));
+}
+
+function salvarNegociacao(mId){
+  const tipo=document.getElementById('negTipo').value;
+  const valor=parseFloat(document.getElementById('negVal').value||'0');
+  const parcelas=parseInt(document.getElementById('negParc').value||'1');
+  const prazo=document.getElementById('negPrazo').value;
+  const obs=document.getElementById('negObs').value.trim();
+  if(!DB.negociacoes)DB.negociacoes=[];
+  DB.negociacoes.push({
+    id:uid(), mId, tipo, valor, parcelas, prazo, obs,
+    data:tod(), status:'pendente', criadoEm:Date.now()
+  });
+  sv('negociacoes');
+  closeM('mNeg');
+  alert('✅ Negociação registrada!');
+  render();
+}
+
+function atualizarStatusNegociacao(id, novoStatus){
+  const n=(DB.negociacoes||[]).find(x=>x.id===id);
+  if(!n)return;
+  n.status=novoStatus;
+  n.atualizadoEm=Date.now();
+  sv('negociacoes');
+  const mId=n.mId;
+  closeM('mNeg');
+  abrirNegociacao(mId);
+}
+
+function excluirNegociacao(id){
+  if(!confirm('Excluir esta negociação? A ação não pode ser desfeita.'))return;
+  const n=(DB.negociacoes||[]).find(x=>x.id===id);
+  if(!n)return;
+  DB.negociacoes=DB.negociacoes.filter(x=>x.id!==id);
+  sv('negociacoes');
+  const mId=n.mId;
+  closeM('mNeg');
+  abrirNegociacao(mId);
+}
+
+
 function abrirCobOleo(){
   if(!DB.cobOleo)DB.cobOleo=[];
   const opts=DB.motos.filter(m=>m.on&&m.nome).map(m=>
@@ -4789,7 +5054,7 @@ function sPgHoje(mId){openPgModal(mId,wS(tod()))}
 
 function waOleo(mId){
   const m=DB.motos.find(x=>x.id===mId);if(!m)return;
-  const kmDesde=Math.max(0,m.odo-m.loilKm);
+  const kmDesde=Math.max(0,m.odo-(m.loilKm||0));
   const atrasado=kmDesde>=OIL?kmDesde-OIL:0;
   const pN=m.nome.split(' ')[0];
   let msg='🛢️ Olá, *'+pN+'*!\n\n';
@@ -4801,9 +5066,9 @@ function waOleo(mId){
   showM(mWrap('mWAO',`<div class="modal"><div class="mh"><span class="ct">🛢️ Aviso Óleo — ${pN}</span><button class="btn bx" onclick="closeM('mWAO')">✕</button></div><div style="background:var(--sur);border-radius:10px;padding:14px;font-size:13px;white-space:pre-wrap;line-height:1.6;max-height:45vh;overflow-y:auto;font-family:monospace">${msg}</div><div class="row" style="gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn bx" onclick="navigator.clipboard.writeText(\`${mEsc}\`).then(()=>alert('✅ Copiado!'))">📋 Copiar</button><button class="btn bx" onclick="closeM('mWAO')">Fechar</button><button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="window.open('https://wa.me/?text='+encodeURIComponent(\`${mEsc}\`),'_blank')">📱 WA</button></div></div>`));
 }
 function waOleoBulk(){
-  const venc=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim()&&m.odo>0&&(m.odo-m.loilKm)>=OIL);
+  const venc=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim()&&m.odo>0&&(m.odo-(m.loilKm||0))>=OIL);
   if(!venc.length){alert('Nenhuma moto com óleo vencido.');return;}
-  const lista=venc.map(m=>'• '+m.placa+' — '+m.nome.split(' ').slice(0,2).join(' ')+' ('+fN(m.odo-m.loilKm-OIL)+' km atrasada)').join('\n');
+  const lista=venc.map(m=>'• '+m.placa+' — '+m.nome.split(' ').slice(0,2).join(' ')+' ('+fN(m.odo-(m.loilKm||0)-OIL)+' km atrasada)').join('\n');
   const msg='🛢️ *AMS Motos — Trocas de Óleo Vencidas*\n\n'+lista+'\n\nPasse na AMS Motos o quanto antes!\n\n_AMS Motos 🏍️_';
   const mEsc=msg.replace(/`/g,'\\`');
   showM(mWrap('mWAOB',`<div class="modal"><div class="mh"><span class="ct">🛢️ Óleo Vencido — ${venc.length} motos</span><button class="btn bx" onclick="closeM('mWAOB')">✕</button></div><div style="background:var(--sur);border-radius:10px;padding:14px;font-size:13px;white-space:pre-wrap;line-height:1.6;max-height:45vh;overflow-y:auto;font-family:monospace">${msg}</div><div class="row" style="gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn bx" onclick="navigator.clipboard.writeText(\`${mEsc}\`).then(()=>alert('✅ Copiado!'))">📋 Copiar</button><button class="btn bx" onclick="closeM('mWAOB')">Fechar</button><button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="window.open('https://wa.me/?text='+encodeURIComponent(\`${mEsc}\`),'_blank')">📱 WA</button></div></div>`));
@@ -4827,7 +5092,7 @@ function waAlertaGeral(){
   function wL(m){ return wLateCalc(m, Object.fromEntries(Object.entries(paidByM).map(([k,v])=>[k,[...v]]))); }
   const ativ=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim());
   const inadim=ativ.filter(m=>m.val>0&&wL(m)>=1);
-  const oleovenc=ativ.filter(m=>m.odo>0&&(m.odo-m.loilKm)>=OIL);
+  const oleovenc=ativ.filter(m=>m.odo>0&&(m.odo-(m.loilKm||0))>=OIL);
   const cnhExp=ativ.filter(m=>m.cnhValidade&&diasP2(m.cnhValidade)<0);
   const cnhProb=ativ.filter(m=>m.cnhValidade&&diasP2(m.cnhValidade)>=0&&diasP2(m.cnhValidade)<=30);
   const paradas=ativ.filter(m=>{const lts=DB.leit.filter(l=>l.mId===m.id).sort((a,b)=>b.data.localeCompare(a.data));if(!lts.length)return false;return Math.ceil((hoje2-new Date(lts[0].data+'T12:00'))/86400000)>=5&&m.odo>0;});
@@ -4853,26 +5118,7 @@ function gerarQRPix(mId){
   const qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=240x240&data='+encodeURIComponent('pix:'+pix+'?amount='+valor+'&description=AMS+Motos+'+m.placa);
   showM(mWrap('mQR',`<div class="modal" style="max-width:360px;text-align:center"><div class="mh"><span class="ct">💰 PIX — ${m.nome.split(' ')[0]}</span><button class="btn bx" onclick="closeM('mQR')">✕</button></div><div style="font-size:13px;color:var(--sub);margin-bottom:12px">Valor: <b style="color:var(--red);font-size:20px">${fR(saldo)}</b></div><img src="${qrUrl}" style="width:210px;height:210px;border-radius:12px;display:block;margin:0 auto"><div style="margin-top:12px;font-size:12px;color:var(--sub)">Chave PIX: <b>${pix}</b></div><button class="btn bx" style="margin-top:8px;width:100%" onclick="navigator.clipboard.writeText('${pix}').then(()=>alert('✅ Chave copiada!'))">📋 Copiar Chave</button></div>`));
 }
-function gerarRelatorioSemanal(){
-  const hoje=new Date();hoje.setHours(12,0,0,0);
-  const domSem=new Date(hoje);domSem.setDate(domSem.getDate()-domSem.getDay());
-  const sabSem=new Date(domSem);sabSem.setDate(sabSem.getDate()+6);
-  const semStr=domSem.toLocaleDateString('pt-BR')+' a '+sabSem.toLocaleDateString('pt-BR');
-  const diaJS2={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
-  const paidByM={};DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.sem);});
-  function wL(m){ return wLateCalc(m, paidByM); }
-  const oleovenc=DB.motos.filter(m=>m.on&&m.nome&&m.odo>0&&(m.odo-m.loilKm)>=OIL);
-  const semSt=wS(domSem.toISOString().split('T')[0]);
-  const semPgs=DB.pg.filter(p=>p.sem===semSt||(p.data&&wS(p.data)===semSt));
-  const recSem=semPgs.reduce((a,p)=>{const mo2=DB.motos.find(x=>x.id===p.mId)||{val:0};return a+(p.valor!=null?Number(p.valor):Number(mo2.val||0));},0);
-  const indVal=indAll.reduce((a,x)=>a+x.w*Number(x.m.val||0),0);
-  const w2=window.open('','_blank');
-  const trsInd=indAll.length?`<table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse"><thead><tr style="background:#fee2e2"><th>Placa</th><th>Locatário</th><th>Semanas Atraso</th><th>Valor</th></tr></thead><tbody>${indAll.sort((a,b)=>b.w-a.w).map(x=>'<tr><td><b>'+x.m.placa+'</b></td><td>'+x.m.nome+'</td><td style="color:red">'+x.w+'x</td><td style="color:red">R$ '+(x.w*Number(x.m.val||0)).toFixed(2)+'</td></tr>').join('')}</tbody></table>`:'<p style="color:green">✅ Sem inadimplentes!</p>';
-  const trsOleo=oleovenc.length?`<table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse"><thead><tr style="background:#fff7ed"><th>Placa</th><th>Locatário</th><th>Km Atrasado</th></tr></thead><tbody>${oleovenc.map(m=>'<tr><td><b>'+m.placa+'</b></td><td>'+m.nome+'</td><td style="color:orange">'+fN(m.odo-m.loilKm-OIL)+' km</td></tr>').join('')}</tbody></table>`:'<p style="color:green">✅ Sem trocas vencidas!</p>';
-  const trsPg=semPgs.length?`<table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse"><thead><tr style="background:#f0fdf4"><th>Placa</th><th>Locatário</th><th>Valor</th></tr></thead><tbody>${semPgs.map(p=>{const m2=DB.motos.find(x=>x.id===p.mId);return'<tr><td><b>'+(m2?m2.placa:'?')+'</b></td><td>'+(m2?m2.nome:'?')+'</td><td style="color:green">R$ '+Number(p.valor!=null?p.valor:(m2?m2.val:0)||0).toFixed(2)+'</td></tr>';}).join('')}</tbody></table>`:'<p>Nenhum pagamento registrado.</p>';
-  w2.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Relatorio Semanal AMS</title></head><body style="font-family:Arial,sans-serif;margin:30px"><h1 style="color:#f97316">🏍️ AMS Motos — Relatório Semanal</h1><p><b>Semana:</b> '+semStr+' &nbsp;|&nbsp; <b>Gerado:</b> '+hoje.toLocaleDateString('pt-BR')+'</p><hr><table width="100%" cellpadding="10"><tr><td style="background:#f0fdf4;border-radius:8px;text-align:center"><div style="font-size:11px;color:gray">RECEITA DA SEMANA</div><div style="font-size:26px;font-weight:800;color:green">R$ '+recSem.toFixed(2)+'</div></td><td style="background:#fef2f2;border-radius:8px;text-align:center"><div style="font-size:11px;color:gray">INADIMPLÊNCIA</div><div style="font-size:26px;font-weight:800;color:red">R$ '+indVal.toFixed(2)+'</div><div style="font-size:12px;color:gray">'+indAll.length+' locatário(s)</div></td><td style="background:#fff7ed;border-radius:8px;text-align:center"><div style="font-size:11px;color:gray">ÓLEO VENCIDO</div><div style="font-size:26px;font-weight:800;color:orange">'+oleovenc.length+'</div><div style="font-size:12px;color:gray">moto(s)</div></td></tr></table><h2>📋 Inadimplentes</h2>'+trsInd+'<h2>🛢️ Troca de Óleo Vencida</h2>'+trsOleo+'<h2>💰 Pagamentos da Semana</h2>'+trsPg+'<script>window.onload=()=>window.print();<\/script></body></html>');
-  w2.document.close();
-}
+// ── gerarRelatorioSemanal: versão moderna está mais abaixo no arquivo ──────
 function vRanking(){
   const diaJS2={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
   const paidByM={};DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.sem);});
@@ -4886,7 +5132,7 @@ function vAgendaRevisoes(){
   const REV=10000;
   const ativ=DB.motos.filter(m=>m.on);
   const agd=ativ.map(m=>{
-    const kmDesdeOil=Math.max(0,m.odo-m.loilKm);
+    const kmDesdeOil=Math.max(0,m.odo-(m.loilKm||0));
     const lastRev=DB.mhist.filter(h=>h.mId===m.id&&h.tipo==='rev').sort((a,b)=>b.km-a.km)[0];
     const kmRev=lastRev?lastRev.km:m.lrevKm||0;
     const kmFaltaRev=Math.max(0,REV-(m.odo-kmRev));
@@ -5297,20 +5543,14 @@ function vFin(){
   // Caução total retido
   const caucaoTotal=DB.caucoes.filter(c=>c.status==='retido').reduce((a,c)=>a+Number(c.val||0),0);
 
-  // Inadimplência do mês
+  // Inadimplência (usa função canônica — considera tolerância e pagamentos parciais)
   const paidByM={};
-  DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.sem);});
-  const diaJS={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
-  function wL(m){
-    if(!m.dia||!diaJS[m.dia])return 0;
-    const paid=new Set(paidByM[m.id]||[]);
-    let ref=new Date();ref.setHours(12,0,0,0);
-    ref.setDate(ref.getDate()-((ref.getDay()-diaJS[m.dia]+7)%7));
-    let late=0,check=new Date(ref);
-    for(let i=0;i<12;i++){const sem=wS(check.toISOString().split('T')[0]);if(!paid.has(sem))late++;else break;check.setDate(check.getDate()-7);}
-    return late;
-  }
-  const inadVal=ativ.reduce((a,m)=>{const w=wL(m);return a+w*Number(m.val||0);},0);
+  DB.pg.forEach(p=>{
+    if(!paidByM[p.mId])paidByM[p.mId]=[];
+    paidByM[p.mId].push({sem:p.sem,valor:Number(p.valor||p.val||0),data:p.data||p.sem});
+  });
+  function wL(m){ return calcDebtCanonical(m, paidByM).qtdSemanas; }
+  const inadVal=ativ.reduce((a,m)=>{return a+calcDebtCanonical(m, paidByM).total;},0);
 
   // Gráfico barras SVG — últimos 6 meses
   const meses6=[];
@@ -6163,8 +6403,15 @@ function svM(id){
   }
   // Se locatário foi removido, limpa data de início
   if(!novoNome) m.dataInicio='';
+  // Status: respeita seleção do usuário; rastreia mudanças com timestamp
+  const statusAntigo=m.status;
   if(stSel==='inativa'){m.status='inativa';m.on=false;}
+  else if(stSel==='oficina'||stSel==='acidente'||stSel==='sinistro'){m.status=stSel;m.on=true;}
   else{m.status=novoNome?'alugada':'disponivel';m.on=true;}
+  // Registra quando entrou no status atual (pra aging de motos paradas)
+  if(statusAntigo!==m.status){
+    m.dataStatusAlt=tod();
+  }
   sv('m');sv('histloc');closeM('mEM');render();
 }
 function togM(id){
@@ -6621,9 +6868,9 @@ try{
 
 // ── Start ────────────────────────────────────────────────────────────────────
 function saveAll(){
-  ['m','l','s','mu','e','mv','os','pg','mhist'].forEach(k=>sv(k));
-  exportBackup();
-  localStorage.setItem('mg_last_backup',Date.now().toString());
+  // Salva todas as coleções no localStorage (NÃO baixa backup — use o botão 📥 Backup pra isso)
+  ['m','l','s','mu','e','mv','os','pg','mhist','ct','cau','fts','chats','solics','intv','histloc','agenda','extras'].forEach(k=>sv(k));
+  localStorage.setItem('mg_last_save',Date.now().toString());
   const btn=document.getElementById('saveBtn');
   if(btn){btn.textContent='✅ Salvo!';btn.style.background='#16a34a';
     setTimeout(()=>{btn.textContent='💾 Salvar';btn.style.background='#22c55e';},2000);}
@@ -6756,7 +7003,45 @@ function importBackup(evt){
     try{
       const data=JSON.parse(e.target.result);
       if(!data.motos){alert('❌ Arquivo inválido.');return;}
-      if(!confirm('⚠️ Isso vai substituir TODOS os dados atuais pelo backup.\n\nData: '+data.date+'\n\nContinuar?'))return;
+      // Comparação dados atuais vs backup
+      const atual={
+        motos:DB.motos.length, pagamentos:DB.pg.length, os:DB.os.length,
+        manutencoes:DB.mhist.length, multas:DB.multas.length, leituras:DB.leit.length
+      };
+      const backup={
+        motos:(data.motos||[]).length, pagamentos:(data.pg||[]).length, os:(data.os||[]).length,
+        manutencoes:(data.mhist||[]).length, multas:(data.multas||[]).length, leituras:(data.leit||[]).length
+      };
+      const dataBackup=data.date||'desconhecida';
+      // Detecta se o backup é menor (mais perigoso — pode estar substituindo dados recentes)
+      const perdas=[];
+      Object.keys(atual).forEach(k=>{
+        const diff=atual[k]-backup[k];
+        if(diff>0) perdas.push('  • '+k+': perderá '+diff+' registro(s) ('+atual[k]+' → '+backup[k]+')');
+      });
+
+      const msg=
+        '⚠️ RESTAURAR BACKUP\n\n'+
+        'Data do backup: '+dataBackup+'\n\n'+
+        '📊 COMPARAÇÃO:\n'+
+        Object.keys(atual).map(k=>'  '+k+': '+atual[k]+' → '+backup[k]+(atual[k]>backup[k]?' ⚠️':atual[k]<backup[k]?' (+'+(backup[k]-atual[k])+')':' =')).join('\n')+
+        (perdas.length?'\n\n🚨 ATENÇÃO — ESTE BACKUP TEM MENOS DADOS QUE O ATUAL:\n'+perdas.join('\n')+'\n\nVocê pode estar perdendo dados recentes.':'')+
+        '\n\nTem CERTEZA que quer prosseguir?';
+
+      if(!confirm(msg))return;
+      // Segunda confirmação se há perdas
+      if(perdas.length){
+        const conf=prompt('⚠️ Para confirmar a perda de dados, digite RESTAURAR:');
+        if(conf!=='RESTAURAR'){alert('❌ Restauração cancelada.');return;}
+      }
+
+      // Backup de segurança do estado atual antes de substituir
+      try{
+        const safetyBackup={motos:DB.motos,leit:DB.leit,seg:DB.seg,multas:DB.multas,
+          est:DB.est,mov:DB.mov,os:DB.os,pg:DB.pg,mhist:DB.mhist,date:'pre-restore-'+new Date().toISOString()};
+        localStorage.setItem('mg_safety_backup',JSON.stringify(safetyBackup));
+      }catch(e){console.warn('Backup de segurança falhou:',e);}
+
       if(data.motos){DB.motos=data.motos;sv('m');}
       if(data.leit){DB.leit=data.leit;sv('l');}
       if(data.seg){DB.seg=data.seg;sv('s');}
@@ -6766,7 +7051,7 @@ function importBackup(evt){
       if(data.os){DB.os=data.os;sv('os');}
       if(data.pg){DB.pg=data.pg;sv('pg');}
       if(data.mhist){DB.mhist=data.mhist;sv('mhist');}
-      alert('✅ Backup restaurado!\nData: '+data.date);render();
+      alert('✅ Backup restaurado!\nData: '+dataBackup+'\n\nℹ️ Um backup do estado anterior foi salvo em localStorage (mg_safety_backup) caso precise reverter.');render();
     }catch(err){alert('❌ Erro: '+err.message);}
   };
   reader.readAsText(file);evt.target.value='';
@@ -7343,7 +7628,7 @@ render();
     if(Notification.permission!=='granted'||localStorage.getItem('mg_notif')!=='1')return;
     if(typeof DB==='undefined')return;
     const ativ2=DB.motos.filter(m=>m.on&&m.nome&&m.odo>0);
-    const oleov2=ativ2.filter(m=>(m.odo-m.loilKm)>=1000).length;
+    const oleov2=ativ2.filter(m=>(m.odo-(m.loilKm||0))>=1000).length;
     const _oleoPerto=ativ2.filter(m=>{const ol=OIL-(m.odo-(m.loilKm||0));return ol>0&&ol<=200;}).length;
     if(oleov2>0)new Notification('🛢️ AMS Motos — Óleo Vencido',{body:oleov2+' moto(s) com troca vencida!'});
     else if(_oleoPerto>0)new Notification('⚠️ AMS Motos — Óleo Próximo',{body:_oleoPerto+' moto(s) com óleo vencendo em breve!'});
