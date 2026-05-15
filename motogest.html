@@ -85,6 +85,7 @@ label{display:block;font-size:11px;color:var(--sub);margin-bottom:3px;font-weigh
   <button id="fbSyncIndicator" onclick="syncFromFirebase(false)" title="GPS sincronizado automaticamente via Cloudflare Worker — clique para forçar sync agora" style="display:flex;align-items:center;gap:4px;background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-right:4px">🛰️ GPS</button>
   <button id="saveBtn" onclick="saveAll()" style="display:flex;align-items:center;gap:6px;background:#22c55e;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-left:auto;margin-right:8px">💾 Salvar</button>
   <button onclick="exportBackup()" title="Exportar backup" style="display:flex;align-items:center;gap:5px;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">📥 Backup</button>
+  <button onclick="verAutoBackups()" title="Restaurar de um backup automático recente (5 últimos salvamentos)" style="display:flex;align-items:center;gap:5px;background:#0891b2;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">🕒 Auto</button>
   <button onclick="gerarRelatorioSemanal()" title="Gerar relatório semanal em PDF" style="display:flex;align-items:center;gap:5px;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">📊 Relatório</button>
   <label title="Importar backup" style="display:flex;align-items:center;gap:5px;background:#7c3aed;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:8px">📤 Restaurar<input type="file" accept=".json" onchange="importBackup(event)" style="display:none"></label>
   <div id="tabs"><button class="tab active" onclick="go(&#39;dash&#39;)">📊 Dashboard</button><button class="tab" onclick="go(&#39;odo&#39;)">📏 Odômetro</button><button class="tab" onclick="go(&#39;mnt&#39;)">🔧 Manutenção</button><button class="tab" onclick="go(&#39;seg&#39;)">🛡️ Seguros</button><button class="tab" onclick="go(&#39;mul&#39;)">🚨 Multas</button><button class="tab" onclick="go(&#39;est&#39;)">📦 Estoque</button><button class="tab" onclick="go(&#39;os&#39;)">🔩 OS</button><button class="tab" onclick="go(&#39;pag&#39;)">💰 Pagamentos</button><button class="tab" onclick="go(&#39;rel&#39;)">📈 Relatórios</button><button class="tab" onclick="go(&#39;mts&#39;)">🏍️ Motos</button><button class="tab" onclick="go(&#39;ind&#39;)">⚠️ Inadimplência</button></div>
@@ -1204,7 +1205,7 @@ function vDash(){
     <button class="btn bxs" style="font-size:12px" onclick="vCustoReceita()">📊 Custo vs Receita</button>
     <button class="btn bxs" style="font-size:12px" onclick="gerarRelatorioSemanal()">📄 Rel. Semanal PDF</button>
     <button class="btn bxs" style="font-size:12px" onclick="gerarWALote()">📱 WA em Lote</button>
-    <button class="btn bxs" style="font-size:12px;background:var(--blu);color:var(--fg)" onclick="openImport()">📥 Importar Extrato</button>
+    <button class="btn bxs" style="font-size:12px;background:var(--blu);color:var(--txt)" onclick="openImport()">📥 Importar Extrato</button>
     <button class="btn bxs" style="font-size:12px" onclick="openGpsSettings()">📡 Config GPS</button>
   </div>`;
   if(!al) al=`<div style="background:var(--grnbg);border-radius:8px;padding:10px 14px;color:var(--grn)">✅ Tudo em ordem hoje!</div>`;
@@ -1280,8 +1281,8 @@ function vDash(){
       </div>
       <div style="background:var(--sur);border-radius:8px;padding:10px;text-align:center">
         <div style="font-size:9px;color:var(--sub);font-weight:700;text-transform:uppercase">Leituras Odo</div>
-        <div style="font-size:22px;font-weight:800;color:${lh.length>=ativ.length*0.5?'var(--grn)':'var(--yel)'}">${lh.length}</div>
-        <div style="font-size:10px;color:var(--sub)">de ${ativ.length} motos</div>
+        <div style="font-size:22px;font-weight:800;color:${lh.length>=alugadas.length*0.5?'var(--grn)':'var(--yel)'}">${lh.length}</div>
+        <div style="font-size:10px;color:var(--sub)">de ${alugadas.length} alugadas</div>
       </div>
     </div>
     ${aindaFaltam.length?`<div style="margin-top:10px;font-size:11px;color:var(--sub);background:var(--sur);border-radius:6px;padding:8px;border-left:3px solid var(--acc)">
@@ -1313,7 +1314,7 @@ function vDash(){
     ${metaSemAtual-recSemAtual>0?`<div style="font-size:11px;color:var(--sub);margin-top:6px">Faltam <b style="color:${metaCor}">${fR(metaSemAtual-recSemAtual)}</b> para atingir a meta</div>`:'<div style="font-size:11px;color:var(--grn);margin-top:6px">✅ Meta atingida!</div>'}
   </div>
   <div class="g4" style="margin-bottom:12px">
-    ${sc('Leituras Hoje',lh.length+' / '+ativ.length,'var(--grn)')}
+    ${sc('Leituras Hoje',lh.length+' / '+alugadas.length,'var(--grn)')}
     ${sc('Multas Pendentes',mp.length,mp.length?'var(--red)':'var(--grn)',mp.length?fR(mp.reduce((a,m)=>a+Number(m.val||0),0)):'')}
     ${sc('Seguros Vencendo',sa.length,sa.length?'var(--yel)':'var(--grn)',sa.length?'próx. 10 dias':'')}
     ${sc('Estoque Baixo',eb.length,eb.length?'var(--yel)':'var(--grn)')}
@@ -3550,6 +3551,8 @@ function publicarMotosFirebase(){
 
 // ── Pagamentos ───────────────────────────────────────────────────────────────
 let pSem=tod();
+let pagFiltro=localStorage.getItem('mg_pag_filtro')||'todos'; // todos | pagos | pendentes | disponiveis
+function setPagFiltro(v){pagFiltro=v;try{localStorage.setItem('mg_pag_filtro',v);}catch(e){}render();}
 function wS(d){const dt=new Date(d+'T12:00');const day=dt.getDay();dt.setDate(dt.getDate()-day);return dt.toISOString().split('T')[0]}
 function wE(d){const dt=new Date(d+'T12:00');const day=dt.getDay();dt.setDate(dt.getDate()+(6-day));return dt.toISOString().split('T')[0]}
 function shW(d,n){const dt=new Date(d+'T12:00');dt.setDate(dt.getDate()+(n*7));return dt.toISOString().split('T')[0]}
@@ -3557,7 +3560,7 @@ function shW(d,n){const dt=new Date(d+'T12:00');dt.setDate(dt.getDate()+(n*7));r
 // ── Exportar Semana CSV ───────────────────────────────────────────────────────
 function exportSemanaCSV(ws,we,lbl){
   const ps=DB.pg.filter(p=>p.sem===ws);
-  const ativ=DB.motos.filter(m=>m.on&&m.val>0);
+  const ativ=DB.motos.filter(m=>m.on&&m.val>0&&m.nome&&m.nome.trim());
   const DIAS=['DOM','SEG','TER','QUA','QUI','SEX','SAB'];
   const DIAS_LABEL={DOM:'Domingo',SEG:'Segunda-feira',TER:'Terça-feira',QUA:'Quarta-feira',QUI:'Quinta-feira',SEX:'Sexta-feira',SAB:'Sábado'};
 
@@ -3600,7 +3603,7 @@ function exportSemanaCSV(ws,we,lbl){
 // ── Exportar Semana PDF ───────────────────────────────────────────────────────
 function exportSemanaPDF(ws,we,lbl){
   const ps=DB.pg.filter(p=>p.sem===ws);
-  const ativ=DB.motos.filter(m=>m.on&&m.val>0);
+  const ativ=DB.motos.filter(m=>m.on&&m.val>0&&m.nome&&m.nome.trim());
   const DIAS=['DOM','SEG','TER','QUA','QUI','SEX','SAB'];
   const DIAS_LABEL={DOM:'Domingo',SEG:'Segunda-feira',TER:'Terça-feira',QUA:'Quarta-feira',QUI:'Quinta-feira',SEX:'Sexta-feira',SAB:'Sábado'};
   const tot=ativ.reduce((a,m)=>a+Number(m.val||0),0);
@@ -3760,14 +3763,37 @@ function vPag(){
   const ws=wS(pSem),we=wE(pSem);
   const lbl=`${fD(ws)} (Dom) – ${fD(we)} (Sáb)`;
   const ps=DB.pg.filter(p=>p.sem===ws);
-  const ativ=DB.motos.filter(m=>m.on&&m.val>0);
-  const tot=ativ.reduce((a,m)=>a+Number(m.val||0),0);
-  const receb=ps.reduce((a,p)=>a+(p.valor!=null?Number(p.valor):(DB.motos.find(m=>m.id===p.mId)||{val:0}).val||0),0);
+  // Motos do sistema (ativas com plano definido) — separadas em locadas vs disponíveis
+  const todasAtivas=DB.motos.filter(m=>m.on&&m.val>0);
+  const comLocatario=todasAtivas.filter(m=>m.nome&&m.nome.trim());
+  const disponiveis=todasAtivas.filter(m=>!m.nome||!m.nome.trim());
+  // Contadores consideram APENAS motos com locatário ativo
+  const tot=comLocatario.reduce((a,m)=>a+Number(m.val||0),0);
+  const receb=ps.filter(p=>{const m=DB.motos.find(x=>x.id===p.mId);return m&&m.nome&&m.nome.trim();})
+    .reduce((a,p)=>a+(p.valor!=null?Number(p.valor):(DB.motos.find(m=>m.id===p.mId)||{val:0}).val||0),0);
+  const qtdPagos=comLocatario.filter(m=>ps.find(p=>p.mId===m.id)).length;
+  const qtdPendentes=comLocatario.length-qtdPagos;
   const DIAS=['DOM','SEG','TER','QUA','QUI','SEX','SAB'];
   const DIAS_LABEL={'DOM':'Domingo','SEG':'Segunda-feira','TER':'Terça-feira','QUA':'Quarta-feira','QUI':'Quinta-feira','SEX':'Sexta-feira','SAB':'Sábado'};
-  const semDia=ativ.filter(m=>!m.dia||!DIAS.includes(m.dia));
+  const semDia=comLocatario.filter(m=>!m.dia||!DIAS.includes(m.dia));
+  // Aplica filtro de visualização sobre o conjunto de motos com locatário
+  function passaFiltro(m){
+    if(pagFiltro==='todos') return true;
+    const pago=!!ps.find(p=>p.mId===m.id);
+    if(pagFiltro==='pagos') return pago;
+    if(pagFiltro==='pendentes') return !pago;
+    return true; // disponiveis trata separado
+  }
   function mkRows(motos){
     const paidByMLocal={};DB.pg.forEach(p=>{if(!paidByMLocal[p.mId])paidByMLocal[p.mId]=[];paidByMLocal[p.mId].push(p.sem);});
+    // Cache de último pagamento por moto (mais recente por data ou semana)
+    const ultPagPorM={};
+    DB.pg.forEach(p=>{
+      const ref=p.data||p.sem||'';
+      if(!ultPagPorM[p.mId]||ref>ultPagPorM[p.mId].ref){
+        ultPagPorM[p.mId]={ref,valor:Number(p.valor||0)};
+      }
+    });
     return motos.map(m=>{
       const p=ps.find(x=>x.mId===m.id);
       const valPago=p?(p.valor!=null?p.valor:m.val):0;
@@ -3775,6 +3801,19 @@ function vPag(){
       const diff=p?(valPago-m.val):0;
       const diffStr=diff>0?`<span style="color:var(--grn);font-size:10px"> +${fR(diff)}</span>`:diff<0?`<span style="color:var(--acc);font-size:10px"> ${fR(diff)}</span>`:'';
       const pagoPor=p&&p.pagoPor?`<div style="font-size:10px;color:var(--acc);margin-top:2px">↳ pago por: ${p.pagoPor}</div>`:'';
+      // Último pagamento (mostrar apenas se ainda não pagou esta semana)
+      let ultPagInfo='';
+      if(!p&&ultPagPorM[m.id]&&ultPagPorM[m.id].ref){
+        const ref=ultPagPorM[m.id].ref;
+        // Aceita formatos YYYY-MM-DD (data) ou YYYY-MM-DD (semana wS)
+        const ts=new Date(ref+'T12:00');
+        if(!isNaN(ts)){
+          const diasAtras=Math.floor((new Date(tod()+'T12:00')-ts)/86400000);
+          if(diasAtras>=0){
+            ultPagInfo=`<div style="font-size:10px;color:var(--mut);margin-top:2px">último pagto: ${fD(ref)}${diasAtras>0?` <span style="opacity:.7">(${diasAtras===1?'1 dia':diasAtras+' dias'})</span>`:''}</div>`;
+          }
+        }
+      }
       // Semáforo de inadimplência
       const semAtrasadas=wLateCalc(m,paidByMLocal);
       const semCor=p?'var(--grn)':semAtrasadas>=3?'var(--red)':semAtrasadas>=2?'var(--acc)':semAtrasadas>=1?'var(--yel)':'var(--sub)';
@@ -3783,7 +3822,7 @@ function vPag(){
       const rowBg=!p&&semAtrasadas>=3?'background:rgba(239,68,68,.05)':!p&&semAtrasadas>=2?'background:rgba(249,115,22,.05)':'';
       return`<tr style="${rowBg}">
         <td style="font-weight:700;font-size:12px;letter-spacing:.5px">${m.placa}</td>
-        <td style="font-size:12px"><div>${m.nome||'—'}</div>${pagoPor}</td>
+        <td style="font-size:12px"><div>${m.nome||'—'}</div>${pagoPor}${ultPagInfo}</td>
         <td style="font-size:12px">${fR(m.val)}</td>
         <td style="font-size:12px">${p?`${fR(valPago)}${diffStr}`:'—'}</td>
         <td style="font-size:12px">${(()=>{const ext=(DB.extras||[]).filter(e=>e.mId===m.id&&!e.pago);return saldo>0||ext.length?`<span style="color:var(--red);font-weight:700">${fR(saldo)}</span>${ext.length?`<span style="font-size:9px;color:var(--acc);margin-left:3px">+${ext.length}extra</span>`:''}${saldo>0?`<button class="btn br bxs" style="font-size:9px;padding:1px 5px;margin-left:4px" onclick="ajustarSaldo('${m.id}')">✏️</button>`:''}${ext.length?`<button class="btn bx bxs" style="font-size:9px;padding:1px 5px;margin-left:2px" onclick="verExtras('${m.id}')">📋</button>`:''}` :'<span style="color:var(--grn)">—</span>';})()}</td>
@@ -3796,43 +3835,122 @@ function vPag(){
     }).join('');
   }
   function mkBlock(dia){
-    const motos=ativ.filter(m=>m.dia===dia);
-    if(!motos.length)return'';
-    const pgos=motos.filter(m=>ps.find(p=>p.mId===m.id)).length;
-    const total=motos.length;
+    const motosDia=comLocatario.filter(m=>m.dia===dia);
+    if(!motosDia.length)return'';
+    // Contadores do bloco usam o total real do dia (antes do filtro)
+    const pgos=motosDia.filter(m=>ps.find(p=>p.mId===m.id)).length;
+    const total=motosDia.length;
     const allPaid=pgos===total;
     const pct=Math.round(pgos/total*100);
     const cor=allPaid?'var(--grn)':pgos===0?'var(--red)':'var(--acc)';
-    const recebDia=motos.filter(m=>ps.find(p=>p.mId===m.id)).reduce((a,m)=>{const p=ps.find(x=>x.mId===m.id);return a+(p.valor!=null?Number(p.valor):Number(m.val));},0);
+    const recebDia=motosDia.filter(m=>ps.find(p=>p.mId===m.id)).reduce((a,m)=>{const p=ps.find(x=>x.mId===m.id);return a+(p.valor!=null?Number(p.valor):Number(m.val));},0);
+    // Aplica filtro só na exibição das linhas
+    const motosVisiveis=motosDia.filter(passaFiltro);
+    if(!motosVisiveis.length)return'';
     return`<div class="card" style="margin-bottom:12px">
-      <div class="ch" style="padding-bottom:10px;border-bottom:1px solid var(--brd);margin-bottom:10px">
+      <div class="ch" style="padding-bottom:10px;border-bottom:1px solid var(--bor);margin-bottom:10px">
         <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
-          <span style="font-size:14px;font-weight:700;color:var(--fg)">${DIAS_LABEL[dia]}</span>
+          <span style="font-size:14px;font-weight:700;color:var(--txt)">${DIAS_LABEL[dia]}</span>
           <span style="font-size:11px;padding:2px 8px;border-radius:20px;background:${allPaid?'var(--grnbg)':pgos===0?'var(--redbg)':'rgba(255,165,0,.15)'};color:${cor};font-weight:600">${pgos}/${total} pagos</span>
           <div style="flex:1;height:4px;background:var(--sur);border-radius:2px;max-width:120px">
             <div style="width:${pct}%;height:100%;background:${cor};border-radius:2px;transition:width .3s"></div>
           </div>
-          <span style="font-size:12px;color:var(--grn);font-weight:600;margin-left:auto">${fR(recebDia)}</span>
+          <span style="font-size:12px;color:var(--grn);font-weight:600">${fR(recebDia)}</span>
+          ${!allPaid?`<button class="btn bg bxs" style="font-size:11px;margin-left:auto" title="Marcar todos pendentes deste dia como pagos" onclick="pagarDiaTodo('${dia}','${ws}')">✓ Pagar todos (${total-pgos})</button>`:'<span style="margin-left:auto;font-size:11px;color:var(--grn)">✅ tudo pago</span>'}
         </div>
       </div>
       <div style="overflow-x:auto"><table class="tbl" style="font-size:12px">
         <thead><tr><th>Placa</th><th>Locatário / Pago por</th><th>Plano</th><th>Pago</th><th>Saldo Dev.</th><th>Status</th><th>Ação</th></tr></thead>
-        <tbody>${mkRows(motos)}</tbody>
+        <tbody>${mkRows(motosVisiveis)}</tbody>
       </table></div>
     </div>`;
   }
-  const blocos=DIAS.map(mkBlock).join('');
-  const blocoSemDia=semDia.length?`<div class="card" style="margin-bottom:12px">
-    <div class="ch" style="padding-bottom:10px;border-bottom:1px solid var(--brd);margin-bottom:10px">
-      <span style="font-size:14px;font-weight:700;color:var(--sub)">Sem dia definido</span>
-    </div>
-    <div style="overflow-x:auto"><table class="tbl" style="font-size:12px">
-      <thead><tr><th>Placa</th><th>Locatário</th><th>Plano</th><th>Pago</th><th>Saldo Dev.</th><th>Status</th><th>Ação</th></tr></thead>
-      <tbody>${mkRows(semDia)}</tbody>
-    </table></div>
-  </div>`:'';
+  // Bloco "Motos disponíveis" (sem locatário) — visual neutro, sem status de débito
+  function mkBlockDisponiveis(){
+    if(!disponiveis.length)return'';
+    // Calcula há quantos dias cada moto está disponível, com base no histórico de saídas
+    const diasDisp=(m)=>{
+      const saidas=(DB.histLoc||[])
+        .filter(h=>h.placa===m.placa&&h.motivo==='Saída')
+        .sort((a,b)=>(b.ts||0)-(a.ts||0));
+      if(!saidas.length||!saidas[0].data)return null;
+      const dias=Math.floor((new Date(tod()+'T12:00')-new Date(saidas[0].data+'T12:00'))/86400000);
+      return dias>=0?dias:null;
+    };
+    const linhas=disponiveis
+      .slice()
+      .sort((a,b)=>{
+        const da=diasDisp(a),db=diasDisp(b);
+        // Mais antigos primeiro (mais dias parados no topo)
+        if(da==null&&db==null)return(a.placa||'').localeCompare(b.placa||'');
+        if(da==null)return 1;
+        if(db==null)return -1;
+        return db-da;
+      })
+      .map(m=>{
+        const planoTxt=m.val?fR(m.val):'—';
+        const diaTxt=m.dia&&DIAS.includes(m.dia)?DIAS_LABEL[m.dia]:'—';
+        const dias=diasDisp(m);
+        let badgeTempo='';
+        if(dias!=null){
+          const cor=dias>=14?'var(--red)':dias>=7?'var(--acc)':'var(--sub)';
+          const ico=dias>=14?'⚠️ ':dias>=7?'⏱ ':'';
+          badgeTempo=`<span style="font-size:10px;color:${cor};margin-left:6px">${ico}${dias===0?'hoje':dias===1?'1 dia':dias+' dias'}</span>`;
+        }
+        return`<tr style="opacity:.85">
+          <td style="font-weight:700;font-size:12px;letter-spacing:.5px;color:var(--sub)">${m.placa}${badgeTempo}</td>
+          <td style="font-size:11px;color:var(--mut)">${diaTxt}</td>
+          <td style="font-size:11px;color:var(--mut)">${planoTxt}</td>
+          <td><span style="font-size:10px;padding:2px 8px;border-radius:20px;background:var(--sur);color:var(--sub);font-weight:600;border:1px solid var(--bor)">DISPONÍVEL</span></td>
+          <td><button class="btn bx bxs" title="Cadastrar locatário desta moto" onclick="editM('${m.id}')">👤 Locar</button></td>
+        </tr>`;
+      }).join('');
+    return`<div class="card" style="margin-bottom:12px;border:1px dashed var(--bor);background:rgba(255,255,255,.01)">
+      <div class="ch" style="padding-bottom:10px;border-bottom:1px solid var(--bor);margin-bottom:10px">
+        <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:14px;font-weight:700;color:var(--sub)">🏍️ Motos disponíveis</span>
+          <span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--sur);color:var(--sub);font-weight:600;border:1px solid var(--bor)">${disponiveis.length} ${disponiveis.length===1?'moto':'motos'} sem locatário</span>
+          <span style="font-size:11px;color:var(--mut);margin-left:auto">não contam no total da semana</span>
+        </div>
+      </div>
+      <div style="overflow-x:auto"><table class="tbl" style="font-size:12px">
+        <thead><tr><th>Placa</th><th>Dia previsto</th><th>Plano previsto</th><th>Status</th><th>Ação</th></tr></thead>
+        <tbody>${linhas}</tbody>
+      </table></div>
+    </div>`;
+  }
+  // Monta blocos conforme o filtro
+  let conteudoBlocos='';
+  if(pagFiltro==='disponiveis'){
+    conteudoBlocos=mkBlockDisponiveis()||`<div class="card" style="text-align:center;padding:30px;color:var(--sub)">Nenhuma moto disponível no momento — todas estão locadas. 🎉</div>`;
+  }else{
+    const blocos=DIAS.map(mkBlock).join('');
+    const semDiaVis=semDia.filter(passaFiltro);
+    const blocoSemDia=semDiaVis.length?`<div class="card" style="margin-bottom:12px">
+      <div class="ch" style="padding-bottom:10px;border-bottom:1px solid var(--bor);margin-bottom:10px">
+        <span style="font-size:14px;font-weight:700;color:var(--sub)">Sem dia definido</span>
+      </div>
+      <div style="overflow-x:auto"><table class="tbl" style="font-size:12px">
+        <thead><tr><th>Placa</th><th>Locatário</th><th>Plano</th><th>Pago</th><th>Saldo Dev.</th><th>Status</th><th>Ação</th></tr></thead>
+        <tbody>${mkRows(semDiaVis)}</tbody>
+      </table></div>
+    </div>`:'';
+    // Quando filtro é "todos", mostra disponíveis no topo. Senão, esconde.
+    const blocoDisp=pagFiltro==='todos'?mkBlockDisponiveis():'';
+    conteudoBlocos=blocoDisp+blocos+blocoSemDia;
+    if(!blocos&&!blocoSemDia&&!blocoDisp){
+      conteudoBlocos=`<div class="card" style="text-align:center;padding:30px;color:var(--sub)">Nenhum resultado para o filtro selecionado.</div>`;
+    }
+  }
   const isCurrentWeek=wS(tod())===ws;
   const _corteAtivoPag=getPgCorte();
+  // Botões de filtro rápido
+  const btnFiltro=(id,lblTxt,qtd,corAtiva)=>{
+    const ativo=pagFiltro===id;
+    const bgAtivo=corAtiva==='grn'?'var(--grnbg)':corAtiva==='red'?'var(--redbg)':corAtiva==='sub'?'var(--sur)':'var(--accbg)';
+    const txtAtivo=corAtiva==='grn'?'var(--grn)':corAtiva==='red'?'var(--red)':corAtiva==='sub'?'var(--sub)':'var(--acc)';
+    return`<button class="btn ${ativo?'':'bx'} bs" style="${ativo?`background:${bgAtivo};color:${txtAtivo};border:1px solid ${txtAtivo}`:''}" onclick="setPagFiltro('${id}')">${lblTxt}${qtd!=null?` <span style="opacity:.7;font-weight:400">(${qtd})</span>`:''}</button>`;
+  };
   return`<div class="card" style="margin-bottom:12px"><div class="ch">
     <span class="ct">💰 Pagamentos${!isCurrentWeek?` <span style="font-size:11px;color:var(--acc);font-weight:400">(semana anterior)</span>`:''}</span>
     <div class="row" style="gap:6px;flex-wrap:wrap">
@@ -3846,10 +3964,17 @@ function vPag(){
       <button class="btn bx bs" onclick="pSem=shW(pSem,1);render()">Próxima ▶</button>
       ${!isCurrentWeek?`<button class="btn bg bs" onclick="pSem=tod();render()">↩ Atual</button>`:''}
     </div></div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-      <div style="background:var(--sur);border-radius:8px;padding:12px"><div style="font-size:10px;color:var(--sub);margin-bottom:4px">TOTAL SEMANA</div><div class="num" style="color:var(--acc)">${fR(tot)}</div></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">
+      <div style="background:var(--sur);border-radius:8px;padding:12px"><div style="font-size:10px;color:var(--sub);margin-bottom:4px">TOTAL SEMANA <span style="font-size:9px;opacity:.7">(${comLocatario.length} ativos)</span></div><div class="num" style="color:var(--acc)">${fR(tot)}</div></div>
       <div style="background:var(--sur);border-radius:8px;padding:12px"><div style="font-size:10px;color:var(--sub);margin-bottom:4px">RECEBIDO</div><div class="num" style="color:var(--grn)">${fR(receb)}</div></div>
       <div style="background:var(--sur);border-radius:8px;padding:12px"><div style="font-size:10px;color:var(--sub);margin-bottom:4px">PENDENTE</div><div class="num" style="color:var(--red)">${fR(tot-receb)}</div></div>
+    </div>
+    <div class="row" style="gap:6px;flex-wrap:wrap;padding-top:8px;border-top:1px solid var(--bor)">
+      <span style="font-size:11px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.3px;align-self:center;margin-right:4px">Filtrar:</span>
+      ${btnFiltro('todos','Todos',comLocatario.length+disponiveis.length,'acc')}
+      ${btnFiltro('pagos','✓ Pagos',qtdPagos,'grn')}
+      ${btnFiltro('pendentes','⏳ Pendentes',qtdPendentes,'red')}
+      ${btnFiltro('disponiveis','🏍️ Disponíveis',disponiveis.length,'sub')}
     </div>
   </div>
   ${_corteAtivoPag?`<div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:8px 16px;margin-bottom:12px;font-size:12px;color:var(--sub);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
@@ -3859,10 +3984,28 @@ function vPag(){
       <button class="btn br bxs" onclick="if(confirm('Remover o corte? Todas as semanas desde o início de cada locatário voltarão a ser contadas.')){localStorage.removeItem('mg_pg_corte');render();toast('Corte removido','acc');}" style="font-size:11px">✕ Remover</button>
     </div>
   </div>`:''}
-  ${blocos}${blocoSemDia}`;
+  ${conteudoBlocos}`;
 }
 function sPg(mId,sem){openPgModal(mId,sem)}
 function uPg(mId,sem){DB.pg=DB.pg.filter(p=>!(p.mId===mId&&p.sem===sem));sv('pg');render()}
+
+// ── Pagar todos do dia ────────────────────────────────────────────────────────
+function pagarDiaTodo(dia,ws){
+  const ativ=DB.motos.filter(m=>m.on&&m.val>0&&m.nome&&m.nome.trim()&&m.dia===dia);
+  const ps=DB.pg.filter(p=>p.sem===ws);
+  const pendentes=ativ.filter(m=>!ps.find(p=>p.mId===m.id));
+  if(!pendentes.length){toast('Nenhum pendente neste dia','acc');return;}
+  const totalPlano=pendentes.reduce((a,m)=>a+Number(m.val||0),0);
+  const lista=pendentes.map(m=>`• ${m.placa} — ${m.nome.split(' ').slice(0,2).join(' ')} — ${fR(m.val)}`).join('\n');
+  const msg=`Marcar como PAGO ${pendentes.length} locatário(s) deste dia?\n\nValor total: ${fR(totalPlano)}\n\n${lista}\n\nCada um receberá o valor do plano como pagamento, com data de hoje. Use "Desfazer" individual se errar.`;
+  if(!confirm(msg))return;
+  const hoje=tod();
+  pendentes.forEach(m=>{
+    DB.pg.push({id:uid(),mId:m.id,sem:ws,data:hoje,valor:Number(m.val)});
+  });
+  sv('pg');render();
+  toast(`✅ ${pendentes.length} pagamento(s) registrado(s) — ${fR(totalPlano)}`,'grn');
+}
 
 // ── Modal: Alterar Pagador ────────────────────────────────────────────────────
 function openPagadorModal(mId,sem){
@@ -4068,7 +4211,7 @@ function openImport(){
     <div class="mh"><span class="ct">📥 Importar Extrato Bancário</span><button class="btn bx" onclick="closeM('mImpM')">✕</button></div>
     ${tplInfo}
     <p style="font-size:12px;color:var(--sub);margin-bottom:12px">Selecione o extrato (PDF, XLSX ou CSV). Os pagamentos são cruzados automaticamente com os locatários. <b>O formato é salvo automaticamente</b> — só configura uma vez.</p>
-    <div style="border:2px dashed var(--brd);border-radius:10px;padding:24px;text-align:center;margin-bottom:16px;cursor:pointer" onclick="document.getElementById('impFile').click()">
+    <div style="border:2px dashed var(--bor);border-radius:10px;padding:24px;text-align:center;margin-bottom:16px;cursor:pointer" onclick="document.getElementById('impFile').click()">
       <div style="font-size:28px;margin-bottom:8px">📄</div>
       <div style="font-size:13px;font-weight:600">Clique para selecionar arquivo</div>
       <div style="font-size:11px;color:var(--sub);margin-top:4px">PDF, XLSX, XLS ou CSV — Sicoob e outros bancos</div>
@@ -4516,7 +4659,7 @@ function showImportResults(credits){
       <td style="font-size:11px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.nome}">${c.nome}</td>
       <td><b>${fR(c.val)}</b>${valDiffStr}</td>
       <td style="white-space:nowrap">
-        <input type="date" id="imp_d_${i}" value="${semCalc}" style="font-size:10px;padding:2px 4px;width:125px;background:var(--sur);border:1px solid ${diff?'var(--acc)':'var(--brd)'};color:${diff?'var(--acc)':'var(--fg)'};border-radius:4px" onchange="upSemLabel(${i})">
+        <input type="date" id="imp_d_${i}" value="${semCalc}" style="font-size:10px;padding:2px 4px;width:125px;background:var(--sur);border:1px solid ${diff?'var(--acc)':'var(--bor)'};color:${diff?'var(--acc)':'var(--txt)'};border-radius:4px" onchange="upSemLabel(${i})">
         <div id="imp_sl_${i}" style="font-size:10px;color:${diff?'var(--acc)':'var(--sub)'};margin-top:1px">→ ${fD(semCalc)}</div>
       </td>
       <td><select class="inp" id="imp_m_${i}" style="font-size:11px;padding:3px 5px;min-width:170px;border-color:${conf?'var(--grn)':'var(--red)'}" onchange="learnImpName(${i},'${c.nome.replace(/'/g,"\'")}')">
@@ -4583,8 +4726,8 @@ function upSemLabel(i){
   const diff=sem!==wS(tod());
   el.textContent='→ Sem. '+fD(sem);
   el.style.color=diff?'var(--acc)':'var(--sub)';
-  document.getElementById('imp_d_'+i).style.borderColor=diff?'var(--acc)':'var(--brd)';
-  document.getElementById('imp_d_'+i).style.color=diff?'var(--acc)':'var(--fg)';
+  document.getElementById('imp_d_'+i).style.borderColor=diff?'var(--acc)':'var(--bor)';
+  document.getElementById('imp_d_'+i).style.color=diff?'var(--acc)':'var(--txt)';
 }
 function confirmImport(){
   let count=0,dupl=0;
@@ -6247,7 +6390,7 @@ function novoContrato(mId){
       <textarea id="ctObs" class="inp" rows="4" placeholder="Ex: locatário responsável por multas, combustível por conta própria...">${ct?ct.obs||'':''}</textarea>
     </div>
     <div style="margin-bottom:10px"><label style="font-size:11px;color:var(--sub)">ANEXAR CONTRATO ASSINADO (PDF/imagem)</label>
-      <div style="border:2px dashed var(--brd);border-radius:8px;padding:16px;text-align:center;cursor:pointer" onclick="document.getElementById('ctFile').click()">
+      <div style="border:2px dashed var(--bor);border-radius:8px;padding:16px;text-align:center;cursor:pointer" onclick="document.getElementById('ctFile').click()">
         <div style="font-size:20px;margin-bottom:4px">📎</div>
         <div style="font-size:12px" id="ctFileName">Clique para anexar</div>
       </div>
@@ -6431,7 +6574,7 @@ function addFoto(mId){
       </select></div>
     <div><label style="font-size:11px;color:var(--sub)">OBSERVAÇÃO</label>
       <input type="text" id="fotoObs" class="inp" placeholder="Ex: amassado no para-lama direito" style="margin:4px 0 10px"></div>
-    <div style="border:2px dashed var(--brd);border-radius:8px;padding:20px;text-align:center;cursor:pointer;margin-bottom:10px" onclick="document.getElementById('fotoFile').click()">
+    <div style="border:2px dashed var(--bor);border-radius:8px;padding:20px;text-align:center;cursor:pointer;margin-bottom:10px" onclick="document.getElementById('fotoFile').click()">
       <div style="font-size:28px;margin-bottom:6px">📷</div>
       <div style="font-size:13px;font-weight:600" id="fotoFileName">Clique para selecionar foto</div>
     </div>
@@ -6467,7 +6610,7 @@ function verFotos(mId){
   const fts=DB.fotos.filter(f=>f.mId===mId).sort((a,b)=>b.data.localeCompare(a.data));
   const TIPO={entrada:'🟢 Entrada',saida:'🔴 Saída',dano:'⚠️ Dano',outro:'📷 Outro'};
   const grid=fts.map(f=>`
-    <div style="background:var(--sur);border-radius:8px;overflow:hidden;border:1px solid var(--brd)">
+    <div style="background:var(--sur);border-radius:8px;overflow:hidden;border:1px solid var(--bor)">
       <img src="${f.img}" style="width:100%;height:140px;object-fit:cover;cursor:pointer" onclick="window.open('${f.img}','_blank')">
       <div style="padding:8px">
         <div style="font-size:11px;font-weight:700">${TIPO[f.tipo]||f.tipo}</div>
@@ -7167,9 +7310,75 @@ function saveAll(){
   // Salva todas as coleções no localStorage (NÃO baixa backup — use o botão 📥 Backup pra isso)
   ['m','l','s','mu','e','mv','os','pg','mhist','ct','cau','fts','chats','solics','intv','histloc','agenda','extras'].forEach(k=>sv(k));
   localStorage.setItem('mg_last_save',Date.now().toString());
+  // Auto-backup rotativo: mantém 5 snapshots datados (1 a cada salvamento)
+  try{
+    const snap={ts:Date.now(),data:tod(),hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+      motos:DB.motos,pg:DB.pg,extras:DB.extras,os:DB.os,leit:DB.leit,multas:DB.multas,
+      histLoc:DB.histLoc,seg:DB.seg,est:DB.est,contratos:DB.contratos};
+    const slots=JSON.parse(localStorage.getItem('mg_autobkp_slots')||'[]');
+    slots.unshift(snap);
+    // Mantém só os 5 mais recentes; descarta os antigos
+    while(slots.length>5)slots.pop();
+    localStorage.setItem('mg_autobkp_slots',JSON.stringify(slots));
+  }catch(e){console.warn('[MotoGest] auto-backup falhou (provável quota):',e.message);}
   const btn=document.getElementById('saveBtn');
   if(btn){btn.textContent='✅ Salvo!';btn.style.background='#16a34a';
     setTimeout(()=>{btn.textContent='💾 Salvar';btn.style.background='#22c55e';},2000);}
+}
+
+// Auto-save periódico: salva a cada 5 minutos se houve mudança
+let _autoSaveInterval=null;
+function startAutoSave(){
+  if(_autoSaveInterval)return;
+  _autoSaveInterval=setInterval(()=>{
+    const ultMod=Number(localStorage.getItem('mg_last_save')||0);
+    // Só salva se a última mudança foi há mais de 30s e menos de 6 min (evita salvar página parada)
+    const agora=Date.now();
+    if(agora-ultMod>30000&&agora-ultMod<6*60*1000){
+      saveAll();
+      console.log('[MotoGest] Auto-save executado às',new Date().toLocaleTimeString('pt-BR'));
+    }
+  },5*60*1000);
+}
+// Inicia depois do load
+setTimeout(()=>startAutoSave(),10000);
+
+// Lista os backups automáticos disponíveis para restauração
+function verAutoBackups(){
+  const slots=JSON.parse(localStorage.getItem('mg_autobkp_slots')||'[]');
+  if(!slots.length){toast('Nenhum backup automático ainda — eles são criados a cada salvamento','acc');return;}
+  const linhas=slots.map((s,i)=>{
+    const motosQt=(s.motos||[]).length;
+    const pgQt=(s.pg||[]).length;
+    return`<tr>
+      <td><b>#${i+1}</b> ${i===0?'<span style="font-size:10px;color:var(--grn)">mais recente</span>':''}</td>
+      <td>${fD(s.data)} — ${s.hora||''}</td>
+      <td>${motosQt} motos · ${pgQt} pagtos</td>
+      <td><button class="btn br bxs" onclick="restaurarAutoBackup(${i})">↺ Restaurar</button></td>
+    </tr>`;
+  }).join('');
+  showM(mWrap('mAutoBkp',`<div class="modal" style="max-width:560px">
+    <div class="mh"><span class="ct">🕒 Backups Automáticos</span><button class="btn bx" onclick="closeM('mAutoBkp')">✕</button></div>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:12px">5 snapshots mais recentes (rotativos). Criados automaticamente a cada vez que o sistema é salvo. Use para recuperar de uma alteração indesejada.</p>
+    <div style="overflow-x:auto"><table class="tbl" style="font-size:12px">
+      <thead><tr><th>Slot</th><th>Quando</th><th>Conteúdo</th><th>Ação</th></tr></thead>
+      <tbody>${linhas}</tbody>
+    </table></div>
+  </div>`));
+}
+function restaurarAutoBackup(idx){
+  const slots=JSON.parse(localStorage.getItem('mg_autobkp_slots')||'[]');
+  const s=slots[idx];if(!s){toast('Backup não encontrado','red');return;}
+  if(!confirm(`Restaurar dados do backup de ${fD(s.data)} ${s.hora||''}?\n\nIsto sobrescreverá os dados atuais. O estado atual será salvo como backup adicional antes da restauração.`))return;
+  // Backup do estado atual antes de restaurar
+  saveAll();
+  // Aplica o snapshot
+  ['motos','pg','extras','os','leit','multas','histLoc','seg','est','contratos'].forEach(k=>{
+    if(s[k])DB[k]=s[k];
+  });
+  ['m','pg','extras','os','l','mu','histloc','s','e','ct'].forEach(k=>sv(k));
+  closeM('mAutoBkp');render();
+  toast(`✅ Restaurado do backup de ${fD(s.data)} ${s.hora||''}`,'grn');
 }
 
 // ── Backup ───────────────────────────────────────────────────────────────────
