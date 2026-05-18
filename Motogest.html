@@ -10,6 +10,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="MotoGest">
 <link rel="manifest" id="pwaManifest">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
@@ -92,21 +94,20 @@ label{display:block;font-size:11px;color:var(--sub);margin-bottom:3px;font-weigh
 </div>
 <div id="content"><div class="g4" style="margin-bottom:12px">
     <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Motos Ativas</div><div class="num" style="color:var(--acc)">87</div></div>
-    <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Leituras Hoje</div><div class="num" style="color:var(--grn)">0 / 87</div></div>
     <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Manutenção Crítica</div><div class="num" style="color:var(--red)">48</div></div>
     <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Multas Pendentes</div><div class="num" style="color:var(--grn)">0</div></div>
   </div>
   ${buildCentralAlertas()}
   <div class="card" style="margin-bottom:12px">
-    <div class="ch"><span class="ct">📡 GPS / Rastreadores</span><div class="row" style="gap:6px"><button id="btnSyncGps" class="btn bg bs" onclick="pasteGps()">📋 Colar GPS</button>
-      <button class="btn bx bs" id="btnAutoSync" onclick="if(_gpsAutoSyncInterval){stopGpsAutoSync();this.textContent='▶ Auto-sync OFF';this.style.background='var(--redbg)';this.style.color='var(--red)';}else{startGpsAutoSync();this.textContent='⏸ Auto-sync ON';this.style.background='var(--grnbg)';this.style.color='var(--grn)';}" title="Liga/desliga sincronização automática a cada 5 minutos">⏸ Auto-sync ON</button><a class="btn bx bs" href="javascript:(async()=>{try{const[posR,devR]=await Promise.all([fetch('/api/positions',{headers:{'Accept':'application/json'},credentials:'include'}),fetch('/api/devices',{headers:{'Accept':'application/json'},credentials:'include'})]);if(!posR.ok||!devR.ok){alert('Erro: verifique se esta logado no Rastrear System.');return;}const pos=await posR.json();const dev=await devR.json();const devMap={};dev.forEach(d=>{devMap[d.id]=d;});const result=pos.map(p=>{const d=devMap[p.deviceId]||{};const km=Math.round(((p.attributes&&(p.attributes.totalDistance||p.attributes.odometer))||0)/1000);return{nome:d.name||'',uid:(d.uniqueId||'').toUpperCase(),km,status:d.status||'',lastUpdate:p.fixTime||p.deviceTime||'',address:p.address||'',lat:p.latitude||0,lng:p.longitude||0,speed:p.speed||0};}).filter(x=>x.km>0||x.status);const txt=JSON.stringify(result);await navigator.clipboard.writeText(txt);alert('OK '+result.length+' veiculos copiados! Agora clique em Colar GPS.');}catch(e){alert('Erro: '+e.message);}})();" title="⚠️ ATUALIZE: arraste este botão para favoritos novamente" style="text-decoration:none" onclick="return false" id="bmLink">🔖 Bookmarklet ⚠️NOVO</a></div><span style="font-size:11px;color:var(--sub)">atualizado 07/04/2026</span></div>
+    <div class="ch"><span class="ct">📡 GPS / Rastreadores</span><div class="row" style="gap:6px"><button id="btnSyncGps" class="btn bg bs" onclick="syncGps(true)">🔄 Sync GPS</button>
+      </div><span style="font-size:11px;color:var(--sub)">automático via Rastrear System</span></div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
       <div style="background:var(--grnbg);border-radius:8px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800;color:var(--grn)">67</div><div style="font-size:11px;color:var(--sub);margin-top:3px">🟢 Conectados</div></div>
       <div style="background:var(--yelbg);border-radius:8px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800;color:var(--yel)">20</div><div style="font-size:11px;color:var(--sub);margin-top:3px">🟡 Desconhecidos</div></div>
       <div style="background:var(--redbg);border-radius:8px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800;color:var(--red)">7</div><div style="font-size:11px;color:var(--sub);margin-top:3px">🔴 Desconectados</div></div>
     </div>
   </div>
-  <div class="card"><div class="ch"><span class="ct">Alertas do Dia</span></div><div style="display:flex;flex-direction:column;gap:8px"><div style="background:var(--redbg);border-radius:8px;padding:10px 14px;color:var(--red);display:flex;gap:8px">⚠️ <b>48 moto(s)</b>&nbsp;com manutenção crítica</div><div style="background:var(--redbg);border-radius:8px;padding:10px 14px;color:var(--red);display:flex;gap:8px">📡 <b>7 rastreador(es) desconectado(s):</b>&nbsp;TGX4D63, TGX7A44, TGX7I03, TGX8A08, THE7E32, TMM3H81, TMP9A31</div><div style="background:var(--blubg);border-radius:8px;padding:10px 14px;color:var(--blu);display:flex;gap:8px">📏 <b>87 moto(s)</b>&nbsp;sem leitura de odômetro hoje</div></div></div></div>
+  <div class="card"><div class="ch"><span class="ct">Alertas do Dia</span></div><div style="display:flex;flex-direction:column;gap:8px"><div style="background:var(--redbg);border-radius:8px;padding:10px 14px;color:var(--red);display:flex;gap:8px">⚠️ <b>48 moto(s)</b>&nbsp;com manutenção crítica</div><div style="background:var(--redbg);border-radius:8px;padding:10px 14px;color:var(--red);display:flex;gap:8px">📡 <b>7 rastreador(es) desconectado(s):</b>&nbsp;TGX4D63, TGX7A44, TGX7I03, TGX8A08, THE7E32, TMM3H81, TMP9A31</div></div></div></div>
 
 <script>
 // ── Storage ──────────────────────────────────────────────────────────────
@@ -172,6 +173,8 @@ const DB={
   cobOleo: S.get('mg_cobOleo')||[],
   pgOficina: S.get('mg_pgOficina')||[],
   negociacoes: S.get('mg_negoc')||[],
+  sinistros: S.get('mg_sinistros')||[],
+  wamensagens: S.get('mg_wamsg')||[],
 };
 function sv(k){
   const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos',chats:'chats',solics:'solics',intv:'intervencoes',histloc:'histLoc',agenda:'agenda',extras:'extras',negoc:'negociacoes'};
@@ -464,6 +467,11 @@ const TABS=[
   {id:'ind',label:'⚠️ Inadimplência'},
   {id:'docs',label:'📋 Documentos'},
   {id:'portal',label:'📱 Portal Locatário'},
+  {id:'scoring',label:'🏅 Scoring'},
+  {id:'regua',label:'📬 Régua Cobrança'},
+  {id:'sinistros',label:'🚗 Sinistros'},
+  {id:'mecanico',label:'🔩 Painel Mecânico'},
+  {id:'mapa',label:'🗺️ Mapa Frota'},
 ];
 let TAB='dash';
 let _tabAnterior='';
@@ -474,7 +482,7 @@ function go(t){
 }
 function render(){
   document.getElementById('tabs').innerHTML=TABS.map(t=>`<button class="tab${TAB===t.id?' active':''}" onclick="go('${t.id}')">${t.label}</button>`).join('');
-  const fn={dash:vDash,fin:vFin,odo:vOdo,mnt:vMnt,agenda:vAgendaTab,seg:vSeg,mul:vMul,est:vEst,os:vOs,oficina:vOficina,pag:vPag,rel:vRel,mts:vMts,loc:vLoc,ind:vInd,docs:vDocs,portal:vPortal};
+  const fn={dash:vDash,fin:vFin,odo:vOdo,mnt:vMnt,agenda:vAgendaTab,seg:vSeg,mul:vMul,est:vEst,os:vOs,oficina:vOficina,pag:vPag,rel:vRel,mts:vMts,loc:vLoc,ind:vInd,docs:vDocs,portal:vPortal,scoring:vScoring,regua:vRegua,sinistros:vSinistros,mecanico:vMecanico,mapa:vMapa};
   document.getElementById('content').innerHTML=fn[TAB]();
 }
 function closeM(id){const e=document.getElementById(id);if(e)e.remove()}
@@ -1168,7 +1176,6 @@ function vDash(){
   const ativ=DB.motos.filter(m=>m.on);
   const hoje=tod();
   const lh=DB.leit.filter(l=>l.data===hoje);
-  const sl=ativ.filter(m=>!lh.find(l=>l.mId===m.id));
   const ma=ativ.filter(m=>{const s=ms(m);return s.u==='ov'||s.u==='cr'});
   const sa=DB.seg.filter(s=>{const d=dTo(s.venc);return d!==null&&d<=10&&d>=0});
   const oilQuase=ativ.filter(m=>{const ol=OIL-(m.odo-(m.loilKm||0));return ol>0&&ol<=200;});
@@ -1181,7 +1188,6 @@ function vDash(){
   if(mp.length) al+=`<div style="background:var(--redbg);border-radius:8px;padding:10px 14px;color:var(--red);display:flex;gap:8px">🚨 <b>${mp.length} multa(s)</b>&nbsp;pendentes — ${fR(mp.reduce((a,m)=>a+Number(m.val||0),0))}</div>`;
   if(eb.length) al+=`<div style="background:var(--yelbg);border-radius:8px;padding:10px 14px;color:var(--yel);display:flex;gap:8px">📦 <b>${eb.length} item(ns)</b>&nbsp;com estoque baixo</div>`;
   if(gDes.length) al+=`<div style="background:var(--redbg);border-radius:8px;padding:10px 14px;color:var(--red);display:flex;gap:8px">📡 <b>${gDes.length} rastreador(es) desconectado(s):</b>&nbsp;${gDes.join(', ')}</div>`;
-  if(sl.length) al+=`<div style="background:var(--blubg);border-radius:8px;padding:10px 14px;color:var(--blu);display:flex;gap:8px">📏 <b>${sl.length} moto(s)</b>&nbsp;sem leitura de odômetro hoje</div>`;
 
   // Alertas de documentação
   const hoje2=new Date();hoje2.setHours(12,0,0,0);
@@ -1280,9 +1286,9 @@ function vDash(){
         <div style="font-size:10px;color:var(--sub)">${aindaFaltam.length} ainda não pagou</div>
       </div>
       <div style="background:var(--sur);border-radius:8px;padding:10px;text-align:center">
-        <div style="font-size:9px;color:var(--sub);font-weight:700;text-transform:uppercase">Leituras Odo</div>
-        <div style="font-size:22px;font-weight:800;color:${lh.length>=alugadas.length*0.5?'var(--grn)':'var(--yel)'}">${lh.length}</div>
-        <div style="font-size:10px;color:var(--sub)">de ${alugadas.length} alugadas</div>
+        <div style="font-size:9px;color:var(--sub);font-weight:700;text-transform:uppercase">GPS Conectados</div>
+        <div style="font-size:22px;font-weight:800;color:var(--grn)">${gCon}</div>
+        <div style="font-size:10px;color:var(--sub)">${gDes.length} desconectados</div>
       </div>
     </div>
     ${aindaFaltam.length?`<div style="margin-top:10px;font-size:11px;color:var(--sub);background:var(--sur);border-radius:6px;padding:8px;border-left:3px solid var(--acc)">
@@ -1314,7 +1320,7 @@ function vDash(){
     ${metaSemAtual-recSemAtual>0?`<div style="font-size:11px;color:var(--sub);margin-top:6px">Faltam <b style="color:${metaCor}">${fR(metaSemAtual-recSemAtual)}</b> para atingir a meta</div>`:'<div style="font-size:11px;color:var(--grn);margin-top:6px">✅ Meta atingida!</div>'}
   </div>
   <div class="g4" style="margin-bottom:12px">
-    ${sc('Leituras Hoje',lh.length+' / '+alugadas.length,'var(--grn)')}
+    ${sc('KM Sincronizados',ativ.filter(m=>GPS[m.placa]&&m.odo>0).length+' / '+ativ.length,'var(--grn)')}
     ${sc('Multas Pendentes',mp.length,mp.length?'var(--red)':'var(--grn)',mp.length?fR(mp.reduce((a,m)=>a+Number(m.val||0),0)):'')}
     ${sc('Seguros Vencendo',sa.length,sa.length?'var(--yel)':'var(--grn)',sa.length?'próx. 10 dias':'')}
     ${sc('Estoque Baixo',eb.length,eb.length?'var(--yel)':'var(--grn)')}
@@ -1322,12 +1328,8 @@ function vDash(){
   <div class="card" style="margin-bottom:12px">
     <div class="ch"><span class="ct">📡 GPS / Rastreadores</span>
       <div class="row" style="gap:6px;flex-wrap:wrap">
-        <button id="btnSyncGps" class="btn bg bs" onclick="pasteGps()">📋 Colar GPS</button>
         <button class="btn bx bs" onclick="diagGps()" title="Mostra o que o GPS tem vs o que o sistema tem para cada moto">🔍 Diagnóstico</button>
-        <button class="btn bx bs" onclick="syncGps(true)" title="Sincronizar diretamente via API">🔄 Sync Direto</button>
-        <button class="btn bx bs" id="btnAutoSync" onclick="if(_gpsAutoSyncInterval){stopGpsAutoSync();this.textContent='▶ Auto OFF';this.style.color='var(--red)';}else{startGpsAutoSync();this.textContent='⏸ Auto ON';this.style.color='var(--grn)';}" style="color:var(--grn)">⏸ Auto ON</button>
-        <a class="btn bx bs" href="javascript:(async()=>{try{const[posR,devR]=await Promise.all([fetch('/api/positions',{headers:{'Accept':'application/json'},credentials:'include'}),fetch('/api/devices',{headers:{'Accept':'application/json'},credentials:'include'})]);if(!posR.ok||!devR.ok){alert('Erro: verifique se esta logado no Rastrear System.');return;}const pos=await posR.json();const dev=await devR.json();const devMap={};dev.forEach(d=>{devMap[d.id]=d;});const result=pos.map(p=>{const d=devMap[p.deviceId]||{};const km=Math.round(((p.attributes&&(p.attributes.totalDistance||p.attributes.odometer))||0)/1000);return{nome:d.name||'',uid:(d.uniqueId||'').toUpperCase(),km,status:d.status||'',lastUpdate:p.fixTime||p.deviceTime||'',address:p.address||'',lat:p.latitude||0,lng:p.longitude||0,speed:p.speed||0};}).filter(x=>x.km>0||x.status);await navigator.clipboard.writeText(JSON.stringify(result));alert('OK - '+result.length+' veiculos copiados! Agora va ao MotoGest e clique em Colar GPS.');}catch(e){alert('Erro: '+e.message);}})();"
-           title="🔁 RE-ARRASTE para a barra de favoritos — versão atualizada 07/04/2026" style="text-decoration:none;background:#f97316;color:#000;font-weight:800" onclick="alert('⚠️ ATENÇÃO: Você precisa ARRASTAR este botão para a barra de favoritos do navegador para atualizar.\\n\\nApenas clicar aqui não funciona.\\n\\n1. Certifique-se que a barra de favoritos está visível (Ctrl+Shift+B)\\n2. Arraste este botão laranja até a barra\\n3. Abra rastrearcomgps.com.br\\n4. Clique no favorito salvo\\n5. Volte aqui e clique Colar GPS');return false" id="bmLink">🔖 Bookmarklet — ARRASTE NOVAMENTE</a>
+        <button class="btn bg bs" onclick="syncGps(true)" title="Sincronizar diretamente via API">🔄 Sync Direto</button>
         <button class="btn bx bs" onclick="openGpsSettings()">⚙️ Config</button>
       </div>
     </div>
@@ -1407,7 +1409,7 @@ function vOdo(){
   }).join('');
   return`<div class="card" style="margin-bottom:12px">
     <div class="ch">
-      <span class="ct">Registro de Odômetro</span><button class="btn bg bs" onclick="pasteGps()" title="Colar dados do GPS (use o bookmarklet no Rastrear System primeiro)">📋 Colar GPS</button>
+      <span class="ct">Odômetro</span>
       <div class="row">
         <input placeholder="🔍 Placa ou nome" style="width:180px" value="${oBusca}" oninput="oBusca=this.value;render()">
         <input type="date" value="${oDate}" style="width:140px" onchange="oDate=this.value;oV={};render()">
@@ -2251,20 +2253,60 @@ function vEst(){
   }).join('');
 
   return`
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">
     <div class="card" style="padding:14px;text-align:center">
       <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">ITENS CADASTRADOS</div>
       <div style="font-size:22px;font-weight:800">${DB.est.length}</div>
     </div>
-    <div class="card" style="padding:14px;text-align:center;border-color:${baixo.length?'rgba(234,179,8,.3)':'var(--bor)'}">
-      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">ESTOQUE BAIXO</div>
-      <div style="font-size:22px;font-weight:800;color:${baixo.length?'var(--yel)':'var(--grn)'}">${baixo.length}</div>
+    <div class="card" style="padding:14px;text-align:center;border-color:${baixo.length?'rgba(239,68,68,.3)':'var(--bor)'}">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">ABAIXO DO MÍNIMO</div>
+      <div style="font-size:22px;font-weight:800;color:${baixo.length?'var(--red)':'var(--grn)'}">${baixo.length}</div>
     </div>
     <div class="card" style="padding:14px;text-align:center">
       <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">VALOR TOTAL</div>
       <div style="font-size:22px;font-weight:800;color:var(--acc)">${fR(totalVal)}</div>
     </div>
+    <div class="card" style="padding:14px;text-align:center;border-color:${baixo.length?'rgba(249,115,22,.3)':'var(--bor)'}">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">COMPRA SUGERIDA</div>
+      <div style="font-size:22px;font-weight:800;color:${baixo.length?'var(--acc)':'var(--sub)'}">${fR(baixo.reduce((a,e)=>a+((e.max||e.min*3)-e.qtd)*Number(e.custo||0),0))}</div>
+    </div>
   </div>
+
+  ${baixo.length?`<div class="card" style="margin-bottom:12px;border-color:rgba(249,115,22,.4)">
+    <div class="ch">
+      <span class="ct" style="color:var(--acc)">🛒 Pedido Sugerido ao Fornecedor</span>
+      <div class="row" style="gap:6px">
+        <button class="btn bx bxs" onclick="copiarPedidoFornecedor()" style="font-size:11px">📋 Copiar Pedido</button>
+        <button class="btn bx bxs" onclick="gerarPedidoWA()" style="font-size:11px;background:#25D366;color:#fff;border:none">📱 Enviar via WA</button>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--sub);margin-bottom:10px">Itens abaixo do ponto de reposição — quantidade sugerida = <b>máximo − atual</b> (ou 3× mínimo se não houver máximo)</div>
+    <div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Peça</th><th>Un.</th><th>Atual</th><th>Mínimo</th><th>Máximo</th><th>Sugerido</th><th>Custo Unit.</th><th>Subtotal</th><th>Urgência</th></tr></thead>
+      <tbody>${baixo.map(e=>{
+        const sugerido=Math.max(1,(e.max||e.min*3)-e.qtd);
+        const subtotal=sugerido*Number(e.custo||0);
+        const urgencia=e.qtd===0?'🔴 Zerado':e.qtd<e.min/2?'🟠 Crítico':'🟡 Baixo';
+        return`<tr style="${e.qtd===0?'background:rgba(239,68,68,.07)':''}">
+          <td><b>${e.nome}</b></td>
+          <td style="color:var(--sub)">${e.un}</td>
+          <td style="font-weight:700;color:${e.qtd===0?'var(--red)':'var(--acc)'}">${e.qtd}</td>
+          <td style="color:var(--sub)">${e.min}</td>
+          <td style="color:var(--sub)">${e.max||'—'}</td>
+          <td style="font-weight:700;color:var(--grn)">${sugerido} ${e.un}</td>
+          <td style="color:var(--sub)">${e.custo?fR(e.custo):'—'}</td>
+          <td style="font-weight:700;color:${subtotal>0?'var(--yel)':'var(--sub)'}">${subtotal>0?fR(subtotal):'—'}</td>
+          <td>${urgencia}</td>
+        </tr>`;
+      }).join('')}</tbody>
+      <tfoot><tr style="border-top:2px solid var(--bor)">
+        <td colspan="7" style="text-align:right;font-weight:700;color:var(--sub)">TOTAL ESTIMADO</td>
+        <td style="font-weight:800;color:var(--yel)">${fR(baixo.reduce((a,e)=>a+Math.max(1,(e.max||e.min*3)-e.qtd)*Number(e.custo||0),0))}</td>
+        <td></td>
+      </tr></tfoot>
+    </table></div>
+  </div>`:''}
+
   <div class="card">
     <div class="ch">
       <span class="ct">📦 Estoque de Peças</span>
@@ -2274,9 +2316,6 @@ function vEst(){
         <button class="btn bx bs" onclick="verMovGeral()">📋 Movimentações</button>
       </div>
     </div>
-    ${baixo.length?`<div style="background:var(--yelbg);border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:var(--yel)">
-      ⚠️ Estoque baixo: ${baixo.map(e=>e.nome+' ('+e.qtd+')').join(', ')}
-    </div>`:''}
     <div style="overflow-x:auto"><table class="tbl">
       <thead><tr><th>Peça</th><th>Un.</th><th>Qtd</th><th>Mín.</th><th>Custo Unit.</th><th>Valor Total</th><th>Ações</th></tr></thead>
       <tbody>${rows||'<tr><td colspan="7" class="empty">Nenhum item encontrado</td></tr>'}</tbody>
@@ -2499,6 +2538,38 @@ function verMovGeral(){
 
 // backwards compat
 function movE(id,tipo){ movEstModal(id,tipo); }
+
+// ── PEDIDO FORNECEDOR ─────────────────────────────────────────────────────────
+function _gerarTextoPedido(){
+  const baixo=DB.est.filter(e=>e.qtd<=e.min);
+  if(!baixo.length)return'Nenhum item abaixo do mínimo.';
+  const hoje=new Date().toLocaleDateString('pt-BR');
+  let txt=`*Pedido de Reposição — AMS Motos*\n📅 Data: ${hoje}\n\n`;
+  let total=0;
+  baixo.forEach(e=>{
+    const sugerido=Math.max(1,(e.max||e.min*3)-e.qtd);
+    const subtotal=sugerido*Number(e.custo||0);
+    total+=subtotal;
+    txt+=`• ${e.nome}: *${sugerido} ${e.un}*${subtotal>0?' — '+fR(subtotal):''} (atual: ${e.qtd})\n`;
+  });
+  if(total>0)txt+=`\n*Total estimado: ${fR(total)}*`;
+  txt+='\n\n_AMS Locação de Motos LTDA_';
+  return txt;
+}
+function copiarPedidoFornecedor(){
+  const txt=_gerarTextoPedido();
+  navigator.clipboard.writeText(txt).then(()=>toast('Pedido copiado!','grn')).catch(()=>{
+    showM(mWrap('mPedidoCopy',`<div class="modal" style="max-width:480px">
+      <div class="mh"><span class="ct">📋 Pedido de Reposição</span><button class="btn bx" onclick="closeM('mPedidoCopy')">✕</button></div>
+      <textarea style="height:200px;font-size:12px;font-family:monospace;resize:vertical">${txt}</textarea>
+      <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn bx" onclick="closeM('mPedidoCopy')">Fechar</button></div>
+    </div>`));
+  });
+}
+function gerarPedidoWA(){
+  const txt=_gerarTextoPedido();
+  window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');
+}
 
 // ── OS ───────────────────────────────────────────────────────────────────────
 function vOs(){
@@ -5322,22 +5393,88 @@ function excluirNegociacao(id){
 }
 
 
-function abrirCobOleo(){
+function abrirCobOleo(mIdPresel){
   if(!DB.cobOleo)DB.cobOleo=[];
-  const opts=DB.motos.filter(m=>m.on&&m.nome).map(m=>
-    `<option value="${m.id}">${m.placa} — ${m.nome.split(' ').slice(0,2).join(' ')}</option>`).join('');
-  showM(mWrap('mCobOleo',`<div class="modal" style="max-width:400px">
+  const motos=DB.motos.filter(m=>m.on&&m.nome).sort((a,b)=>a.placa.localeCompare(b.placa));
+
+  // Calcula situação de óleo de cada moto para mostrar no select
+  const optsHtml=motos.map(m=>{
+    const kmDesde=m.odo>0?Math.max(0,m.odo-(m.loilKm||0)):0;
+    const vencido=kmDesde>=OIL;
+    const proximo=kmDesde>=(OIL*0.8)&&!vencido;
+    const label=vencido?` ⚠️ VENCIDO (+${fN(kmDesde-OIL)}km)`:proximo?` ⏳ próx. (${fN(OIL-kmDesde)}km rest.)`:``;
+    return`<option value="${m.id}"${mIdPresel===m.id?' selected':''}>${m.placa} — ${m.nome.split(' ').slice(0,2).join(' ')}${label}</option>`;
+  }).join('');
+
+  showM(mWrap('mCobOleo',`<div class="modal" style="max-width:420px">
     <div class="mh"><span class="ct">🛢️ Lançar Cobrança de Óleo</span><button class="btn bx" onclick="closeM('mCobOleo')">✕</button></div>
     <p style="font-size:12px;color:var(--sub);margin-bottom:14px">Cobrança avulsa de troca de óleo — não interfere no controle de aluguel.</p>
-    <div class="fg"><label>Moto</label><select id="cobOleoMoto" class="inp"><option value="">— Selecionar —</option>${opts}</select></div>
-    <div class="fg"><label>Valor (R$)</label><input type="number" id="cobOleoVal" class="inp" value="30" step="0.01"></div>
-    <div class="fg"><label>Data</label><input type="date" id="cobOleoData" class="inp" value="${tod()}"></div>
-    <div class="fg"><label>Obs (opcional)</label><input type="text" id="cobOleoObs" class="inp" placeholder="Ex: Troca de óleo + filtro"></div>
+
+    <div class="fg" style="margin-bottom:8px">
+      <label style="font-size:11px;color:var(--sub);font-weight:700;display:block;margin-bottom:4px">🔍 Filtrar moto</label>
+      <input id="cobOleoFiltro" placeholder="Digite placa ou nome..." oninput="filtrarCobOleoMoto(this.value)"
+        style="margin-bottom:6px">
+    </div>
+    <div class="fg">
+      <label style="font-size:11px;color:var(--sub);font-weight:700;display:block;margin-bottom:4px">Moto *</label>
+      <select id="cobOleoMoto" class="inp" size="5" style="height:auto;padding:4px"
+        onchange="atualizarInfoCobOleo(this.value)">
+        <option value="">— Selecionar —</option>
+        ${optsHtml}
+      </select>
+    </div>
+
+    <div id="cobOleoInfo" style="margin:8px 0;font-size:11px;color:var(--sub);min-height:18px"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="fg">
+        <label style="font-size:11px;color:var(--sub);font-weight:700;display:block;margin-bottom:4px">Valor (R$)</label>
+        <input type="number" id="cobOleoVal" class="inp" value="30" step="0.01">
+      </div>
+      <div class="fg">
+        <label style="font-size:11px;color:var(--sub);font-weight:700;display:block;margin-bottom:4px">Data</label>
+        <input type="date" id="cobOleoData" class="inp" value="${tod()}">
+      </div>
+    </div>
+    <div class="fg" style="margin-top:8px">
+      <label style="font-size:11px;color:var(--sub);font-weight:700;display:block;margin-bottom:4px">Obs (opcional)</label>
+      <input type="text" id="cobOleoObs" class="inp" placeholder="Ex: Troca de óleo + filtro">
+    </div>
     <div class="mact">
       <button class="btn bx" onclick="closeM('mCobOleo')">Cancelar</button>
       <button class="btn ba" onclick="salvarCobOleo()">✓ Lançar</button>
     </div>
   </div>`));
+
+  // Se veio com moto pré-selecionada, mostra info
+  if(mIdPresel) setTimeout(()=>atualizarInfoCobOleo(mIdPresel),50);
+}
+
+function filtrarCobOleoMoto(texto){
+  const sel=document.getElementById('cobOleoMoto');
+  if(!sel)return;
+  const t=texto.toUpperCase();
+  Array.from(sel.options).forEach(opt=>{
+    if(!opt.value){opt.style.display='';return;}
+    opt.style.display=opt.text.toUpperCase().includes(t)?'':'none';
+  });
+}
+
+function atualizarInfoCobOleo(mId){
+  const el=document.getElementById('cobOleoInfo');
+  if(!el)return;
+  const m=DB.motos.find(x=>x.id===mId);
+  if(!m||!m.odo){el.textContent='';return;}
+  const kmDesde=Math.max(0,m.odo-(m.loilKm||0));
+  const vencido=kmDesde>=OIL;
+  const proximo=kmDesde>=(OIL*0.8)&&!vencido;
+  if(vencido){
+    el.innerHTML=`<span style="color:var(--red);font-weight:700">⚠️ Óleo VENCIDO — ${fN(kmDesde-OIL)} km além do prazo · odo atual: ${fN(m.odo)} km</span>`;
+  }else if(proximo){
+    el.innerHTML=`<span style="color:var(--yel)">⏳ Próximo da troca — faltam ${fN(OIL-kmDesde)} km · odo atual: ${fN(m.odo)} km</span>`;
+  }else{
+    el.innerHTML=`<span style="color:var(--sub)">Odo: ${fN(m.odo)} km · ${fN(kmDesde)} km desde última troca · faltam ${fN(OIL-kmDesde)} km</span>`;
+  }
 }
 
 function salvarCobOleo(){
@@ -5878,6 +6015,7 @@ function expCsv(){
 
 // ── DASHBOARD FINANCEIRO ──────────────────────────────────────────────────────
 let finMes=tod().slice(0,7);
+let finView='mensal'; // 'mensal' | 'semanal' | 'anual'
 
 // ── Margem Líquida por Moto ──────────────────────────────────────────────────
 function verMargemMoto(mes){
@@ -5928,54 +6066,103 @@ function vFin(){
   const margem=receita>0?(lucro/receita*100):0;
   const recPot=ativ.reduce((a,m)=>a+Number(m.val||0),0)*4;
   const taxaRec=recPot>0?(receita/recPot*100):0;
+  const ticketMedio=pgsMes.length>0?receita/pgsMes.length:0;
 
-  // Caução total retido
+  // Inadimplência canônica
+  const paidByM={};
+  DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push({sem:p.sem,valor:Number(p.valor||p.val||0),data:p.data||p.sem});});
+  function wL(m){return calcDebtCanonical(m,paidByM).qtdSemanas;}
+  const inadVal=ativ.reduce((a,m)=>a+calcDebtCanonical(m,paidByM).total,0);
   const caucaoTotal=DB.caucoes.filter(c=>c.status==='retido').reduce((a,c)=>a+Number(c.val||0),0);
 
-  // Inadimplência (usa função canônica — considera tolerância e pagamentos parciais)
-  const paidByM={};
-  DB.pg.forEach(p=>{
-    if(!paidByM[p.mId])paidByM[p.mId]=[];
-    paidByM[p.mId].push({sem:p.sem,valor:Number(p.valor||p.val||0),data:p.data||p.sem});
+  // ── DADOS ANUAIS ──────────────────────────────────────────────────────────
+  const anoAtual=finMes.slice(0,4);
+  const mesesDoAno=Array.from({length:12},(_,i)=>anoAtual+'-'+(String(i+1).padStart(2,'0')));
+  const dadosAnuais=mesesDoAno.map(mes=>{
+    const r=DB.pg.filter(p=>(p.data||p.sem||'').slice(0,7)===mes).reduce((a,p)=>{const mo=DB.motos.find(x=>x.id===p.mId)||{val:0};return a+(p.valor!=null?Number(p.valor):Number(mo.val));},0);
+    const cOs=DB.os.filter(o=>(o.data||'').startsWith(mes)).reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0);
+    const cSeg=DB.seg.filter(s=>(s.pago||s.venc||'').startsWith(mes)).reduce((a,s)=>a+Number(s.val||0),0);
+    const c=cOs+cSeg;
+    const pgs=DB.pg.filter(p=>(p.data||p.sem||'').slice(0,7)===mes).length;
+    return{mes,label:['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][Number(mes.slice(5))-1],r,c,luc:r-c,pgs};
   });
-  function wL(m){ return calcDebtCanonical(m, paidByM).qtdSemanas; }
-  const inadVal=ativ.reduce((a,m)=>{return a+calcDebtCanonical(m, paidByM).total;},0);
+  const recAnual=dadosAnuais.reduce((a,d)=>a+d.r,0);
+  const cusAnual=dadosAnuais.reduce((a,d)=>a+d.c,0);
+  const lucAnual=recAnual-cusAnual;
+  const mesesComDados=dadosAnuais.filter(d=>d.r>0).length||1;
+  const mediaMensal=recAnual/mesesComDados;
+  // Projeção: extrapola com base nos meses com dados
+  const mesAtualIdx=Number(finMes.slice(5))-1;
+  const projecao12=mesesComDados>0?(recAnual/mesesComDados)*12:0;
 
-  // Gráfico barras SVG — últimos 6 meses
+  // SVG anual — barras mensais com receita e custo
+  const maxAnual=Math.max(...dadosAnuais.map(d=>Math.max(d.r,d.c)),1);
+  const WA=640,HA=160,pL=46,pB=22,pT=18;
+  const cWA=WA-pL-10, cHA=HA-pT-pB, bWA=cWA/12;
+  let svgAnual=`<svg viewBox="0 0 ${WA} ${HA+10}" xmlns="http://www.w3.org/2000/svg" style="width:100%">`;
+  [0,0.5,1].forEach(p=>{const y=pT+cHA*(1-p);svgAnual+=`<line x1="${pL}" y1="${y}" x2="${WA-6}" y2="${y}" stroke="rgba(255,255,255,.05)" stroke-width="1"/><text x="${pL-4}" y="${y+3}" text-anchor="end" font-size="8" fill="#4b5563">${(maxAnual*p/1000).toFixed(0)}k</text>`;});
+  dadosAnuais.forEach((d,i)=>{
+    const cx=pL+i*bWA+bWA/2;
+    const isAtual=d.mes===finMes;
+    const rH=Math.max(2,(d.r/maxAnual)*cHA);
+    const cH=Math.max(2,(d.c/maxAnual)*cHA);
+    svgAnual+=`<rect x="${cx-9}" y="${pT+cHA-rH}" width="8" height="${rH}" fill="${isAtual?'#22c55e':'#166534'}" rx="2" opacity="${isAtual?1:.8}"><title>${d.label}: ${fR(d.r)}</title></rect>`;
+    if(d.c>0)svgAnual+=`<rect x="${cx+1}" y="${pT+cHA-cH}" width="8" height="${cH}" fill="${isAtual?'#ef4444':'#7f1d1d'}" rx="2" opacity="${isAtual?1:.8}"><title>Custo ${d.label}: ${fR(d.c)}</title></rect>`;
+    svgAnual+=`<text x="${cx}" y="${HA+2}" text-anchor="middle" font-size="8" fill="${isAtual?'#f97316':'#4b5563'}" font-weight="${isAtual?'700':'400'}">${d.label}</text>`;
+  });
+  svgAnual+=`<rect x="${pL}" y="3" width="8" height="6" fill="#22c55e" rx="1"/><text x="${pL+11}" y="9" font-size="8" fill="#94a3b8">Receita</text>`;
+  svgAnual+=`<rect x="${pL+60}" y="3" width="8" height="6" fill="#ef4444" rx="1"/><text x="${pL+71}" y="9" font-size="8" fill="#94a3b8">Custos</text>`;
+  svgAnual+='</svg>';
+
+  // ── RECEITA SEMANAL (últimas 8 semanas) ───────────────────────────────────
+  const semanas8=[];
+  for(let i=7;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i*7);semanas8.push(wS(d.toISOString().split('T')[0]));}
+  const recSemanas=semanas8.map(s=>{
+    const r=DB.pg.filter(p=>p.sem===s).reduce((a,p)=>{const mo=DB.motos.find(x=>x.id===p.mId)||{val:0};return a+(p.valor!=null?Number(p.valor):Number(mo.val));},0);
+    const pgs=DB.pg.filter(p=>p.sem===s).length;
+    return{sem:s,r,pgs};
+  });
+  const maxSem=Math.max(...recSemanas.map(s=>s.r),1);
+
+  // ── SVG 6 meses ───────────────────────────────────────────────────────────
   const meses6=[];
   for(let i=5;i>=0;i--){const d=new Date();d.setMonth(d.getMonth()-i);meses6.push(d.toISOString().slice(0,7));}
   const dadosMeses=meses6.map(m=>{
     const r=DB.pg.filter(p=>(p.data||p.sem||'').slice(0,7)===m).reduce((a,p)=>{const mo=DB.motos.find(x=>x.id===p.mId)||{val:0};return a+(p.valor!=null?Number(p.valor):Number(mo.val));},0);
-    const c=DB.os.filter(o=>(o.data||'').startsWith(m)).reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0)
-      +DB.seg.filter(s=>(s.pago||s.venc||'').startsWith(m)).reduce((a,s)=>a+Number(s.val||0),0);
-    return{m,label:m.slice(5,7)+'/'+m.slice(2,4),rec:r,cus:c,luc:r-c};
+    const c=DB.os.filter(o=>(o.data||'').startsWith(m)).reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0)+DB.seg.filter(s=>(s.pago||s.venc||'').startsWith(m)).reduce((a,s)=>a+Number(s.val||0),0);
+    return{m,label:m.slice(5,7)+'/'+m.slice(2,4),r,c,luc:r-c};
   });
-  const maxVal=Math.max(...dadosMeses.map(d=>Math.max(d.rec,d.cus)),1);
-  const W=500,H=160,padL=50,padB=24,padT=20,cW=W-padL-20,cH=H-padT-padB;
+  const maxVal=Math.max(...dadosMeses.map(d=>Math.max(d.r,d.c)),1);
+  const W=500,H=150,padL=48,padB=22,padT=18,cW=W-padL-16,cH=H-padT-padB;
   const bW=cW/meses6.length;
   let svgBars=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%">`;
-  [0,0.5,1].forEach(p=>{const y=padT+cH*(1-p);svgBars+=`<line x1="${padL}" y1="${y}" x2="${W-10}" y2="${y}" stroke="rgba(255,255,255,.06)" stroke-width="1"/><text x="${padL-4}" y="${y+4}" text-anchor="end" font-size="9" fill="#64748b">${(maxVal*p/1000).toFixed(0)}k</text>`;});
+  [0,0.5,1].forEach(p=>{const y=padT+cH*(1-p);svgBars+=`<line x1="${padL}" y1="${y}" x2="${W-10}" y2="${y}" stroke="rgba(255,255,255,.06)" stroke-width="1"/><text x="${padL-4}" y="${y+4}" text-anchor="end" font-size="9" fill="#4b5563">${(maxVal*p/1000).toFixed(0)}k</text>`;});
   dadosMeses.forEach((d,i)=>{
     const cx=padL+i*bW+bW/2;
-    const rH=Math.max(2,(d.rec/maxVal)*cH);
-    const cH2=Math.max(2,(d.cus/maxVal)*cH);
-    const lH=Math.max(0,(Math.abs(d.luc)/maxVal)*cH);
-    svgBars+=`<rect x="${cx-14}" y="${padT+cH-rH}" width="12" height="${rH}" fill="#10b981" rx="2" opacity=".85"><title>${d.label}: ${fR(d.rec)}</title></rect>`;
-    svgBars+=`<rect x="${cx+2}" y="${padT+cH-cH2}" width="12" height="${cH2}" fill="#f43f5e" rx="2" opacity=".85"><title>Custos ${d.label}: ${fR(d.cus)}</title></rect>`;
+    const rH=Math.max(2,(d.r/maxVal)*cH);
+    const cH2=Math.max(2,(d.c/maxVal)*cH);
     const isAtual=d.m===finMes;
-    svgBars+=`<text x="${cx}" y="${H-4}" text-anchor="middle" font-size="9" fill="${isAtual?'#6366f1':'#64748b'}" font-weight="${isAtual?'700':'400'}">${d.label}</text>`;
+    svgBars+=`<rect x="${cx-13}" y="${padT+cH-rH}" width="11" height="${rH}" fill="${isAtual?'#22c55e':'#166534'}" rx="2" opacity="${isAtual?1:.8}"><title>${d.label}: ${fR(d.r)}</title></rect>`;
+    svgBars+=`<rect x="${cx+2}" y="${padT+cH-cH2}" width="11" height="${cH2}" fill="${isAtual?'#ef4444':'#7f1d1d'}" rx="2" opacity="${isAtual?1:.8}"><title>Custo ${d.label}: ${fR(d.c)}</title></rect>`;
+    svgBars+=`<text x="${cx}" y="${H-4}" text-anchor="middle" font-size="9" fill="${isAtual?'#f97316':'#4b5563'}" font-weight="${isAtual?'700':'400'}">${d.label}</text>`;
   });
-  svgBars+=`<rect x="${padL}" y="4" width="10" height="8" fill="#10b981" rx="1"/><text x="${padL+14}" y="11" font-size="9" fill="#94a3b8">Receita</text>`;
-  svgBars+=`<rect x="${padL+70}" y="4" width="10" height="8" fill="#f43f5e" rx="1"/><text x="${padL+84}" y="11" font-size="9" fill="#94a3b8">Custos</text>`;
+  svgBars+=`<rect x="${padL}" y="4" width="10" height="7" fill="#22c55e" rx="1"/><text x="${padL+13}" y="10" font-size="8" fill="#94a3b8">Receita</text>`;
+  svgBars+=`<rect x="${padL+65}" y="4" width="10" height="7" fill="#ef4444" rx="1"/><text x="${padL+78}" y="10" font-size="8" fill="#94a3b8">Custo</text>`;
   svgBars+='</svg>';
 
-  // Top motos lucrativas
-  const porMoto=ativ.map(m=>{
-    const pgs=DB.pg.filter(p=>p.mId===m.id&&(p.data||p.sem||'').slice(0,7)===finMes);
-    const rec=pgs.reduce((a,p)=>a+(p.valor!=null?Number(p.valor):Number(m.val)),0);
-    const os=DB.os.filter(o=>o.mId===m.id&&(o.data||'').startsWith(finMes)).reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0);
-    return{placa:m.placa,nome:m.nome,val:m.val,rec,os,luc:rec-os};
-  }).sort((a,b)=>b.luc-a.luc);
+  // ── RENTABILIDADE ACUMULADA POR MOTO ──────────────────────────────────────
+  const porMotoAcum=ativ.map(m=>{
+    const allPgs=DB.pg.filter(p=>p.mId===m.id);
+    const recAcum=allPgs.reduce((a,p)=>a+(p.valor!=null?Number(p.valor):Number(m.val)),0);
+    const cusAcum=DB.os.filter(o=>o.mId===m.id).reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0);
+    const mulAcum=DB.multas.filter(mu=>mu.mId===m.id).reduce((a,mu)=>a+Number(mu.val||0),0);
+    const recMes=DB.pg.filter(p=>p.mId===m.id&&(p.data||p.sem||'').slice(0,7)===finMes).reduce((a,p)=>a+(p.valor!=null?Number(p.valor):Number(m.val)),0);
+    const cusMes=DB.os.filter(o=>o.mId===m.id&&(o.data||'').startsWith(finMes)).reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0);
+    const lucAcum=recAcum-cusAcum-mulAcum;
+    const lucMes=recMes-cusMes;
+    const debt=calcDebtCanonical(m,paidByM);
+    return{placa:m.placa,nome:m.nome,val:m.val,recAcum,cusAcum,mulAcum,lucAcum,recMes,cusMes,lucMes,semAtraso:debt.qtdSemanas,divida:debt.comMulta,pgCount:allPgs.length};
+  }).sort((a,b)=>b.lucAcum-a.lucAcum);
 
   const sc=(label,val,cor,sub)=>`<div class="card" style="padding:14px">
     <div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">${label}</div>
@@ -5983,63 +6170,571 @@ function vFin(){
     ${sub?`<div style="font-size:11px;color:var(--sub);margin-top:4px">${sub}</div>`:''}
   </div>`;
 
-  const rows=porMoto.slice(0,15).map((m,i)=>`<tr>
-    <td style="font-size:11px;color:var(--sub)">${i+1}</td>
-    <td><b>${m.placa}</b></td>
-    <td style="font-size:12px">${m.nome||'—'}</td>
-    <td>${fR(m.val)}/sem</td>
-    <td style="color:var(--grn)">${fR(m.rec)}</td>
-    <td style="color:var(--red)">${fR(m.os)}</td>
-    <td style="color:${m.luc>=0?'var(--grn)':'var(--red)'};font-weight:700">${fR(m.luc)}</td>
-    <td>
-      <div style="background:var(--sur);border-radius:3px;height:6px;width:80px">
-        <div style="width:${Math.min(100,m.rec>0?(m.luc/m.rec*100+50):50)}%;height:100%;background:${m.luc>=0?'var(--grn)':'var(--red)'};border-radius:3px"></div>
-      </div>
-    </td>
-  </tr>`).join('');
+  const rowsAcum=porMotoAcum.slice(0,20).map((m,i)=>{
+    const pctAcum=m.recAcum>0?Math.round(m.lucAcum/m.recAcum*100):0;
+    const corA=m.lucAcum>=0?'var(--grn)':'var(--red)';
+    const corM=m.lucMes>=0?'var(--grn)':'var(--red)';
+    return`<tr>
+      <td style="font-size:11px;color:var(--sub);text-align:center">${i+1}</td>
+      <td><b>${m.placa}</b></td>
+      <td style="font-size:11px">${m.nome?m.nome.split(' ').slice(0,2).join(' '):'—'}</td>
+      <td style="color:var(--sub);font-size:11px">${fR(m.val)}/sem</td>
+      <td style="color:var(--grn)">${fR(m.recAcum)}</td>
+      <td style="color:var(--acc)">${fR(m.cusAcum+m.mulAcum)}</td>
+      <td style="color:${corA};font-weight:700">${fR(m.lucAcum)}</td>
+      <td style="color:${corM};font-size:11px">${fR(m.lucMes)}</td>
+      <td style="font-size:11px;color:${m.semAtraso>0?'var(--red)':'var(--sub)'}">${m.semAtraso>0?m.semAtraso+'w':'✅'}</td>
+      <td>
+        <div style="background:var(--sur);border-radius:3px;height:5px;width:64px">
+          <div style="width:${Math.min(100,Math.max(0,pctAcum+50))}%;height:100%;background:${corA};border-radius:3px"></div>
+        </div>
+        <div style="font-size:9px;color:var(--sub);text-align:center">${pctAcum}%</div>
+      </td>
+    </tr>`;
+  }).join('');
 
   return`<div class="card" style="margin-bottom:12px"><div class="ch">
     <span class="ct">💹 Dashboard Financeiro</span>
-    <input type="month" value="${finMes}" onchange="finMes=this.value;render()" style="width:150px">
+    <div class="row" style="gap:4px;flex-wrap:wrap">
+      <button class="btn${finView==='semanal'?' ba':' bx'} bxs" onclick="finView='semanal';render()" style="font-size:11px">📅 Semanal</button>
+      <button class="btn${finView==='mensal'?' ba':' bx'} bxs" onclick="finView='mensal';render()" style="font-size:11px">📆 Mensal</button>
+      <button class="btn${finView==='anual'?' ba':' bx'} bxs" onclick="finView='anual';render()" style="font-size:11px">📊 Anual ${anoAtual}</button>
+      <button class="btn${finView==='rentabilidade'?' ba':' bx'} bxs" onclick="finView='rentabilidade';render()" style="font-size:11px">🏆 Rentabilidade</button>
+      <input type="month" value="${finMes}" onchange="finMes=this.value;render()" style="width:140px;margin-left:4px">
+    </div>
   </div></div>
+
+  ${finView==='semanal'?`
   <div class="g4" style="margin-bottom:12px">
-    ${sc('Receita Realizada',fR(receita),'var(--grn)',`${taxaRec.toFixed(0)}% do potencial · ${pgsMes.length} pagamentos`)}
+    ${sc('Semana Atual',fR(recSemanas[7]?.r||0),'var(--grn)',recSemanas[7]?.pgs+' pagamentos')}
+    ${sc('Média 8 Semanas',fR(recSemanas.reduce((a,s)=>a+s.r,0)/8),'var(--acc)','')}
+    ${sc('Melhor Semana',fR(Math.max(...recSemanas.map(s=>s.r))),'var(--yel)','')}
+    ${sc('Receita 8 Sem.',fR(recSemanas.reduce((a,s)=>a+s.r,0)),'var(--sub)','')}
+  </div>
+  <div class="card"><div class="ch" style="margin-bottom:14px"><span class="ct">📅 Receita — Últimas 8 Semanas</span></div>
+    ${recSemanas.map(({sem,r,pgs},i)=>{
+      const isLast=i===recSemanas.length-1;
+      return`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--bor)">
+        <span style="font-size:11px;color:var(--sub);width:80px;flex-shrink:0">${fD(sem)}</span>
+        <div style="flex:1;background:var(--bor);border-radius:3px;height:10px">
+          <div style="width:${maxSem>0?Math.round(r/maxSem*100):0}%;height:100%;background:${isLast?'var(--grn)':'rgba(34,197,94,.4)'};border-radius:3px;transition:width .3s"></div>
+        </div>
+        <span style="font-size:13px;font-weight:700;color:${isLast?'var(--grn)':'var(--txt)'};width:90px;text-align:right;flex-shrink:0">${fR(r)}</span>
+        <span style="font-size:10px;color:var(--sub);width:55px;flex-shrink:0">${pgs} pgtos</span>
+      </div>`;
+    }).join('')}
+  </div>`:''}
+
+  ${finView==='anual'?`
+  <div class="g4" style="margin-bottom:12px">
+    ${sc('Receita '+anoAtual,fR(recAnual),'var(--grn)',`${mesesComDados} meses c/ dados`)}
+    ${sc('Custos '+anoAtual,fR(cusAnual),'var(--red)',`OS + Seguros`)}
+    ${sc('Lucro '+anoAtual,fR(lucAnual),lucAnual>=0?'var(--grn)':'var(--red)',`Margem: ${recAnual>0?Math.round(lucAnual/recAnual*100):0}%`)}
+    ${sc('Projeção 12M',fR(projecao12),'var(--yel)',`Média ${fR(mediaMensal)}/mês`)}
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="ch" style="margin-bottom:10px"><span class="ct">📊 Receita vs Custos — ${anoAtual}</span></div>
+    ${svgAnual}
+    <div style="overflow-x:auto;margin-top:10px"><table class="tbl" style="font-size:11px">
+      <thead><tr><th>Mês</th><th>Receita</th><th>Custos</th><th>Lucro</th><th>Pgtos</th></tr></thead>
+      <tbody>${dadosAnuais.map(d=>`<tr style="${d.mes===finMes?'background:rgba(99,102,241,.08)':''}">
+        <td style="font-weight:${d.mes===finMes?'700':'400'};color:${d.mes===finMes?'var(--acc)':'var(--txt)'}">${d.label}</td>
+        <td style="color:var(--grn)">${d.r>0?fR(d.r):'—'}</td>
+        <td style="color:var(--red)">${d.c>0?fR(d.c):'—'}</td>
+        <td style="font-weight:700;color:${d.luc>=0?'var(--grn)':'var(--red)'}">${d.r>0?fR(d.luc):'—'}</td>
+        <td style="color:var(--sub)">${d.pgs||'—'}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+  </div>`:''}
+
+  ${finView==='rentabilidade'?`
+  <div class="g3" style="margin-bottom:12px">
+    ${sc('Receita Acumulada (total)',fR(DB.pg.reduce((a,p)=>{const mo=DB.motos.find(x=>x.id===p.mId)||{val:0};return a+(p.valor!=null?Number(p.valor):Number(mo.val));},0)),'var(--grn)',`${DB.pg.length} pagamentos históricos`)}
+    ${sc('Custo Acumulado (OS)',fR(DB.os.reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0)),'var(--red)','Todas OS registradas')}
+    ${sc('Lucro Acumulado',fR(DB.pg.reduce((a,p)=>{const mo=DB.motos.find(x=>x.id===p.mId)||{val:0};return a+(p.valor!=null?Number(p.valor):Number(mo.val));},0)-DB.os.reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0)-DB.multas.reduce((a,m)=>a+Number(m.val||0),0)),lucAnual>=0?'var(--grn)':'var(--red)','Histórico completo')}
+  </div>
+  <div class="card">
+    <div class="ch"><span class="ct">🏆 Rentabilidade Acumulada por Moto</span><span style="font-size:11px;color:var(--sub)">Histórico completo · custo = OS + Multas</span></div>
+    <div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>#</th><th>Placa</th><th>Locatário</th><th>Plano</th><th>Rec. Acum.</th><th>Custo Acum.</th><th>Lucro Acum.</th><th>Mês Atual</th><th>Atraso</th><th>Margem</th></tr></thead>
+      <tbody>${rowsAcum||'<tr><td colspan="10" class="empty">Sem dados</td></tr>'}</tbody>
+    </table></div>
+  </div>`:''}
+
+  ${finView==='mensal'?`
+  <div class="g4" style="margin-bottom:12px">
+    ${sc('Receita Realizada',fR(receita),'var(--grn)',`${taxaRec.toFixed(0)}% do potencial · ${pgsMes.length} pgtos`)}
+    ${sc('Ticket Médio',fR(ticketMedio),'var(--acc)',`por pagamento`)}
     ${sc(lucro>=0?'💚 Lucro':'❌ Prejuízo',fR(Math.abs(lucro)),lucro>=0?'var(--grn)':'var(--red)',`Margem: ${margem.toFixed(1)}%`)}
-    ${sc('Custos Totais',fR(totalCusto),'var(--red)',`OS ${fR(custoOs)} · Seg ${fR(custoSeg)} · Mul ${fR(custoMul)}`)}
-    ${sc('💸 Inadimplência',fR(inadVal),'var(--acc)',`${ativ.filter(m=>wL(m)>=1).length} locatários em atraso`)}
-  <div style="text-align:right;margin-bottom:4px"><button class="btn bx bs" onclick="verMargemMoto(finMes)">📊 Margem por Moto</button></div>
+    ${sc('💸 Inadimplência',fR(inadVal),'var(--acc)',`${ativ.filter(m=>wL(m)>=1).length} em atraso`)}
   </div>
   <div class="g3" style="margin-bottom:12px">
-    ${sc('Receita Potencial',fR(recPot),'var(--sub)',`${ativ.length} motos × 4 semanas`)}
-    ${sc('💰 Caução Retido',fR(caucaoTotal),'var(--yel)',`${DB.caucoes.filter(c=>c.status==='retido').length} contratos · clique para detalhes`)}
+    ${sc('Custos Totais',fR(totalCusto),'var(--red)',`OS ${fR(custoOs)} · Seg ${fR(custoSeg)} · Mul ${fR(custoMul)}`)}
+    ${sc('Receita Potencial',fR(recPot),'var(--sub)',`${ativ.length} motos × 4 sem`)}
     ${sc('Taxa de Recebimento',(taxaRec.toFixed(1)+'%'),taxaRec>=80?'var(--grn)':taxaRec>=60?'var(--yel)':'var(--red)',taxaRec>=80?'Excelente':taxaRec>=60?'Regular':'Atenção')}
   </div>
   ${caucaoTotal>0?`<div class="card" style="margin-bottom:12px;border-color:rgba(234,179,8,.3)">
-    <div class="ch"><span class="ct">💰 Caução — Situação Atual</span></div>
-    <div class="g3" style="margin-bottom:10px">
-      ${sc('Total Retido',fR(caucaoTotal),'var(--yel)',DB.caucoes.filter(c=>c.status==='retido').length+' contratos')}
-      ${sc('Devolvidos',fR(DB.caucoes.filter(c=>c.status!=='retido').reduce((a,c)=>a+Number(c.val||0),0)),'var(--grn)',DB.caucoes.filter(c=>c.status!=='retido').length+' devolvidos')}
-      ${sc('Média por Moto',DB.caucoes.filter(c=>c.status==='retido').length?fR(caucaoTotal/DB.caucoes.filter(c=>c.status==='retido').length):'R$ 0,00','var(--sub)','')}
+    <div class="ch"><span class="ct">💰 Caução Retido</span></div>
+    <div style="display:flex;align-items:center;gap:12px;padding:4px 0">
+      <div style="font-size:28px;font-weight:800;color:var(--yel)">${fR(caucaoTotal)}</div>
+      <div style="font-size:12px;color:var(--sub)">${DB.caucoes.filter(c=>c.status==='retido').length} contratos · média ${fR(caucaoTotal/Math.max(1,DB.caucoes.filter(c=>c.status==='retido').length))} /moto</div>
     </div>
-    <div style="overflow-x:auto;max-height:200px;overflow-y:auto"><table class="tbl">
-      <thead><tr><th>Moto</th><th>Locatário</th><th>Valor</th><th>Data</th><th>Status</th></tr></thead>
-      <tbody>${DB.caucoes.filter(c=>c.status==='retido').map(c=>{const m=DB.motos.find(x=>x.id===c.mId)||{placa:'?',nome:''};return`<tr><td><b>${m.placa}</b></td><td style="font-size:11px">${m.nome?m.nome.split(' ').slice(0,2).join(' '):'—'}</td><td style="color:var(--yel);font-weight:700">${fR(c.val||0)}</td><td style="font-size:11px">${fD(c.data||'')}</td><td><span style="font-size:10px;color:var(--yel)">🔒 Retido</span></td></tr>`;}).join('')}</tbody>
-    </table></div>
   </div>`:''}
   <div class="card" style="margin-bottom:12px">
-    <div class="ch" style="margin-bottom:12px"><span class="ct">📊 Receita vs Custos — Últimos 6 meses</span></div>
+    <div class="ch" style="margin-bottom:10px">
+      <span class="ct">📊 Receita vs Custos — Últimos 6 meses</span>
+      <button class="btn bx bxs" onclick="verMargemMoto(finMes)" style="font-size:11px">📊 Por Moto</button>
+    </div>
     ${svgBars}
   </div>
-  <div class="card"><div class="ch"><span class="ct">🏆 Lucro por Moto (Top 15)</span></div>
+  <div class="card"><div class="ch"><span class="ct">🏆 Lucro por Moto — ${finMes}</span></div>
   <div style="overflow-x:auto"><table class="tbl">
-    <thead><tr><th>#</th><th>Placa</th><th>Locatário</th><th>Plano</th><th>Recebido</th><th>OS/Manutenção</th><th>Lucro</th><th>Margem</th></tr></thead>
-    <tbody>${rows||'<tr><td colspan="8" class="empty">Sem dados neste mês</td></tr>'}</tbody>
-  </table></div></div>`;
+    <thead><tr><th>#</th><th>Placa</th><th>Locatário</th><th>Plano</th><th>Recebido</th><th>OS</th><th>Lucro</th><th>Margem</th></tr></thead>
+    <tbody>${porMotoAcum.filter(m=>m.recMes>0||m.cusMes>0).slice(0,15).map((m,i)=>`<tr>
+      <td style="color:var(--sub);font-size:11px">${i+1}</td>
+      <td><b>${m.placa}</b></td>
+      <td style="font-size:12px">${m.nome?m.nome.split(' ').slice(0,2).join(' '):'—'}</td>
+      <td style="font-size:11px;color:var(--sub)">${fR(m.val)}</td>
+      <td style="color:var(--grn)">${fR(m.recMes)}</td>
+      <td style="color:var(--red)">${fR(m.cusMes)}</td>
+      <td style="color:${m.lucMes>=0?'var(--grn)':'var(--red)'};font-weight:700">${fR(m.lucMes)}</td>
+      <td><div style="background:var(--sur);border-radius:3px;height:5px;width:60px"><div style="width:${Math.min(100,m.recMes>0?Math.max(0,m.lucMes/m.recMes*100+50):50)}%;height:100%;background:${m.lucMes>=0?'var(--grn)':'var(--red)'};border-radius:3px"></div></div></td>
+    </tr>`).join('')||'<tr><td colspan="8" class="empty">Sem dados neste mês</td></tr>'}
+    </tbody>
+  </table></div></div>`:''}`;
 }
 
 // ── DOCUMENTOS (Contratos, Caução, Fotos) ─────────────────────────────────────
 
 // ── PORTAL DO LOCATÁRIO ───────────────────────────────────────────────────────
+
+// ════════════════════════════════════════════════════════════════════════════
+// 🚨 SINISTROS
+// ════════════════════════════════════════════════════════════════════════════
+function vSinistros(){
+  const lista=[...(DB.sinistros||[])].sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  const abertos=lista.filter(s=>s.st!=='encerrado');
+  const encerrados=lista.filter(s=>s.st==='encerrado');
+  const custoTotal=lista.reduce((a,s)=>a+Number(s.custo||0),0);
+  const motos=DB.motos.filter(m=>m.on).sort((a,b)=>a.placa.localeCompare(b.placa));
+
+  const ST_LABEL={aberto:'🔴 Aberto',oficina:'🔧 Em Reparo',seguradora:'📋 Na Seguradora',encerrado:'✅ Encerrado'};
+  const ST_COR={aberto:'var(--red)',oficina:'var(--yel)',seguradora:'var(--blu)',encerrado:'var(--grn)'};
+
+  function rowSin(s){
+    const m=DB.motos.find(x=>x.id===s.mId)||{placa:'?',nome:''};
+    return('<tr>'+
+      '<td style="font-size:11px;white-space:nowrap">'+fD(s.data)+'</td>'+
+      '<td><b>'+m.placa+'</b><div style="font-size:10px;color:var(--sub)">'+(m.nome?m.nome.split(' ').slice(0,2).join(' '):'—')+'</div></td>'+
+      '<td style="font-size:12px">'+s.tipo+'</td>'+
+      '<td style="font-size:11px;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.desc||'—')+'</td>'+
+      '<td><span style="font-size:10px;font-weight:700;color:'+(ST_COR[s.st]||'var(--sub)')+'">'+( ST_LABEL[s.st]||s.st)+'</span></td>'+
+      '<td style="font-weight:700;color:'+(s.custo>0?'var(--red)':'var(--sub)')+'">'+fR(s.custo||0)+'</td>'+
+      '<td class="row" style="gap:3px">'+
+        '<button class="btn bx bxs" onclick="editarSinistro(\''+s.id+'\')">✏️</button>'+
+        '<button class="btn br bxs" onclick="excluirSinistro(\''+s.id+'\')">✕</button>'+
+      '</td>'+
+    '</tr>');
+  }
+
+  return(
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">'+
+      '<div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">EM ABERTO</div><div style="font-size:28px;font-weight:800;color:var(--red)">'+abertos.length+'</div></div>'+
+      '<div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">ENCERRADOS</div><div style="font-size:28px;font-weight:800;color:var(--grn)">'+encerrados.length+'</div></div>'+
+      '<div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">CUSTO TOTAL</div><div style="font-size:20px;font-weight:800;color:var(--red)">'+fR(custoTotal)+'</div></div>'+
+      '<div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">TOTAL SINISTROS</div><div style="font-size:28px;font-weight:800;color:var(--acc)">'+lista.length+'</div></div>'+
+    '</div>'+
+    '<div class="card">'+
+      '<div class="ch"><span class="ct">🚨 Sinistros</span>'+
+        '<button class="btn ba bxs" onclick="novoSinistro()">+ Registrar</button>'+
+      '</div>'+
+      (lista.length===0?'<div class="empty">Nenhum sinistro registrado</div>':
+        '<div style="overflow-x:auto"><table class="tbl">'+
+          '<thead><tr><th>Data</th><th>Moto</th><th>Tipo</th><th>Descrição</th><th>Status</th><th>Custo</th><th>Ações</th></tr></thead>'+
+          '<tbody>'+lista.map(rowSin).join('')+'</tbody>'+
+        '</table></div>')+
+    '</div>'
+  );
+}
+
+function novoSinistro(){
+  const motos=DB.motos.filter(m=>m.on).sort((a,b)=>a.placa.localeCompare(b.placa));
+  const opts=motos.map(m=>'<option value="'+m.id+'">'+m.placa+(m.nome?' — '+m.nome.split(' ').slice(0,2).join(' '):'')+'</option>').join('');
+  showM(mWrap('mSin','<div class="modal" style="max-width:480px">'+
+    '<div class="mh"><span class="ct">🚨 Registrar Sinistro</span><button class="btn bx" onclick="closeM(\'mSin\')">✕</button></div>'+
+    '<div class="fr"><div class="fg"><label>Moto</label><select id="sinMoto" class="inp">'+opts+'</select></div>'+
+    '<div class="fg"><label>Data</label><input type="date" id="sinData" value="'+tod()+'" class="inp"></div></div>'+
+    '<div class="fg"><label>Tipo</label><select id="sinTipo" class="inp">'+
+      '<option>Acidente</option><option>Furto/Roubo</option><option>Incêndio</option><option>Queda</option><option>Colisão</option><option>Outro</option>'+
+    '</select></div>'+
+    '<div class="fg"><label>Descrição</label><textarea id="sinDesc" rows="3" class="inp" placeholder="Descreva o ocorrido..."></textarea></div>'+
+    '<div class="fr">'+
+      '<div class="fg"><label>BO / Nº Ocorrência</label><input type="text" id="sinBo" class="inp" placeholder="Ex: 2024/123456"></div>'+
+      '<div class="fg"><label>Seguradora</label><input type="text" id="sinSeg" class="inp" placeholder="Ex: Porto Seguro"></div>'+
+    '</div>'+
+    '<div class="fr">'+
+      '<div class="fg"><label>Custo estimado (R$)</label><input type="number" id="sinCusto" value="0" step="0.01" class="inp"></div>'+
+      '<div class="fg"><label>Status</label><select id="sinSt" class="inp">'+
+        '<option value="aberto">🔴 Aberto</option><option value="oficina">🔧 Em Reparo</option>'+
+        '<option value="seguradora">📋 Na Seguradora</option><option value="encerrado">✅ Encerrado</option>'+
+      '</select></div>'+
+    '</div>'+
+    '<div class="fg"><label>Observações</label><input type="text" id="sinObs" class="inp" placeholder="Obs adicionais..."></div>'+
+    '<div class="mact"><button class="btn bx" onclick="closeM(\'mSin\')">Cancelar</button><button class="btn ba" onclick="salvarSinistro()">✓ Salvar</button></div>'+
+  '</div>'));
+}
+
+function salvarSinistro(id){
+  const mId=document.getElementById('sinMoto').value;
+  const data=document.getElementById('sinData').value;
+  const tipo=document.getElementById('sinTipo').value;
+  const desc=document.getElementById('sinDesc').value.trim();
+  const bo=document.getElementById('sinBo').value.trim();
+  const seg=document.getElementById('sinSeg').value.trim();
+  const custo=parseFloat(document.getElementById('sinCusto').value||0)||0;
+  const st=document.getElementById('sinSt').value;
+  const obs=document.getElementById('sinObs').value.trim();
+  if(!mId||!data){alert('Preencha moto e data.');return;}
+  if(!DB.sinistros)DB.sinistros=[];
+  if(id){
+    const s=DB.sinistros.find(x=>x.id===id);
+    if(s)Object.assign(s,{mId,data,tipo,desc,bo,seg,custo,st,obs});
+  } else {
+    DB.sinistros.push({id:uid(),mId,data,tipo,desc,bo,seg,custo,st,obs,criado:tod()});
+    // Atualiza status da moto
+    const m=DB.motos.find(x=>x.id===mId);
+    if(m&&st!=='encerrado')m.status=st==='oficina'?'oficina':'sinistro';
+  }
+  sv('sinistros');sv('m');closeM('mSin');render();toast('Sinistro salvo','grn');
+}
+
+function editarSinistro(id){
+  const s=DB.sinistros.find(x=>x.id===id);if(!s)return;
+  const motos=DB.motos.filter(m=>m.on).sort((a,b)=>a.placa.localeCompare(b.placa));
+  const opts=motos.map(m=>'<option value="'+m.id+'" '+(m.id===s.mId?'selected':'')+'>'+m.placa+(m.nome?' — '+m.nome.split(' ').slice(0,2).join(' '):'')+'</option>').join('');
+  showM(mWrap('mSin','<div class="modal" style="max-width:480px">'+
+    '<div class="mh"><span class="ct">✏️ Editar Sinistro</span><button class="btn bx" onclick="closeM(\'mSin\')">✕</button></div>'+
+    '<div class="fr"><div class="fg"><label>Moto</label><select id="sinMoto" class="inp">'+opts+'</select></div>'+
+    '<div class="fg"><label>Data</label><input type="date" id="sinData" value="'+(s.data||'')+'" class="inp"></div></div>'+
+    '<div class="fg"><label>Tipo</label><select id="sinTipo" class="inp">'+
+      ['Acidente','Furto/Roubo','Incêndio','Queda','Colisão','Outro'].map(t=>'<option '+(t===s.tipo?'selected':'')+'>'+t+'</option>').join('')+
+    '</select></div>'+
+    '<div class="fg"><label>Descrição</label><textarea id="sinDesc" rows="3" class="inp">'+(s.desc||'')+'</textarea></div>'+
+    '<div class="fr">'+
+      '<div class="fg"><label>BO</label><input type="text" id="sinBo" value="'+(s.bo||'')+'" class="inp"></div>'+
+      '<div class="fg"><label>Seguradora</label><input type="text" id="sinSeg" value="'+(s.seg||'')+'" class="inp"></div>'+
+    '</div>'+
+    '<div class="fr">'+
+      '<div class="fg"><label>Custo (R$)</label><input type="number" id="sinCusto" value="'+(s.custo||0)+'" step="0.01" class="inp"></div>'+
+      '<div class="fg"><label>Status</label><select id="sinSt" class="inp">'+
+        [['aberto','🔴 Aberto'],['oficina','🔧 Em Reparo'],['seguradora','📋 Na Seguradora'],['encerrado','✅ Encerrado']].map(([v,l])=>'<option value="'+v+'" '+(v===s.st?'selected':'')+'>'+l+'</option>').join('')+
+      '</select></div>'+
+    '</div>'+
+    '<div class="fg"><label>Observações</label><input type="text" id="sinObs" value="'+(s.obs||'')+'" class="inp"></div>'+
+    '<div class="mact"><button class="btn bx" onclick="closeM(\'mSin\')">Cancelar</button><button class="btn ba" onclick="salvarSinistro(\''+id+'\')">✓ Salvar</button></div>'+
+  '</div>'));
+}
+
+function excluirSinistro(id){
+  if(!confirm('Excluir sinistro?'))return;
+  DB.sinistros=(DB.sinistros||[]).filter(x=>x.id!==id);
+  sv('sinistros');render();toast('Sinistro removido','red');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 📬 RÉGUA DE COBRANÇA
+// ════════════════════════════════════════════════════════════════════════════
+const REGUA_TEMPLATES={
+  1:'🏍️ *AMS Motos*\n\nOlá {{nome}}! 👋\n\nIdentificamos que o pagamento da sua moto *{{placa}}* referente à semana atual ainda não foi confirmado.\n\nValor: *{{valor}}*\n\nEfetue o pagamento para evitar juros. Qualquer dúvida, fale conosco! 😊\n\n_AMS Motos_ 🏍️',
+  3:'🏍️ *AMS Motos — Aviso Importante*\n\nOlá {{nome}},\n\nSua moto *{{placa}}* está com *{{semanas}} semana(s)* de pagamento em atraso.\n\n💰 Valor em aberto: *{{total}}*\n\n⚠️ Após 7 dias, iniciamos processo de retirada da moto.\n\nRegularize agora ou entre em contato conosco com urgência.\n\n_AMS Motos_ 🏍️',
+  7:'🚨 *AMS Motos — URGENTE*\n\nOlá {{nome}},\n\nA moto *{{placa}}* está com *{{semanas}} semanas* em atraso — total de *{{total}}*.\n\n❗ Iniciaremos o processo de retirada do veículo.\n\nEntre em contato IMEDIATAMENTE para regularizar ou devolver a moto.\n\n_AMS Motos_ 🏍️',
+};
+
+function vCobranca(){
+  const ativ=DB.motos.filter(m=>m.on&&m.val>0&&m.nome&&m.nome.trim());
+  const paidByM={};
+  DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p);});
+
+  const devedores=ativ.map(m=>{
+    const d=calcDebtCanonical(m,paidByM);
+    return{m,semanas:d.qtdSemanas,total:d.total};
+  }).filter(x=>x.semanas>0).sort((a,b)=>b.semanas-a.semanas);
+
+  const g1=devedores.filter(x=>x.semanas===1);
+  const g3=devedores.filter(x=>x.semanas>=2&&x.semanas<7);
+  const g7=devedores.filter(x=>x.semanas>=7);
+
+  function rowDev(x,nivel){
+    const wa=x.m.telLoc?x.m.telLoc.replace(/\D/g,''):'';
+    const tpl=REGUA_TEMPLATES[nivel]||REGUA_TEMPLATES[1];
+    const msg=tpl
+      .replace('{{nome}}',x.m.nome.split(' ')[0])
+      .replace('{{placa}}',x.m.placa)
+      .replace('{{valor}}',fR(x.m.val))
+      .replace('{{semanas}}',x.semanas)
+      .replace('{{total}}',fR(x.total));
+    const cor=nivel>=7?'var(--red)':nivel>=3?'var(--yel)':'var(--sub)';
+    return('<tr>'+
+      '<td><b>'+x.m.placa+'</b></td>'+
+      '<td style="font-size:11px">'+x.m.nome.split(' ').slice(0,2).join(' ')+'</td>'+
+      '<td style="font-weight:700;color:'+cor+'">'+x.semanas+' sem.</td>'+
+      '<td style="font-weight:700;color:var(--red)">'+fR(x.total)+'</td>'+
+      '<td>'+(wa?
+        '<button class="btn bxs" style="background:#25d366;color:#fff;border:none;font-size:11px" onclick="window.open(\'https://wa.me/55'+wa+'?text=\'+encodeURIComponent(\''+msg.replace(/'/g,"\\'").replace(/\n/g,'\\n')+'\'),\'_blank\')">📱 Cobrar</button>'
+        :'<span style="font-size:10px;color:var(--sub)">Sem tel.</span>')+
+      '</td>'+
+    '</tr>');
+  }
+
+  const totalInad=devedores.reduce((a,x)=>a+x.total,0);
+
+  return(
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">'+
+      '<div class="card" style="padding:14px;text-align:center;border-color:rgba(234,179,8,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">1 SEM. ATRASADO</div><div style="font-size:28px;font-weight:800;color:var(--yel)">'+g1.length+'</div></div>'+
+      '<div class="card" style="padding:14px;text-align:center;border-color:rgba(249,115,22,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">2–6 SEM.</div><div style="font-size:28px;font-weight:800;color:var(--acc)">'+g3.length+'</div></div>'+
+      '<div class="card" style="padding:14px;text-align:center;border-color:rgba(239,68,68,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">7+ SEM. CRÍTICO</div><div style="font-size:28px;font-weight:800;color:var(--red)">'+g7.length+'</div></div>'+
+      '<div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">TOTAL EM ABERTO</div><div style="font-size:18px;font-weight:800;color:var(--red)">'+fR(totalInad)+'</div></div>'+
+    '</div>'+
+    (g7.length?'<div class="card" style="margin-bottom:12px;border-color:rgba(239,68,68,.4)">'+
+      '<div class="ch"><span class="ct" style="color:var(--red)">🚨 Crítico — 7+ semanas ('+g7.length+')</span>'+
+        '<button class="btn br bxs" onclick="cobrarTodos(g7_list,7)">📱 Cobrar Todos</button>'+
+      '</div>'+
+      '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Placa</th><th>Locatário</th><th>Atraso</th><th>Valor</th><th>Ação</th></tr></thead>'+
+      '<tbody>'+g7.map(x=>rowDev(x,7)).join('')+'</tbody></table></div></div>':'') +
+    (g3.length?'<div class="card" style="margin-bottom:12px;border-color:rgba(249,115,22,.3)">'+
+      '<div class="ch"><span class="ct" style="color:var(--acc)">⚠️ Atenção — 2 a 6 semanas ('+g3.length+')</span>'+
+        '<button class="btn ba bxs" onclick="cobrarTodosArr('+JSON.stringify(g3.map(x=>x.m.id))+',3)">📱 Cobrar Todos</button>'+
+      '</div>'+
+      '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Placa</th><th>Locatário</th><th>Atraso</th><th>Valor</th><th>Ação</th></tr></thead>'+
+      '<tbody>'+g3.map(x=>rowDev(x,3)).join('')+'</tbody></table></div></div>':'') +
+    (g1.length?'<div class="card">'+
+      '<div class="ch"><span class="ct" style="color:var(--yel)">📬 Lembrete — 1 semana ('+g1.length+')</span>'+
+        '<button class="btn bx bxs" onclick="cobrarTodosArr('+JSON.stringify(g1.map(x=>x.m.id))+',1)">📱 Lembrar Todos</button>'+
+      '</div>'+
+      '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Placa</th><th>Locatário</th><th>Atraso</th><th>Valor</th><th>Ação</th></tr></thead>'+
+      '<tbody>'+g1.map(x=>rowDev(x,1)).join('')+'</tbody></table></div></div>':'') +
+    (devedores.length===0?'<div class="card"><div class="empty">✅ Nenhuma inadimplência no momento!</div></div>':'')
+  );
+}
+
+function cobrarTodosArr(ids,nivel){
+  const ativ=DB.motos.filter(m=>m.on&&m.val>0&&m.nome&&m.nome.trim());
+  const paidByM={};
+  DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p);});
+  let count=0;
+  ids.forEach(id=>{
+    const m=ativ.find(x=>x.id===id);if(!m)return;
+    const wa=m.telLoc?m.telLoc.replace(/\D/g,''):'';if(!wa)return;
+    const d=calcDebtCanonical(m,paidByM);
+    const tpl=REGUA_TEMPLATES[nivel]||REGUA_TEMPLATES[1];
+    const msg=tpl.replace('{{nome}}',m.nome.split(' ')[0]).replace('{{placa}}',m.placa).replace('{{valor}}',fR(m.val)).replace('{{semanas}}',d.qtdSemanas).replace('{{total}}',fR(d.total));
+    setTimeout(()=>window.open('https://wa.me/55'+wa+'?text='+encodeURIComponent(msg),'_blank'),count*800);
+    count++;
+  });
+  toast('Abrindo '+count+' conversas WA...','grn');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ⭐ SCORING DE LOCATÁRIOS
+// ════════════════════════════════════════════════════════════════════════════
+function calcScoring(m){
+  const pgs=DB.pg.filter(p=>p.mId===m.id);
+  if(!pgs.length) return{score:50,label:'Novo',cor:'var(--sub)',detalhes:[]};
+  // Tempo como cliente
+  const datas=pgs.map(p=>p.data||p.sem||'').filter(Boolean).sort();
+  const inicio=datas[0]||tod();
+  const meses=Math.max(0,Math.round((new Date(tod())-new Date(inicio+'T12:00'))/(30*86400000)));
+  // Total pago
+  const totalPago=pgs.reduce((a,p)=>a+(p.valor!=null?Number(p.valor):Number(m.val||0)),0);
+  // Pontualidade — pagamentos com data no dia ou antes do vencimento
+  const pagosNoDia=pgs.filter(p=>p.data&&p.sem&&p.data<=wE(p.sem)).length;
+  const pontPct=pgs.length>0?Math.round(pagosNoDia/pgs.length*100):50;
+  // Inadimplência atual
+  const paidByM={};DB.pg.filter(p=>p.mId===m.id).forEach(p=>{if(!paidByM[m.id])paidByM[m.id]=[];paidByM[m.id].push(p);});
+  const semAtraso=calcDebtCanonical(m,{[m.id]:DB.pg.filter(p=>p.mId===m.id)}).qtdSemanas;
+  // Score 0–100
+  let score=50;
+  score+=Math.min(20,meses*2);         // até +20 por tempo
+  score+=Math.min(20,(pontPct-50)*0.4); // até +20 por pontualidade
+  score-=semAtraso*10;                  // -10 por semana em atraso
+  score=Math.max(0,Math.min(100,Math.round(score)));
+  const label=score>=80?'Excelente':score>=60?'Bom':score>=40?'Regular':'Risco';
+  const cor=score>=80?'var(--grn)':score>=60?'var(--blu)':score>=40?'var(--yel)':'var(--red)';
+  return{score,label,cor,meses,totalPago,pontPct,semAtraso,pgs:pgs.length};
+}
+
+function vScoring(){
+  const ativ=DB.motos.filter(m=>m.on&&m.val>0&&m.nome&&m.nome.trim());
+  const scored=ativ.map(m=>({m,s:calcScoring(m)})).sort((a,b)=>b.s.score-a.s.score);
+  const excelente=scored.filter(x=>x.s.score>=80);
+  const bom=scored.filter(x=>x.s.score>=60&&x.s.score<80);
+  const regular=scored.filter(x=>x.s.score>=40&&x.s.score<60);
+  const risco=scored.filter(x=>x.s.score<40);
+
+  function rowScore(x){
+    const bar=Math.round(x.s.score);
+    return('<tr>'+
+      '<td><b>'+x.m.placa+'</b></td>'+
+      '<td style="font-size:11px">'+x.m.nome.split(' ').slice(0,2).join(' ')+'</td>'+
+      '<td><div style="display:flex;align-items:center;gap:6px">'+
+        '<div style="background:var(--sur);border-radius:3px;height:8px;width:60px;flex-shrink:0">'+
+          '<div style="width:'+bar+'%;height:100%;background:'+x.s.cor+';border-radius:3px"></div>'+
+        '</div>'+
+        '<span style="font-size:12px;font-weight:700;color:'+x.s.cor+'">'+bar+'</span>'+
+      '</div></td>'+
+      '<td><span style="font-size:10px;font-weight:700;color:'+x.s.cor+'">'+x.s.label+'</span></td>'+
+      '<td style="font-size:11px">'+x.s.meses+' meses</td>'+
+      '<td style="font-size:11px;color:var(--grn)">'+fR(x.s.totalPago)+'</td>'+
+      '<td style="font-size:11px;color:'+( x.s.pontPct>=80?'var(--grn)':x.s.pontPct>=60?'var(--yel)':'var(--red)')+'">'+x.s.pontPct+'%</td>'+
+      '<td style="font-size:11px;color:'+(x.s.semAtraso>0?'var(--red)':'var(--grn)')+'">'+
+        (x.s.semAtraso>0?x.s.semAtraso+' sem.':'✓ Em dia')+
+      '</td>'+
+    '</tr>');
+  }
+
+  return(
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">'+
+      '<div class="card" style="padding:14px;text-align:center;border-color:rgba(34,197,94,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">⭐ EXCELENTE (80+)</div><div style="font-size:28px;font-weight:800;color:var(--grn)">'+excelente.length+'</div></div>'+
+      '<div class="card" style="padding:14px;text-align:center;border-color:rgba(59,130,246,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">👍 BOM (60–79)</div><div style="font-size:28px;font-weight:800;color:var(--blu)">'+bom.length+'</div></div>'+
+      '<div class="card" style="padding:14px;text-align:center;border-color:rgba(234,179,8,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">⚠️ REGULAR (40–59)</div><div style="font-size:28px;font-weight:800;color:var(--yel)">'+regular.length+'</div></div>'+
+      '<div class="card" style="padding:14px;text-align:center;border-color:rgba(239,68,68,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">🔴 RISCO (-40)</div><div style="font-size:28px;font-weight:800;color:var(--red)">'+risco.length+'</div></div>'+
+    '</div>'+
+    '<div class="card">'+
+      '<div class="ch"><span class="ct">⭐ Scoring de Locatários</span>'+
+        '<span style="font-size:11px;color:var(--sub)">Score baseado em pontualidade, tempo e inadimplência</span>'+
+      '</div>'+
+      (scored.length===0?'<div class="empty">Nenhum locatário ativo</div>':
+        '<div style="overflow-x:auto"><table class="tbl">'+
+          '<thead><tr><th>Placa</th><th>Locatário</th><th>Score</th><th>Nível</th><th>Tempo</th><th>Total Pago</th><th>Pontualidade</th><th>Atraso Atual</th></tr></thead>'+
+          '<tbody>'+scored.map(rowScore).join('')+'</tbody>'+
+        '</table></div>')+
+    '</div>'
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 🔧 PAINEL DO MECÂNICO
+// ════════════════════════════════════════════════════════════════════════════
+function vMecanico(){
+  const hoje2=tod();
+  const mesAtual=hoje2.slice(0,7);
+
+  // Dados de servsFunc (funcionário interno)
+  const servFunc=(DB.servsFunc||[]);
+  const doMes=servFunc.filter(r=>r.data&&r.data.startsWith(mesAtual));
+  const hoje3=servFunc.filter(r=>r.data===hoje2);
+
+  // Contagens por tipo no mês
+  const tiposMes={};
+  doMes.forEach(r=>(r.servicos||[]).forEach(s=>{tiposMes[s.tipo]=(tiposMes[s.tipo]||0)+1;}));
+  const topTipos=Object.entries(tiposMes).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  // Peças mais usadas no mês
+  const pecasMes={};
+  doMes.forEach(r=>(r.servicos||[]).forEach(s=>(s.pecas||[]).forEach(p=>{pecasMes[p.nome]=(pecasMes[p.nome]||0)+p.qtd;})));
+  const topPecas=Object.entries(pecasMes).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+  // Dados da Arilane (intervencoes confirmadas)
+  const intConf=(DB.intervencoes||[]).filter(i=>i.st==='confirmado'&&(i.data||'').startsWith(mesAtual));
+
+  // Por dia no mês (barras)
+  const diasDoMes={};
+  doMes.forEach(r=>{const d=r.data;diasDoMes[d]=(diasDoMes[d]||0)+1;});
+  const diasArr=Object.entries(diasDoMes).sort((a,b)=>a[0].localeCompare(b[0]));
+  const maxD=Math.max(...diasArr.map(([,n])=>n),1);
+
+  // Motos mais atendidas
+  const motosMes={};
+  doMes.forEach(r=>{motosMes[r.mId]=(motosMes[r.mId]||0)+1;});
+  const topMotos=Object.entries(motosMes).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  const TL={oil:'🛢️ Óleo',rev:'🔧 Revisão',pneu:'🔵 Pneu',corr:'⛓️ Kit',past:'🔴 Pastilha',
+    vela:'🔥 Vela',filtrar:'🌪️ Filtro Ar',filtoleo:'🫙 Filtro Óleo',escova:'⚡ Escova',
+    freio:'🛑 Freio',embreia:'🔗 Embreagem',bucha:'⚙️ Bucha',outro:'🔩 Outro'};
+
+  return(
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">'+
+      '<div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">SERVIÇOS HOJE</div><div style="font-size:28px;font-weight:800;color:var(--acc)">'+hoje3.length+'</div></div>'+
+      '<div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">NO MÊS (FUNC.)</div><div style="font-size:28px;font-weight:800;color:var(--blu)">'+doMes.length+'</div></div>'+
+      '<div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">OFICINA (ARILANE)</div><div style="font-size:28px;font-weight:800;color:var(--yel)">'+intConf.length+'</div></div>'+
+      '<div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">MOTOS ATENDIDAS</div><div style="font-size:28px;font-weight:800;color:var(--grn)">'+new Set(doMes.map(r=>r.mId)).size+'</div></div>'+
+    '</div>'+
+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">'+
+      '<div class="card">'+
+        '<div style="font-size:12px;font-weight:700;color:var(--sub);margin-bottom:10px;text-transform:uppercase;letter-spacing:.3px">🏆 Top Serviços no Mês</div>'+
+        (topTipos.length?topTipos.map(([tipo,n])=>
+          '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bor)">'+
+            '<span style="font-size:13px">'+(TL[tipo]||tipo)+'</span>'+
+            '<div style="display:flex;align-items:center;gap:8px">'+
+              '<div style="background:var(--sur);border-radius:3px;height:6px;width:60px">'+
+                '<div style="width:'+Math.round(n/Math.max(...topTipos.map(x=>x[1]))*100)+'%;height:100%;background:var(--acc);border-radius:3px"></div>'+
+              '</div>'+
+              '<span style="font-size:12px;font-weight:700;color:var(--acc)">'+n+'×</span>'+
+            '</div>'+
+          '</div>'
+        ).join(''):'<div class="empty">Sem dados</div>')+
+      '</div>'+
+      '<div class="card">'+
+        '<div style="font-size:12px;font-weight:700;color:var(--sub);margin-bottom:10px;text-transform:uppercase;letter-spacing:.3px">📦 Peças Mais Usadas</div>'+
+        (topPecas.length?topPecas.map(([nome,qtd])=>
+          '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bor)">'+
+            '<span style="font-size:12px">'+nome+'</span>'+
+            '<span style="font-size:12px;font-weight:700;color:var(--blu)">'+qtd+' un.</span>'+
+          '</div>'
+        ).join(''):'<div class="empty">Sem dados</div>')+
+      '</div>'+
+    '</div>'+
+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">'+
+      '<div class="card">'+
+        '<div style="font-size:12px;font-weight:700;color:var(--sub);margin-bottom:10px;text-transform:uppercase;letter-spacing:.3px">🏍️ Motos Mais Atendidas</div>'+
+        (topMotos.length?topMotos.map(([mId,n])=>{const mo=DB.motos.find(x=>x.id===mId)||{placa:'?'};return(
+          '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bor)">'+
+            '<div><b>'+mo.placa+'</b><span style="font-size:10px;color:var(--sub);margin-left:6px">'+(mo.nome?mo.nome.split(' ')[0]:'')+'</span></div>'+
+            '<span style="font-size:12px;font-weight:700;color:var(--yel)">'+n+' serv.</span>'+
+          '</div>'
+        );}).join(''):'<div class="empty">Sem dados</div>')+
+      '</div>'+
+      '<div class="card">'+
+        '<div style="font-size:12px;font-weight:700;color:var(--sub);margin-bottom:10px;text-transform:uppercase;letter-spacing:.3px">📅 Serviços por Dia</div>'+
+        (diasArr.length?diasArr.slice(-15).map(([d,n])=>
+          '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">'+
+            '<span style="font-size:11px;color:var(--sub)">'+fD(d)+'</span>'+
+            '<div style="display:flex;align-items:center;gap:6px">'+
+              '<div style="background:var(--sur);border-radius:3px;height:6px;width:80px">'+
+                '<div style="width:'+Math.round(n/maxD*100)+'%;height:100%;background:var(--grn);border-radius:3px"></div>'+
+              '</div>'+
+              '<span style="font-size:11px;font-weight:700;color:var(--grn)">'+n+'</span>'+
+            '</div>'+
+          '</div>'
+        ).join(''):'<div class="empty">Sem dados</div>')+
+      '</div>'+
+    '</div>'+
+
+    '<div class="card">'+
+      '<div class="ch"><span class="ct">📋 Últimos Serviços (Funcionário)</span>'+
+        '<button class="btn bx bxs" onclick="go(\'funcionario\')">Ver todos →</button>'+
+      '</div>'+
+      (hoje3.length===0?'<div class="empty">Nenhum serviço registrado hoje</div>':
+        '<div style="overflow-x:auto"><table class="tbl">'+
+          '<thead><tr><th>Moto</th><th>KM</th><th>Serviços</th><th>Peças</th></tr></thead>'+
+          '<tbody>'+hoje3.map(r=>{
+            const mo=DB.motos.find(x=>x.id===r.mId)||{placa:'?'};
+            const ss=(r.servicos||[]).map(s=>TL[s.tipo]||s.tipo).join(', ');
+            const pp=(r.servicos||[]).flatMap(s=>(s.pecas||[]).map(p=>p.nome+'×'+p.qtd)).join(', ');
+            return('<tr>'+
+              '<td><b>'+mo.placa+'</b></td>'+
+              '<td style="font-size:12px;font-weight:700;color:var(--blu)">'+(r.km?fN(r.km)+' km':'—')+'</td>'+
+              '<td style="font-size:11px">'+ss+'</td>'+
+              '<td style="font-size:10px;color:var(--sub)">'+(pp||'—')+'</td>'+
+            '</tr>');
+          }).join('')+
+          '</tbody></table></div>')+
+    '</div>'
+  );
+}
+
 let _portalMId=null;
 
 DB.pixAms=localStorage.getItem('mg_pixAms')||'';
@@ -8105,6 +8800,783 @@ function waResumoDiario(){
 render();
 
 // ── PWA Install ──────────────────────────────────────────────────────────────
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 🏅 SCORING DO LOCATÁRIO — aba dedicada com ranking e histórico detalhado
+// ══════════════════════════════════════════════════════════════════════════════
+function vScoring(){
+  const ativos=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim());
+  const scores=ativos.map(m=>{
+    const s=calcSaudeLoc(m.id)||{score:0,cor:'var(--sub)',emoji:'—',label:'Sem dados',detalhes:[]};
+    const ad=calcAdimplencia(m.id)||{taxa:0,pagas:0,totalSem:0};
+    const pgs=DB.pg.filter(p=>p.mId===m.id);
+    const totalPago=pgs.reduce((a,p)=>a+(p.valor!=null?Number(p.valor):Number(m.val||0)),0);
+    const diasCliente=m.dataInicio?Math.floor((new Date()-new Date(m.dataInicio+'T12:00'))/86400000):0;
+    const paidByM={};
+    DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push({sem:p.sem,valor:Number(p.valor||p.val||0),data:p.data||p.sem});});
+    const semAtraso=calcDebtCanonical(m,paidByM).qtdSemanas;
+    return{m,s,ad,totalPago,diasCliente,semAtraso,pgs:pgs.length};
+  }).sort((a,b)=>b.s.score-a.s.score);
+
+  const scoreDist=[0,0,0,0]; // Ótimo, Regular, Atenção, Risco
+  scores.forEach(({s})=>{
+    if(s.score>=80)scoreDist[0]++;
+    else if(s.score>=60)scoreDist[1]++;
+    else if(s.score>=40)scoreDist[2]++;
+    else scoreDist[3]++;
+  });
+
+  const rows=scores.map(({m,s,ad,totalPago,diasCliente,semAtraso,pgs},i)=>{
+    const mesesCliente=diasCliente>0?Math.floor(diasCliente/30):'—';
+    const badge=s.score>=80?'🏆':s.score>=60?'👍':s.score>=40?'⚠️':'🚨';
+    return`<tr onclick="verScoringDetalhe('${m.id}')" style="cursor:pointer">
+      <td style="font-weight:700;text-align:center;color:var(--sub)">${i+1}</td>
+      <td><div style="font-weight:700">${m.nome.split(' ').slice(0,2).join(' ')}</div><div style="font-size:10px;color:var(--sub)">${m.placa}</div></td>
+      <td style="text-align:center">
+        <div style="display:inline-flex;align-items:center;gap:6px;background:var(--sur);border-radius:20px;padding:4px 12px">
+          <span style="font-size:16px">${badge}</span>
+          <span style="font-weight:800;font-size:15px;color:${s.cor}">${s.score}</span>
+          <div style="width:40px;height:6px;background:var(--bor);border-radius:3px;overflow:hidden">
+            <div style="width:${s.score}%;height:100%;background:${s.cor};border-radius:3px"></div>
+          </div>
+        </div>
+      </td>
+      <td style="text-align:center;font-weight:700;color:${ad.taxa>=90?'var(--grn)':ad.taxa>=70?'var(--yel)':'var(--red)'}">${ad.taxa}%</td>
+      <td style="text-align:center;color:${semAtraso===0?'var(--grn)':semAtraso<=1?'var(--yel)':'var(--red)'};font-weight:700">${semAtraso===0?'✅ Em dia':semAtraso+' sem.'}</td>
+      <td style="text-align:center;color:var(--grn);font-weight:700">${fR(totalPago)}</td>
+      <td style="text-align:center;font-size:11px;color:var(--sub)">${pgs} pagtos</td>
+      <td style="text-align:center;font-size:11px;color:var(--sub)">${mesesCliente} meses</td>
+      <td style="text-align:center"><span style="font-size:11px;font-weight:700;color:${s.cor}">${s.label}</span></td>
+    </tr>`;
+  }).join('');
+
+  return`
+  <div class="g4" style="margin-bottom:12px">
+    <div class="card" style="padding:14px;border-color:rgba(34,197,94,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">🏆 Ótimo (80+)</div><div class="num" style="color:var(--grn)">${scoreDist[0]}</div></div>
+    <div class="card" style="padding:14px;border-color:rgba(234,179,8,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">👍 Regular (60-79)</div><div class="num" style="color:var(--yel)">${scoreDist[1]}</div></div>
+    <div class="card" style="padding:14px;border-color:rgba(249,115,22,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">⚠️ Atenção (40-59)</div><div class="num" style="color:var(--acc)">${scoreDist[2]}</div></div>
+    <div class="card" style="padding:14px;border-color:rgba(239,68,68,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">🚨 Risco (&lt;40)</div><div class="num" style="color:var(--red)">${scoreDist[3]}</div></div>
+  </div>
+  <div class="card" style="margin-bottom:12px;padding:14px">
+    <div style="font-size:12px;color:var(--sub);margin-bottom:8px"><b>Como é calculado:</b> Adimplência histórica (50pts) + Atraso atual (30pts) + GPS (10pts) + Tempo de cliente (10pts). Clique em qualquer linha para ver o detalhamento.</div>
+  </div>
+  <div class="card"><div class="ch"><span class="ct">🏅 Ranking de Locatários — Score de Saúde</span><span style="font-size:12px;color:var(--sub)">${scores.length} locatários</span></div>
+  <div style="overflow-x:auto"><table class="tbl">
+    <thead><tr><th>#</th><th>Locatário</th><th>Score</th><th>Adimpl.</th><th>Situação</th><th>Total Pago</th><th>Pagtos</th><th>Tempo</th><th>Classificação</th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="9" class="empty">Sem locatários</td></tr>'}</tbody>
+  </table></div></div>`;
+}
+
+function verScoringDetalhe(mId){
+  const m=DB.motos.find(x=>x.id===mId);
+  if(!m)return;
+  const s=calcSaudeLoc(mId)||{score:0,cor:'var(--sub)',emoji:'—',label:'Sem dados',detalhes:[]};
+  const ad=calcAdimplencia(mId)||{taxa:0,pagas:0,totalSem:0};
+  const pgs=DB.pg.filter(p=>p.mId===mId).sort((a,b)=>(b.sem||'').localeCompare(a.sem||''));
+  const paidByM={};
+  DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push({sem:p.sem,valor:Number(p.valor||p.val||0),data:p.data||p.sem});});
+  const debt=calcDebtCanonical(m,paidByM);
+  const totalPago=pgs.reduce((a,p)=>a+(p.valor!=null?Number(p.valor):Number(m.val||0)),0);
+  const diasCliente=m.dataInicio?Math.floor((new Date()-new Date(m.dataInicio+'T12:00'))/86400000):0;
+
+  const barW=(pts,max,cor)=>`<div style="background:var(--bor);border-radius:4px;height:8px;width:100%;margin-top:4px"><div style="width:${Math.round(pts/max*100)}%;height:100%;background:${cor};border-radius:4px;transition:width .4s"></div></div>`;
+
+  const ptAdimp=ad.totalSem>=2?Math.round(ad.taxa/2):25;
+  const ptAtraso=debt.qtdSemanas===0?30:debt.qtdSemanas===1?20:debt.qtdSemanas===2?10:0;
+  const gpsD=GPS[m.placa];
+  const ptGps=gpsD&&gpsD.e==='Conectado'?10:gpsD&&gpsD.e==='Desconectado'?0:5;
+  const ptTempo=diasCliente>=180?10:diasCliente>=90?8:diasCliente>=30?5:3;
+
+  const histRows=pgs.slice(0,12).map(p=>`<tr>
+    <td style="font-size:11px">${fD(p.sem)}</td>
+    <td style="color:var(--grn);font-weight:700">${fR(p.valor!=null?p.valor:m.val)}</td>
+    <td style="font-size:11px;color:var(--sub)">${p.data?fD(p.data):'—'}</td>
+  </tr>`).join('');
+
+  showM(mWrap('mScoring',`<div class="modal" style="max-width:560px">
+    <div class="mh"><span class="ct">🏅 Scoring — ${m.nome.split(' ').slice(0,2).join(' ')}</span><button class="btn bx" onclick="closeM('mScoring')">✕</button></div>
+    <div style="text-align:center;padding:16px 0">
+      <div style="font-size:56px;line-height:1">${s.score}</div>
+      <div style="font-size:14px;font-weight:700;color:${s.cor};margin-top:4px">${s.emoji} ${s.label}</div>
+      <div style="font-size:11px;color:var(--sub);margin-top:4px">${m.placa} · ${fR(Number(m.val))} /semana · ${Math.floor(diasCliente/30)} meses de cliente</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      <div class="card" style="padding:12px">
+        <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">ADIMPLÊNCIA HISTÓRICA</div>
+        <div style="font-size:20px;font-weight:800;color:${ad.taxa>=80?'var(--grn)':ad.taxa>=60?'var(--yel)':'var(--red)'}">${ptAdimp} <span style="font-size:12px;color:var(--sub)">/ 50 pts</span></div>
+        <div style="font-size:11px;color:var(--sub)">${ad.pagas}/${ad.totalSem} semanas pagas (${ad.taxa}%)</div>
+        ${barW(ptAdimp,50,'var(--grn)')}
+      </div>
+      <div class="card" style="padding:12px">
+        <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">SITUAÇÃO ATUAL</div>
+        <div style="font-size:20px;font-weight:800;color:${ptAtraso===30?'var(--grn)':ptAtraso>=20?'var(--yel)':'var(--red)'}">${ptAtraso} <span style="font-size:12px;color:var(--sub)">/ 30 pts</span></div>
+        <div style="font-size:11px;color:var(--sub)">${debt.qtdSemanas===0?'Sem débito pendente':debt.qtdSemanas+' semanas em aberto ('+fR(debt.comMulta)+')'}</div>
+        ${barW(ptAtraso,30,ptAtraso===30?'var(--grn)':ptAtraso>=20?'var(--yel)':'var(--red)')}
+      </div>
+      <div class="card" style="padding:12px">
+        <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">GPS / USO</div>
+        <div style="font-size:20px;font-weight:800;color:${ptGps===10?'var(--grn)':ptGps===5?'var(--yel)':'var(--red)'}">${ptGps} <span style="font-size:12px;color:var(--sub)">/ 10 pts</span></div>
+        <div style="font-size:11px;color:var(--sub)">${gpsD?gpsD.e:'Sem dados GPS'}</div>
+        ${barW(ptGps,10,ptGps===10?'var(--grn)':'var(--yel)')}
+      </div>
+      <div class="card" style="padding:12px">
+        <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">TEMPO DE CLIENTE</div>
+        <div style="font-size:20px;font-weight:800;color:var(--acc)">${ptTempo} <span style="font-size:12px;color:var(--sub)">/ 10 pts</span></div>
+        <div style="font-size:11px;color:var(--sub)">${diasCliente>=30?Math.floor(diasCliente/30)+' meses':diasCliente+' dias'}</div>
+        ${barW(ptTempo,10,'var(--acc)')}
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--sub);margin-bottom:6px;font-weight:700">Total pago no relacionamento: <span style="color:var(--grn)">${fR(totalPago)}</span></div>
+    ${histRows?`<div class="card"><div style="font-size:12px;font-weight:700;margin-bottom:8px">Últimos pagamentos</div><table class="tbl"><thead><tr><th>Semana ref.</th><th>Valor</th><th>Data pag.</th></tr></thead><tbody>${histRows}</tbody></table></div>`:''}
+  </div>`));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 📬 RÉGUA DE COBRANÇA — fila automática por dias de atraso + WhatsApp
+// ══════════════════════════════════════════════════════════════════════════════
+let _reguaFiltro='todos';
+let _waCfg=S.get('mg_wa_cfg')||{token:'',phoneId:'',templateLeve:'',templateModerado:'',templateGrave:''};
+
+function vRegua(){
+  const ativ=DB.motos.filter(m=>m.on&&m.nome&&m.val&&m.dia);
+  const paidByM={};
+  DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push({sem:p.sem,valor:Number(p.valor||p.val||0),data:p.data||p.sem});});
+
+  const inadimplentes=ativ.map(m=>{
+    const debt=calcDebtCanonical(m,paidByM);
+    if(debt.qtdSemanas===0)return null;
+    const diasAtraso=debt.semanas[0]?.diasAtraso||0;
+    const nivel=diasAtraso<=7?'leve':diasAtraso<=21?'moderado':'grave';
+    const corNivel=nivel==='leve'?'var(--yel)':nivel==='moderado'?'var(--acc)':'var(--red)';
+    const bg=nivel==='leve'?'var(--yelbg)':nivel==='moderado'?'var(--accbg)':'var(--redbg)';
+    return{m,debt,diasAtraso,nivel,corNivel,bg};
+  }).filter(Boolean).sort((a,b)=>b.diasAtraso-a.diasAtraso);
+
+  const filtrados=_reguaFiltro==='todos'?inadimplentes:inadimplentes.filter(x=>x.nivel===_reguaFiltro);
+
+  const qtLeve=inadimplentes.filter(x=>x.nivel==='leve').length;
+  const qtMod=inadimplentes.filter(x=>x.nivel==='moderado').length;
+  const qtGrave=inadimplentes.filter(x=>x.nivel==='grave').length;
+  const totalDevido=inadimplentes.reduce((a,x)=>a+x.debt.comMulta,0);
+
+  const rows=filtrados.map(({m,debt,diasAtraso,nivel,corNivel,bg})=>{
+    const phone=(m.fone||'').replace(/\D/g,'');
+    const template=gerarMsgCobranca(m,debt,nivel);
+    const waUrl=phone?`https://wa.me/55${phone}?text=${encodeURIComponent(template)}`:null;
+    return`<tr>
+      <td><div style="font-weight:700">${m.nome.split(' ').slice(0,2).join(' ')}</div><div style="font-size:10px;color:var(--sub)">${m.placa} · ${m.dia}</div></td>
+      <td style="text-align:center"><span style="background:${bg};color:${corNivel};border-radius:12px;padding:3px 10px;font-size:11px;font-weight:700">${diasAtraso}d</span></td>
+      <td style="text-align:center"><span style="background:${bg};color:${corNivel};border-radius:12px;padding:3px 10px;font-size:11px;font-weight:700">${nivel.toUpperCase()}</span></td>
+      <td style="text-align:center;color:var(--red);font-weight:700">${debt.qtdSemanas} sem.</td>
+      <td style="text-align:center;color:var(--red);font-weight:700">${fR(debt.comMulta)}</td>
+      <td style="text-align:center">${phone?`<span style="font-size:11px;color:var(--sub)">${m.fone}</span>`:'<span style="font-size:10px;color:var(--mut)">sem fone</span>'}</td>
+      <td style="text-align:right">
+        <button class="btn bx bxs" onclick="verMsgCobranca('${m.id}')" style="font-size:11px">📋 Ver msg</button>
+        ${waUrl?`<a href="${waUrl}" target="_blank" class="btn bxs" style="font-size:11px;background:#25D366;color:#fff;border:none;border-radius:6px;padding:5px 10px;text-decoration:none;display:inline-flex;align-items:center;gap:4px">📱 WA</a>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+
+  return`
+  <div class="g4" style="margin-bottom:12px">
+    <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">Total em Atraso</div><div class="num" style="color:var(--red)">${fR(totalDevido)}</div></div>
+    <div class="card" style="padding:14px;border-color:rgba(234,179,8,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">🟡 Leve (1-7d)</div><div class="num" style="color:var(--yel)">${qtLeve}</div></div>
+    <div class="card" style="padding:14px;border-color:rgba(249,115,22,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">🟠 Moderado (8-21d)</div><div class="num" style="color:var(--acc)">${qtMod}</div></div>
+    <div class="card" style="padding:14px;border-color:rgba(239,68,68,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">🔴 Grave (22d+)</div><div class="num" style="color:var(--red)">${qtGrave}</div></div>
+  </div>
+  <div class="card" style="margin-bottom:12px"><div class="ch">
+    <span class="ct">📬 Régua de Cobrança</span>
+    <div class="row" style="gap:6px">
+      <button class="btn${_reguaFiltro==='todos'?' ba':' bx'} bxs" onclick="_reguaFiltro='todos';render()" style="font-size:11px">Todos (${inadimplentes.length})</button>
+      <button class="btn${_reguaFiltro==='leve'?' ba':' bx'} bxs" onclick="_reguaFiltro='leve';render()" style="font-size:11px;color:var(--yel)">Leve (${qtLeve})</button>
+      <button class="btn${_reguaFiltro==='moderado'?' ba':' bx'} bxs" onclick="_reguaFiltro='moderado';render()" style="font-size:11px;color:var(--acc)">Moderado (${qtMod})</button>
+      <button class="btn${_reguaFiltro==='grave'?' ba':' bx'} bxs" onclick="_reguaFiltro='grave';render()" style="font-size:11px;color:var(--red)">Grave (${qtGrave})</button>
+      <button class="btn bx bxs" onclick="abrirConfigWA()" style="font-size:11px;background:#25D366;color:#fff;border:none">⚙️ Config WA</button>
+    </div>
+  </div>
+  <div style="overflow-x:auto"><table class="tbl">
+    <thead><tr><th>Locatário</th><th>Atraso</th><th>Nível</th><th>Semanas</th><th>Total c/Multa</th><th>Telefone</th><th></th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="7" class="empty">✅ Nenhum inadimplente no filtro selecionado</td></tr>'}</tbody>
+  </table></div></div>
+  <div class="card" style="margin-top:12px;border-color:rgba(37,211,102,.3)">
+    <div class="ch"><span class="ct" style="color:#25D366">📱 Integração WhatsApp Business (Meta API)</span></div>
+    <div style="font-size:12px;color:var(--sub);line-height:1.7">
+      <b style="color:var(--txt)">Como ativar mensagens automáticas:</b><br>
+      1. Crie uma conta no <b>Meta for Developers</b> → crie um app tipo "Business"<br>
+      2. Adicione o produto <b>WhatsApp</b> → copie o <b>Phone Number ID</b> e o <b>Token temporário</b><br>
+      3. Cole esses dados em <b>⚙️ Config WA</b> acima<br>
+      4. O botão "📱 WA" em cada linha abrirá o WhatsApp com a mensagem já preenchida<br>
+      <span style="color:var(--yel)">⚠️ Token temporário expira em 24h. Para produção, gere um token permanente via System User no Business Manager.</span>
+    </div>
+  </div>`;
+}
+
+function gerarMsgCobranca(m,debt,nivel){
+  const nome=(m.nome||'').split(' ')[0];
+  const placa=m.placa||'';
+  const semanas=debt.qtdSemanas;
+  const valor=fR(debt.comMulta);
+  if(nivel==='leve'){
+    return `Olá ${nome}! 👋 Passando pra lembrar que o pagamento da moto ${placa} referente a ${semanas} semana${semanas>1?'s':''} (${valor}) está em aberto. Qualquer dúvida, fala comigo. AMS Motos 🏍️`;
+  }else if(nivel==='moderado'){
+    return `Oi ${nome}! ⚠️ Identificamos que o aluguel da moto ${placa} está com ${semanas} semana${semanas>1?'s':''} em atraso, totalizando ${valor} (já inclui multa de 10%). Precisamos regularizar essa situação. Quando posso contar com você? AMS Motos`;
+  }else{
+    return `${nome}, 🚨 o aluguel da moto ${placa} está com ${semanas} semanas em aberto, no valor de ${valor}. Estamos encerrando prazos. Para evitar rescisão de contrato e recolhimento da moto, entre em contato IMEDIATAMENTE. AMS Motos – (71) 99999-9999`;
+  }
+}
+
+function verMsgCobranca(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const paidByM={};
+  DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push({sem:p.sem,valor:Number(p.valor||p.val||0),data:p.data||p.sem});});
+  const debt=calcDebtCanonical(m,paidByM);
+  const diasAtraso=debt.semanas[0]?.diasAtraso||0;
+  const nivel=diasAtraso<=7?'leve':diasAtraso<=21?'moderado':'grave';
+  const msg=gerarMsgCobranca(m,debt,nivel);
+  const phone=(m.fone||'').replace(/\D/g,'');
+  const waUrl=phone?`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`:null;
+  showM(mWrap('mMsgCob',`<div class="modal" style="max-width:500px">
+    <div class="mh"><span class="ct">📋 Template de cobrança — ${m.nome.split(' ')[0]}</span><button class="btn bx" onclick="closeM('mMsgCob')">✕</button></div>
+    <div style="background:var(--sur);border-radius:10px;padding:16px;font-size:13px;line-height:1.7;margin-bottom:14px;white-space:pre-wrap;color:var(--txt)">${msg}</div>
+    <div class="row" style="gap:8px;justify-content:flex-end">
+      <button class="btn bx" onclick="navigator.clipboard.writeText(document.querySelector('#mMsgCob textarea')?document.querySelector('#mMsgCob textarea').value:'${msg.replace(/'/g,"\\'")}');toast('Copiado!','grn')" style="font-size:12px">📋 Copiar</button>
+      ${waUrl?`<a href="${waUrl}" target="_blank" style="background:#25D366;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:6px">📱 Abrir WhatsApp</a>`:'<span style="font-size:11px;color:var(--sub)">Sem número cadastrado</span>'}
+    </div>
+  </div>`));
+}
+
+function abrirConfigWA(){
+  const temToken=!!(_waCfg.token&&_waCfg.phoneId);
+  showM(mWrap('mWaCfg',`<div class="modal" style="max-width:520px">
+    <div class="mh"><span class="ct">⚙️ Integração WhatsApp Business API</span><button class="btn bx" onclick="closeM('mWaCfg')">✕</button></div>
+
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <div style="flex:1;background:${temToken?'var(--grnbg)':'var(--sur)'};border:1px solid ${temToken?'rgba(34,197,94,.3)':'var(--bor)'};border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:18px">${temToken?'✅':'⚙️'}</div>
+        <div style="font-size:11px;font-weight:700;color:${temToken?'var(--grn)':'var(--sub)'};margin-top:4px">${temToken?'API Configurada':'Não configurado'}</div>
+      </div>
+    </div>
+
+    <div style="display:grid;gap:10px">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:4px">Token de Acesso (Bearer Token)</div>
+        <input id="waToken" value="${_waCfg.token||''}" placeholder="EAAxxxxxxx..." style="font-size:11px;font-family:monospace">
+        <div style="font-size:10px;color:var(--mut);margin-top:3px">Meta for Developers → Seu App → WhatsApp → API Setup → Token</div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:4px">Phone Number ID</div>
+        <input id="waPhoneId" value="${_waCfg.phoneId||''}" placeholder="123456789012345">
+        <div style="font-size:10px;color:var(--mut);margin-top:3px">Meta for Developers → WhatsApp → API Setup → Phone Number ID</div>
+      </div>
+    </div>
+
+    <div style="background:var(--sur);border-radius:8px;padding:12px 14px;margin-top:12px;font-size:11px;line-height:1.8">
+      <b style="color:var(--acc)">📋 Como ativar (passo a passo):</b><br>
+      1. Acesse <b>developers.facebook.com</b> → crie conta de desenvolvedor<br>
+      2. Crie um App → tipo <b>Business</b> → adicione produto <b>WhatsApp</b><br>
+      3. Na aba <b>API Setup</b> copie o <b>Token temporário</b> e o <b>Phone Number ID</b><br>
+      4. Cole aqui e salve → os botões "📱 WA" na Régua de Cobrança enviarão via <b>wa.me</b><br>
+      <span style="color:var(--yel)">⚡ Token temporário expira em 24h. Para uso permanente: <b>Business Manager → System User → gerar token permanente</b></span>
+    </div>
+
+    <div style="background:var(--blubg);border-radius:8px;padding:10px 14px;margin-top:10px;font-size:11px;color:var(--blu)">
+      <b>Envio direto via API</b> (sem abrir navegador) requer servidor backend próprio para assinar as requisições — isso está planejado para a próxima fase. Por ora, os botões 📱 abrem o WhatsApp Web/App com a mensagem pré-preenchida.
+    </div>
+
+    <div class="row" style="gap:8px;justify-content:flex-end;margin-top:14px">
+      <button class="btn bx" onclick="closeM('mWaCfg')">Cancelar</button>
+      ${temToken?`<button class="btn bx bxs" onclick="testarWA()" style="font-size:11px;color:#25D366;border-color:#25D366">🧪 Testar</button>`:''}
+      <button class="btn ba" onclick="salvarCfgWA()">💾 Salvar</button>
+    </div>
+  </div>`));
+}
+
+function salvarCfgWA(){
+  const t=document.getElementById('waToken')?.value||'';
+  const p=document.getElementById('waPhoneId')?.value||'';
+  _waCfg={token:t,phoneId:p};
+  S.set('mg_wa_cfg',_waCfg);
+  closeM('mWaCfg');
+  toast('Configuração WA salva','grn');
+}
+
+async function testarWA(){
+  if(!_waCfg.token||!_waCfg.phoneId){alert('Configure token e Phone ID primeiro.');return;}
+  try{
+    const r=await fetch(`https://graph.facebook.com/v18.0/${_waCfg.phoneId}`,{
+      headers:{Authorization:'Bearer '+_waCfg.token}
+    });
+    const d=await r.json();
+    if(d.error){alert('❌ Erro: '+d.error.message);}
+    else{alert('✅ Token válido!\nNúmero: '+d.display_phone_number+'\nStatus: '+d.quality_rating);}
+  }catch(e){alert('Erro de conexão: '+e.message);}
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 🚗 SINISTROS — módulo dedicado com fotos e fluxo seguradora
+// ══════════════════════════════════════════════════════════════════════════════
+function vSinistros(){
+  if(!DB.sinistros)DB.sinistros=[];
+  const lista=[...DB.sinistros].sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  const abertos=lista.filter(s=>s.st!=='encerrado');
+  const encerrados=lista.filter(s=>s.st==='encerrado');
+  const custoTotal=lista.reduce((a,s)=>a+Number(s.custo||0),0);
+  const motos=DB.motos.filter(m=>m.on).sort((a,b)=>a.placa.localeCompare(b.placa));
+
+  const ST={aberto:{label:'🔴 Aberto',cor:'var(--red)',bg:'var(--redbg)'},oficina:{label:'🔧 Reparo',cor:'var(--yel)',bg:'var(--yelbg)'},seguradora:{label:'📋 Seguradora',cor:'var(--blu)',bg:'var(--blubg)'},encerrado:{label:'✅ Encerrado',cor:'var(--grn)',bg:'var(--grnbg)'}};
+  const TIPOS=['Colisão','Furto','Roubo','Queda','Vandalismo','Alagamento','Outro'];
+
+  function rowSin(s){
+    const m=DB.motos.find(x=>x.id===s.mId)||{placa:'?',nome:''};
+    const st=ST[s.st]||ST.aberto;
+    const fotoCount=(s.fotos||[]).length;
+    return`<tr>
+      <td style="font-size:11px">${fD(s.data)}</td>
+      <td><b>${m.placa}</b><div style="font-size:10px;color:var(--sub)">${(m.nome||'').split(' ')[0]||'—'}</div></td>
+      <td><span style="background:var(--sur);border-radius:6px;padding:2px 8px;font-size:11px">${s.tipo||'—'}</span></td>
+      <td style="font-size:12px">${(s.desc||'').slice(0,40)}${s.desc&&s.desc.length>40?'…':''}</td>
+      <td style="font-size:11px;color:var(--sub)">${s.bo||'—'}</td>
+      <td style="color:${s.custo>0?'var(--red)':'var(--sub)'};font-weight:700">${s.custo>0?fR(s.custo):'—'}</td>
+      <td><span style="background:${st.bg};color:${st.cor};border-radius:12px;padding:3px 10px;font-size:11px;font-weight:700">${st.label}</span></td>
+      <td style="text-align:center">${fotoCount>0?`<span style="font-size:11px;color:var(--blu)">📷 ${fotoCount}</span>`:'<span style="color:var(--mut);font-size:11px">—</span>'}</td>
+      <td style="text-align:right">
+        <button class="btn bx bxs" onclick="editarSinistro('${s.id}')" style="font-size:11px">✏️</button>
+        <button class="btn bx bxs" onclick="excluirSinistro('${s.id}')" style="font-size:11px;color:var(--red)">🗑</button>
+      </td>
+    </tr>`;
+  }
+
+  return`
+  <div class="g4" style="margin-bottom:12px">
+    <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">Total de Sinistros</div><div class="num" style="color:var(--txt)">${lista.length}</div></div>
+    <div class="card" style="padding:14px;border-color:rgba(239,68,68,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">🔴 Em Aberto</div><div class="num" style="color:var(--red)">${abertos.length}</div></div>
+    <div class="card" style="padding:14px;border-color:rgba(34,197,94,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">✅ Encerrados</div><div class="num" style="color:var(--grn)">${encerrados.length}</div></div>
+    <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">Custo Total</div><div class="num" style="color:var(--red)">${fR(custoTotal)}</div></div>
+  </div>
+  <div class="card"><div class="ch">
+    <span class="ct">🚗 Gestão de Sinistros</span>
+    <button class="btn ba bxs" onclick="abrirModalSinistro()">+ Novo Sinistro</button>
+  </div>
+  <div style="overflow-x:auto"><table class="tbl">
+    <thead><tr><th>Data</th><th>Moto</th><th>Tipo</th><th>Descrição</th><th>B.O.</th><th>Custo</th><th>Status</th><th>Fotos</th><th></th></tr></thead>
+    <tbody>${lista.map(rowSin).join('')||'<tr><td colspan="9" class="empty">Nenhum sinistro registrado</td></tr>'}</tbody>
+  </table></div></div>`;
+}
+
+function abrirModalSinistro(id){
+  if(!DB.sinistros)DB.sinistros=[];
+  const s=id?DB.sinistros.find(x=>x.id===id):null;
+  const motos=DB.motos.filter(m=>m.on).sort((a,b)=>a.placa.localeCompare(b.placa));
+  const TIPOS=['Colisão','Furto','Roubo','Queda','Vandalismo','Alagamento','Outro'];
+  const fotosExist=(s&&s.fotos)||[];
+  showM(mWrap('mSinEdit',`<div class="modal" style="max-width:560px">
+    <div class="mh"><span class="ct">${s?'✏️ Editar':'+ Novo'} Sinistro</span><button class="btn bx" onclick="closeM('mSinEdit')">✕</button></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><div style="font-size:11px;color:var(--sub);margin-bottom:4px">Moto*</div>
+        <select id="sinMoto">${motos.map(m=>`<option value="${m.id}"${s&&s.mId===m.id?' selected':''}>${m.placa} — ${(m.nome||'').split(' ')[0]||'Disponível'}</option>`).join('')}</select></div>
+      <div><div style="font-size:11px;color:var(--sub);margin-bottom:4px">Data*</div><input type="date" id="sinData" value="${s?s.data:tod()}"></div>
+      <div><div style="font-size:11px;color:var(--sub);margin-bottom:4px">Tipo</div>
+        <select id="sinTipo">${TIPOS.map(t=>`<option${s&&s.tipo===t?' selected':''}>${t}</option>`).join('')}</select></div>
+      <div><div style="font-size:11px;color:var(--sub);margin-bottom:4px">Status</div>
+        <select id="sinSt">
+          <option value="aberto"${!s||s.st==='aberto'?' selected':''}>🔴 Aberto</option>
+          <option value="oficina"${s&&s.st==='oficina'?' selected':''}>🔧 Em Reparo</option>
+          <option value="seguradora"${s&&s.st==='seguradora'?' selected':''}>📋 Na Seguradora</option>
+          <option value="encerrado"${s&&s.st==='encerrado'?' selected':''}>✅ Encerrado</option>
+        </select></div>
+      <div><div style="font-size:11px;color:var(--sub);margin-bottom:4px">Nº B.O.</div><input id="sinBo" value="${s?s.bo||'':''}" placeholder="Número do boletim"></div>
+      <div><div style="font-size:11px;color:var(--sub);margin-bottom:4px">Custo (R$)</div><input type="number" id="sinCusto" value="${s?s.custo||0:0}" placeholder="0.00"></div>
+    </div>
+    <div style="margin-top:10px"><div style="font-size:11px;color:var(--sub);margin-bottom:4px">Descrição</div><textarea id="sinDesc" rows="3" placeholder="Descreva o ocorrido...">${s?s.desc||'':''}</textarea></div>
+    <div style="margin-top:10px"><div style="font-size:11px;color:var(--sub);margin-bottom:4px">Observações / Seguradora</div><textarea id="sinObs" rows="2" placeholder="Protocolo, contato da seguradora, pendências...">${s?s.obs||'':''}</textarea></div>
+    <div style="margin-top:10px">
+      <div style="font-size:11px;color:var(--sub);margin-bottom:6px">📷 Fotos do Sinistro (${fotosExist.length} salvas)</div>
+      <label style="display:inline-flex;align-items:center;gap:6px;background:var(--blubg);border:1px solid var(--blu);color:var(--blu);border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12px">
+        + Adicionar fotos <input type="file" accept="image/*" multiple style="display:none" onchange="adicionarFotosSinistro(this,'${id||''}')">
+      </label>
+      <div id="sinFotosPreview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+        ${fotosExist.map((f,i)=>`<div style="position:relative"><img src="${f.data||f}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--bor)"><button onclick="removerFotoSinistro(${i})" style="position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button></div>`).join('')}
+      </div>
+    </div>
+    <div class="row" style="gap:8px;justify-content:flex-end;margin-top:14px">
+      <button class="btn bx" onclick="closeM('mSinEdit')">Cancelar</button>
+      <button class="btn ba" onclick="salvarSinistro('${id||''}')">💾 Salvar</button>
+    </div>
+  </div>`));
+  window._sinFotosTemp=fotosExist.map(f=>({...f}));
+}
+
+window._sinFotosTemp=[];
+function adicionarFotosSinistro(input){
+  const files=Array.from(input.files);
+  files.forEach(f=>{
+    const rd=new FileReader();
+    rd.onload=e=>{
+      window._sinFotosTemp.push({data:e.target.result,nome:f.name,data_:tod()});
+      const prev=document.getElementById('sinFotosPreview');
+      if(prev){
+        const idx=window._sinFotosTemp.length-1;
+        prev.innerHTML+=`<div style="position:relative"><img src="${e.target.result}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--bor)"><button onclick="removerFotoSinistro(${idx})" style="position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer">×</button></div>`;
+      }
+    };
+    rd.readAsDataURL(f);
+  });
+}
+function removerFotoSinistro(idx){
+  if(!confirm('Remover esta foto?'))return;
+  window._sinFotosTemp.splice(idx,1);
+  // Re-render preview
+  const prev=document.getElementById('sinFotosPreview');
+  if(prev)prev.innerHTML=window._sinFotosTemp.map((f,i)=>`<div style="position:relative"><img src="${f.data||f}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--bor)"><button onclick="removerFotoSinistro(${i})" style="position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer">×</button></div>`).join('');
+}
+function salvarSinistro(id){
+  if(!DB.sinistros)DB.sinistros=[];
+  const mId=document.getElementById('sinMoto').value;
+  const data=document.getElementById('sinData').value;
+  const tipo=document.getElementById('sinTipo').value;
+  const st=document.getElementById('sinSt').value;
+  const bo=document.getElementById('sinBo').value.trim();
+  const custo=Number(document.getElementById('sinCusto').value||0);
+  const desc=document.getElementById('sinDesc').value.trim();
+  const obs=document.getElementById('sinObs').value.trim();
+  if(!mId||!data){alert('Preencha moto e data.');return;}
+  const fotos=window._sinFotosTemp||[];
+  if(id){
+    const s=DB.sinistros.find(x=>x.id===id);
+    if(s)Object.assign(s,{mId,data,tipo,st,bo,custo,desc,obs,fotos});
+  }else{
+    DB.sinistros.push({id:uid(),mId,data,tipo,st,bo,custo,desc,obs,fotos,criado:tod()});
+  }
+  // Atualiza status da moto se sinistro ativo
+  const m=DB.motos.find(x=>x.id===mId);
+  if(m&&st!=='encerrado')m.status=st==='oficina'?'oficina':'sinistro';
+  else if(m&&st==='encerrado')m.status='';
+  S.set('mg_sinistros',DB.sinistros);sv('m');
+  closeM('mSinEdit');render();toast('Sinistro salvo','grn');
+}
+function editarSinistro(id){abrirModalSinistro(id);}
+function excluirSinistro(id){
+  if(!confirm('Excluir sinistro?'))return;
+  DB.sinistros=(DB.sinistros||[]).filter(x=>x.id!==id);
+  S.set('mg_sinistros',DB.sinistros);render();toast('Sinistro removido','red');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 🔩 PAINEL DO MECÂNICO — produtividade, serviços por dia, peças mais usadas
+// ══════════════════════════════════════════════════════════════════════════════
+let _mecMes=tod().slice(0,7);
+let _mecView='resumo';
+
+function vMecanico(){
+  const osMes=DB.os.filter(o=>(o.data||'').startsWith(_mecMes));
+  const osAprov=DB.intervencoes?DB.intervencoes.filter(i=>(i.data||i.criado||'').startsWith(_mecMes)&&i.status==='aprovada'):[];
+  const todosServicos=[...osMes,...osAprov];
+
+  // KPIs
+  const totalServicos=todosServicos.length;
+  const custoTotal=osMes.reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0);
+  const pecasTotal=osMes.reduce((a,o)=>a+Number(o.pec||0),0);
+  const maoObraTotal=osMes.reduce((a,o)=>a+Number(o.mao||0),0);
+
+  // Serviços por dia (OS do mês agrupadas)
+  const porDia={};
+  osMes.forEach(o=>{
+    const d=o.data||'';
+    if(!porDia[d])porDia[d]=0;
+    porDia[d]++;
+  });
+  const diasOrdenados=Object.keys(porDia).sort();
+  const maxPorDia=Math.max(...Object.values(porDia),1);
+
+  // Peças mais usadas (do estoque + OS)
+  const pecasUsadas={};
+  osMes.forEach(o=>{
+    if(o.pecas&&Array.isArray(o.pecas)){
+      o.pecas.forEach(p=>{
+        const nome=p.nome||p.id||'?';
+        if(!pecasUsadas[nome])pecasUsadas[nome]=0;
+        pecasUsadas[nome]+=(p.qtd||1);
+      });
+    }
+    // Fallback: campo desc pode ter nome da peça
+    if(o.peca){
+      if(!pecasUsadas[o.peca])pecasUsadas[o.peca]=0;
+      pecasUsadas[o.peca]++;
+    }
+  });
+  const topPecas=Object.entries(pecasUsadas).sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+  // Tipos de serviço
+  const tiposServ={};
+  osMes.forEach(o=>{
+    const t=o.tipo||o.desc?.slice(0,25)||'Serviço';
+    if(!tiposServ[t])tiposServ[t]=0;
+    tiposServ[t]++;
+  });
+  const topTipos=Object.entries(tiposServ).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+  // Média diária
+  const diasComServ=diasOrdenados.length||1;
+  const mediaDiaria=(totalServicos/diasComServ).toFixed(1);
+
+  // SVG barras por dia
+  const BARW=500,BARH=100,BPAD=30;
+  const barDias=diasOrdenados.slice(-14); // últimos 14 dias do mês
+  const bW2=barDias.length?(BARW-BPAD*2)/barDias.length:20;
+  let svgDias=`<svg viewBox="0 0 ${BARW} ${BARH+20}" style="width:100%;max-width:600px">`;
+  barDias.forEach((d,i)=>{
+    const v=porDia[d]||0;
+    const bH=Math.max(2,(v/maxPorDia)*(BARH-10));
+    const x=BPAD+i*bW2+bW2*.15;
+    const bW3=bW2*.7;
+    svgDias+=`<rect x="${x}" y="${BARH-bH}" width="${bW3}" height="${bH}" fill="var(--acc)" rx="2" opacity=".9"><title>${fD(d)}: ${v} serviço(s)</title></rect>`;
+    svgDias+=`<text x="${x+bW3/2}" y="${BARH+14}" text-anchor="middle" font-size="9" fill="#64748b">${d.slice(8)}</text>`;
+    svgDias+=`<text x="${x+bW3/2}" y="${BARH-bH-3}" text-anchor="middle" font-size="9" fill="#f1f5f9" font-weight="700">${v>0?v:''}</text>`;
+  });
+  svgDias+='</svg>';
+
+  // Tabela de OS recentes
+  const osRecentes=[...osMes].sort((a,b)=>(b.data||'').localeCompare(a.data||'')).slice(0,15);
+  const rowsOs=osRecentes.map(o=>{
+    const m=DB.motos.find(x=>x.id===o.mId)||{placa:'?',nome:''};
+    return`<tr>
+      <td style="font-size:11px">${fD(o.data)}</td>
+      <td><b>${m.placa}</b></td>
+      <td style="font-size:12px">${(o.desc||o.tipo||'—').slice(0,35)}</td>
+      <td style="color:var(--acc)">${fR(o.pec||0)}</td>
+      <td style="color:var(--blu)">${fR(o.mao||0)}</td>
+      <td style="color:var(--grn);font-weight:700">${fR((o.pec||0)+(o.mao||0))}</td>
+      <td><span class="badge" style="font-size:10px;background:var(--grnbg);color:var(--grn)">✅</span></td>
+    </tr>`;
+  }).join('');
+
+  return`
+  <div class="card" style="margin-bottom:12px"><div class="ch">
+    <span class="ct">🔩 Painel do Mecânico</span>
+    <div class="row" style="gap:6px">
+      <input type="month" value="${_mecMes}" onchange="_mecMes=this.value;render()" style="width:150px">
+      <button class="btn${_mecView==='resumo'?' ba':' bx'} bxs" onclick="_mecView='resumo';render()" style="font-size:11px">Resumo</button>
+      <button class="btn${_mecView==='os'?' ba':' bx'} bxs" onclick="_mecView='os';render()" style="font-size:11px">OS Detalhado</button>
+    </div>
+  </div></div>
+
+  <div class="g4" style="margin-bottom:12px">
+    <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">Serviços no Mês</div><div class="num" style="color:var(--acc)">${totalServicos}</div><div style="font-size:11px;color:var(--sub);margin-top:4px">média ${mediaDiaria}/dia</div></div>
+    <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">Custo Total</div><div class="num" style="color:var(--red)">${fR(custoTotal)}</div></div>
+    <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">Peças</div><div class="num" style="color:var(--acc)">${fR(pecasTotal)}</div></div>
+    <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:6px">Mão de Obra</div><div class="num" style="color:var(--blu)">${fR(maoObraTotal)}</div></div>
+  </div>
+
+  ${_mecView==='resumo'?`
+  <div class="g2" style="margin-bottom:12px">
+    <div class="card">
+      <div class="ch" style="margin-bottom:10px"><span class="ct">📅 Serviços por Dia</span></div>
+      ${diasOrdenados.length?svgDias:'<div class="empty">Sem OS neste mês</div>'}
+    </div>
+    <div class="card">
+      <div class="ch" style="margin-bottom:10px"><span class="ct">🔧 Tipos de Serviço</span></div>
+      ${topTipos.length?topTipos.map(([t,n])=>`
+        <div style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+            <span style="font-size:12px">${t.slice(0,30)}</span>
+            <span style="font-size:12px;font-weight:700;color:var(--acc)">${n}</span>
+          </div>
+          <div style="background:var(--bor);border-radius:3px;height:5px"><div style="width:${Math.round(n/topTipos[0][1]*100)}%;height:100%;background:var(--acc);border-radius:3px"></div></div>
+        </div>`).join(''):'<div class="empty">Sem dados</div>'}
+    </div>
+  </div>
+  <div class="card">
+    <div class="ch" style="margin-bottom:10px"><span class="ct">📦 Peças Mais Usadas</span></div>
+    ${topPecas.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
+      ${topPecas.map(([nome,qtd])=>`<div style="background:var(--sur);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px">${nome}</span>
+        <span style="background:var(--accbg);color:var(--acc);border-radius:10px;padding:2px 10px;font-size:12px;font-weight:700">${qtd}×</span>
+      </div>`).join('')}
+    </div>`:'<div class="empty" style="color:var(--sub);font-size:12px">As peças aparecerão aqui quando OS forem registradas com campo "peça"</div>'}
+  </div>
+  `:`
+  <div class="card">
+    <div class="ch"><span class="ct">🔩 OS do Mês — Detalhado</span></div>
+    <div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Data</th><th>Moto</th><th>Serviço</th><th>Peças</th><th>M.O.</th><th>Total</th><th>Status</th></tr></thead>
+      <tbody>${rowsOs||'<tr><td colspan="7" class="empty">Sem OS neste mês</td></tr>'}</tbody>
+    </table></div>
+  </div>
+  `}`;
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 🗺️ MAPA DA FROTA — todas as motos plotadas via Leaflet + OpenStreetMap
+// ══════════════════════════════════════════════════════════════════════════════
+let _mapaFiltro='todas';
+let _mapaInstance=null;
+
+function vMapa(){
+  // Conta motos com coordenadas GPS
+  const motosComGps=DB.motos.filter(m=>{
+    const g=GPS[m.placa];
+    return g&&g.lat&&g.lng&&Number(g.lat)!==0&&Number(g.lng)!==0;
+  });
+  const motosConectadas=motosComGps.filter(m=>GPS[m.placa]?.e==='Conectado');
+  const motosDesc=motosComGps.filter(m=>GPS[m.placa]?.e==='Desconectado');
+  const motosSemGps=DB.motos.filter(m=>m.on&&!motosComGps.find(x=>x.placa===m.placa));
+
+  // Motos com apenas endereço (sem lat/lng)
+  const motosEndOnly=DB.motos.filter(m=>{
+    if(!m.on)return false;
+    const g=GPS[m.placa];
+    return g&&g.end&&(!g.lat||Number(g.lat)===0);
+  });
+
+  return`
+  <div class="g4" style="margin-bottom:12px">
+    <div class="card" style="padding:12px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:4px">Com GPS</div><div class="num" style="color:var(--acc)">${motosComGps.length}</div></div>
+    <div class="card" style="padding:12px;border-color:rgba(34,197,94,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:4px">🟢 Conectadas</div><div class="num" style="color:var(--grn)">${motosConectadas.length}</div></div>
+    <div class="card" style="padding:12px;border-color:rgba(239,68,68,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:4px">🔴 Desconectadas</div><div class="num" style="color:var(--red)">${motosDesc.length}</div></div>
+    <div class="card" style="padding:12px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:4px">Sem GPS</div><div class="num" style="color:var(--sub)">${motosSemGps.length}</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px"><div class="ch">
+    <span class="ct">🗺️ Mapa da Frota — Salvador, BA</span>
+    <div class="row" style="gap:6px">
+      <button class="btn${_mapaFiltro==='todas'?' ba':' bx'} bxs" onclick="_mapaFiltro='todas';_renderMapaFrota()" style="font-size:11px">Todas (${motosComGps.length})</button>
+      <button class="btn${_mapaFiltro==='conectadas'?' ba':' bx'} bxs" onclick="_mapaFiltro='conectadas';_renderMapaFrota()" style="font-size:11px;color:var(--grn)">🟢 Conectadas</button>
+      <button class="btn${_mapaFiltro==='desconectadas'?' ba':' bx'} bxs" onclick="_mapaFiltro='desconectadas';_renderMapaFrota()" style="font-size:11px;color:var(--red)">🔴 Desconectadas</button>
+      <button class="btn bx bxs" onclick="_renderMapaFrota(true)" style="font-size:11px">🔄 Atualizar</button>
+    </div>
+  </div>
+  <div id="mapaFrotaContainer" style="width:100%;height:520px;border-radius:10px;overflow:hidden;background:var(--sur);position:relative">
+    <div id="mapaFrotaEl" style="width:100%;height:100%"></div>
+    <div id="mapaLoading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--sur);z-index:10;font-size:13px;color:var(--sub)">
+      <div style="text-align:center"><div style="font-size:32px;margin-bottom:8px">🗺️</div>Carregando mapa...</div>
+    </div>
+  </div>
+  ${motosComGps.length===0?`<div style="background:var(--yelbg);border-radius:8px;padding:12px 16px;margin-top:10px;font-size:12px;color:var(--yel)">
+    ⚠️ Nenhuma moto com coordenadas GPS disponíveis. Sincronize o GPS (botão 🛰️ GPS na barra) para que as motos apareçam no mapa. Os dados do GPS precisam incluir <b>lat</b> e <b>lng</b> — atualize o bookmarklet se necessário.
+  </div>`:''}
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="ch" style="margin-bottom:10px"><span class="ct">📍 Última Localização Conhecida</span></div>
+    <div style="overflow-x:auto;max-height:320px;overflow-y:auto"><table class="tbl">
+      <thead><tr><th>Placa</th><th>Locatário</th><th>Status GPS</th><th>Última atualização</th><th>Endereço</th><th>KM</th></tr></thead>
+      <tbody>${DB.motos.filter(m=>m.on&&GPS[m.placa]).sort((a,b)=>{
+        const ea=GPS[a.placa]?.e||'';const eb=GPS[b.placa]?.e||'';
+        return ea==='Conectado'&&eb!=='Conectado'?-1:eb==='Conectado'&&ea!=='Conectado'?1:0;
+      }).map(m=>{
+        const g=GPS[m.placa];
+        const cor=g.e==='Conectado'?'var(--grn)':g.e==='Desconectado'?'var(--red)':'var(--yel)';
+        const dot=g.e==='Conectado'?'🟢':g.e==='Desconectado'?'🔴':'🟡';
+        return`<tr>
+          <td><b>${m.placa}</b></td>
+          <td style="font-size:11px">${m.nome?(m.nome.split(' ').slice(0,2).join(' ')):'Disponível'}</td>
+          <td><span style="color:${cor};font-size:11px;font-weight:700">${dot} ${g.e}</span></td>
+          <td style="font-size:11px;color:var(--sub)">${g.u||'—'}</td>
+          <td style="font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--sub)">${g.end||'—'}</td>
+          <td style="font-size:11px;color:var(--sub)">${m.odo?fN(m.odo)+' km':'—'}</td>
+        </tr>`;
+      }).join('')||'<tr><td colspan="6" class="empty">Sem dados GPS</td></tr>'}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
+function _renderMapaFrota(forceReinit){
+  setTimeout(()=>{
+    const el=document.getElementById('mapaFrotaEl');
+    const loading=document.getElementById('mapaLoading');
+    if(!el)return;
+
+    // Destroy existing map instance
+    if(_mapaInstance){try{_mapaInstance.remove();}catch(e){}  _mapaInstance=null;}
+
+    if(typeof L==='undefined'){
+      if(loading)loading.innerHTML='<div style="text-align:center;color:var(--red)">⚠️ Leaflet não carregou.<br><small>Verifique sua conexão com internet.</small></div>';
+      return;
+    }
+
+    // Create map centered on Salvador
+    _mapaInstance=L.map(el,{zoomControl:true,scrollWheelZoom:true}).setView([-12.9714,  -38.5124],12);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      attribution:'© <a href="https://openstreetmap.org">OpenStreetMap</a>',
+      maxZoom:19
+    }).addTo(_mapaInstance);
+
+    if(loading)loading.style.display='none';
+
+    // Build markers
+    const bounds=[];
+    const filtro=_mapaFiltro;
+
+    DB.motos.filter(m=>{
+      if(!m.on)return false;
+      const g=GPS[m.placa];
+      if(!g||!g.lat||!g.lng||Number(g.lat)===0||Number(g.lng)===0)return false;
+      if(filtro==='conectadas'&&g.e!=='Conectado')return false;
+      if(filtro==='desconectadas'&&g.e!=='Desconectado')return false;
+      return true;
+    }).forEach(m=>{
+      const g=GPS[m.placa];
+      const lat=Number(g.lat);
+      const lng=Number(g.lng);
+      if(isNaN(lat)||isNaN(lng))return;
+
+      const cor=g.e==='Conectado'?'#22c55e':g.e==='Desconectado'?'#ef4444':'#eab308';
+      const paidByM={};
+      DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push({sem:p.sem,valor:Number(p.valor||p.val||0),data:p.data||p.sem});});
+      const divida=calcDebtCanonical(m,paidByM);
+      const temDivida=divida.qtdSemanas>0;
+
+      const svgIcon=`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="38" viewBox="0 0 32 38">
+        <ellipse cx="16" cy="35" rx="8" ry="3" fill="rgba(0,0,0,.3)"/>
+        <path d="M16 2C10.477 2 6 6.477 6 12c0 7 10 22 10 22s10-15 10-22c0-5.523-4.477-10-10-10z" fill="${cor}" stroke="#fff" stroke-width="1.5"/>
+        <text x="16" y="14" text-anchor="middle" font-size="9" font-weight="700" fill="#fff" font-family="monospace">${m.placa.slice(-4)}</text>
+        ${temDivida?'<circle cx="26" cy="6" r="5" fill="#ef4444" stroke="#fff" stroke-width="1.5"/><text x="26" y="10" text-anchor="middle" font-size="7" font-weight="700" fill="#fff">'+divida.qtdSemanas+'</text>':''}
+      </svg>`;
+
+      const icon=L.divIcon({
+        html:svgIcon,
+        iconSize:[32,38],
+        iconAnchor:[16,36],
+        popupAnchor:[0,-36],
+        className:''
+      });
+
+      const pgs=DB.pg.filter(p=>p.mId===m.id).length;
+      const popup=`<div style="min-width:160px;font-family:system-ui">
+        <div style="font-weight:800;font-size:14px;margin-bottom:4px">🏍️ ${m.placa}</div>
+        <div style="font-size:12px;color:#666;margin-bottom:6px">${m.nome||'Disponível'}</div>
+        <div style="font-size:11px;line-height:1.7">
+          <div><b>GPS:</b> <span style="color:${cor.replace('#','#')}">${g.e}</span></div>
+          <div><b>Última att.:</b> ${g.u||'—'}</div>
+          <div><b>Odômetro:</b> ${m.odo?fN(m.odo)+' km':'—'}</div>
+          <div><b>Plano:</b> ${m.val?fR(Number(m.val))+'/sem':'—'}</div>
+          ${temDivida?`<div style="color:#ef4444;font-weight:700">⚠️ ${divida.qtdSemanas} sem em atraso (${fR(divida.comMulta)})</div>`:'<div style="color:#22c55e">✅ Sem atraso</div>'}
+          ${g.end?`<div style="font-size:10px;color:#888;margin-top:4px">${g.end}</div>`:''}
+        </div>
+      </div>`;
+
+      L.marker([lat,lng],{icon}).addTo(_mapaInstance).bindPopup(popup);
+      bounds.push([lat,lng]);
+    });
+
+    if(bounds.length>1){
+      try{_mapaInstance.fitBounds(bounds,{padding:[30,30]});}catch(e){}
+    }else if(bounds.length===1){
+      _mapaInstance.setView(bounds[0],14);
+    }
+  },100);
+}
+
+// Auto-render map when tab loads
+const _origGo=go;
+window.go=function(t){
+  _origGo(t);
+  if(t==='mapa')_renderMapaFrota();
+};
+
 (function(){
   // Inject manifest blob
   const manifest={
@@ -8168,6 +9640,8 @@ render();
 setTimeout(()=>{ if(GPS_CFG.user&&GPS_CFG.pass) startGpsAutoSync(); }, 3000);
 // ── Sincroniza KM de manutenção silenciosamente no boot ───────────────────────
 setTimeout(()=>{ try{ sincronizarKmManutencao(true); }catch(e){} }, 2000);
+
+
 
 window.installPWA=function(){
     if(!deferredPrompt){
