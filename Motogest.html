@@ -930,7 +930,8 @@ async function syncGps(verbose=false){
     }).filter(x=>x.km>0||x.status);
     processarDadosGps(gpsData);
   }catch(e){
-    alert('Erro na sincronização:\n'+e.message+'\n\nO servidor pode estar bloqueando requisições externas (CORS).\nUse o bookmarklet como alternativa.');
+    if(verbose) alert('Erro na sincronização:\n'+e.message+'\n\nO servidor pode estar bloqueando requisições externas (CORS).\nUse o bookmarklet como alternativa.');
+    else console.warn('[MotoGest] GPS sync silencioso falhou:',e.message);
   }finally{
     if(btn){btn.textContent='Sincronizar GPS';btn.disabled=false;}
   }
@@ -1548,8 +1549,11 @@ function vMnt(){
         <span class="ct" style="color:var(--acc)">⚡ Troca de Óleo Urgente (${alertOil.length} motos)</span>
         <button class="btn ba bs" onclick="registrarOleoLote()" title="Registrar troca para todas as motos vencidas de uma vez">🛢️ Registrar em Lote</button>
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px">
-        ${alertOil.map(m=>{const{ol}=ms(m);const cor=ol<=0?'var(--red)':ol<=100?'var(--acc)':'var(--yel)';return`<div style="background:var(--sur);border:1px solid ${cor}44;border-radius:10px;padding:10px 14px;min-width:160px;flex:1">
+      <div style="margin-bottom:10px">
+        <input id="filtroOilAlert" type="text" class="inp" placeholder="🔍 Filtrar por placa ou locatário..." oninput="filtrarCardsOleo()" style="max-width:320px;font-size:13px">
+      </div>
+      <div id="listaCardsOleo" style="display:flex;flex-wrap:wrap;gap:8px">
+        ${alertOil.map(m=>{const{ol}=ms(m);const cor=ol<=0?'var(--red)':ol<=100?'var(--acc)':'var(--yel)';return`<div class="card-oleo-alert" data-placa="${(m.placa||'').toLowerCase()}" data-nome="${(m.nome||'').toLowerCase()}" style="background:var(--sur);border:1px solid ${cor}44;border-radius:10px;padding:10px 14px;min-width:160px;flex:1">
           <div style="font-weight:700;font-size:13px">${m.placa}</div>
           <div style="font-size:11px;color:var(--sub)">${m.nome||'sem nome'}</div>
           <div style="font-size:12px;font-weight:700;color:${cor};margin:4px 0">${ol<=0?'⚠️ VENCIDO '+Math.abs(ol)+'km atrás':'⏳ '+ol+'km restantes'}</div>
@@ -1745,6 +1749,16 @@ function correcaoEmergenciaKm(){
   } else {
     alert('Nenhuma correção necessária — todos os KM já estão atualizados.');
   }
+}
+
+// ── Filtro de busca nos cards de Troca de Óleo Urgente ───────────────────────
+function filtrarCardsOleo(){
+  const q=(document.getElementById('filtroOilAlert')?.value||'').toLowerCase().trim();
+  document.querySelectorAll('.card-oleo-alert').forEach(el=>{
+    const placa=el.dataset.placa||'';
+    const nome=el.dataset.nome||'';
+    el.style.display=(!q||placa.includes(q)||nome.includes(q))?'':'none';
+  });
 }
 
 // ── Sincronizar KM de Manutenção do Histórico ────────────────────────────────
