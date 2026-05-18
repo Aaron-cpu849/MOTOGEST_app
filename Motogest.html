@@ -170,11 +170,12 @@ const DB={
   histLoc: S.get('mg_histloc')||[],
   agenda: S.get('mg_agenda')||[],
   cobOleo: S.get('mg_cobOleo')||[],
+  servsFunc: S.get('mg_servsFunc')||[],
   pgOficina: S.get('mg_pgOficina')||[],
   negociacoes: S.get('mg_negoc')||[],
 };
 function sv(k){
-  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos',chats:'chats',solics:'solics',intv:'intervencoes',histloc:'histLoc',agenda:'agenda',extras:'extras',negoc:'negociacoes'};
+  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos',chats:'chats',solics:'solics',intv:'intervencoes',histloc:'histLoc',agenda:'agenda',extras:'extras',negoc:'negociacoes',servsFunc:'servsFunc'};
   const prop=map[k]||k;
   S.set('mg_'+k,DB[prop]);
 }
@@ -457,6 +458,7 @@ const TABS=[
   {id:'est',label:'📦 Estoque'},
   {id:'os',label:'🔩 OS'},
   {id:'oficina',label:'🛠️ Oficina'},
+  {id:'funcionario',label:'👷 Funcionário'},
   {id:'pag',label:'💰 Pagamentos'},
   {id:'rel',label:'📈 Relatórios'},
   {id:'mts',label:'🏍️ Motos'},
@@ -474,7 +476,7 @@ function go(t){
 }
 function render(){
   document.getElementById('tabs').innerHTML=TABS.map(t=>`<button class="tab${TAB===t.id?' active':''}" onclick="go('${t.id}')">${t.label}</button>`).join('');
-  const fn={dash:vDash,fin:vFin,odo:vOdo,mnt:vMnt,agenda:vAgendaTab,seg:vSeg,mul:vMul,est:vEst,os:vOs,oficina:vOficina,pag:vPag,rel:vRel,mts:vMts,loc:vLoc,ind:vInd,docs:vDocs,portal:vPortal};
+  const fn={dash:vDash,fin:vFin,odo:vOdo,mnt:vMnt,agenda:vAgendaTab,seg:vSeg,mul:vMul,est:vEst,os:vOs,oficina:vOficina,funcionario:vFuncionario,pag:vPag,rel:vRel,mts:vMts,loc:vLoc,ind:vInd,docs:vDocs,portal:vPortal};
   document.getElementById('content').innerHTML=fn[TAB]();
 }
 function closeM(id){const e=document.getElementById(id);if(e)e.remove()}
@@ -2773,7 +2775,29 @@ function vOficina(){
           <tbody>${doMes.map(i=>rowIntv(i,false)).join('')}</tbody>
         </table></div>`;
     })()}
-  </div>`;
+  </div>
+
+  <!-- ── Resumo rápido do Funcionário no dia ──── -->
+  ${(()=>{
+    const hoje3=tod();
+    const funcHoje=(DB.servsFunc||[]).filter(r=>r.data===hoje3);
+    const TMAP={oil:'🛢️ Óleo',rev:'🔧 Revisão',pneu:'🔵 Pneu',corr:'⛓️ Kit',past:'🔴 Pastilha',vela:'🔥 Vela',filtrar:'🌪️ Filtro Ar',filtoleo:'🫙 Filtro Óleo',escova:'⚡ Escova',freio:'🛑 Freio',embreia:'🔗 Embreagem',bucha:'⚙️ Bucha',outro:'🔩 Outro'};
+    const rows=funcHoje.map(r=>{
+      const m2=DB.motos.find(x=>x.id===r.mId)||{placa:'?'};
+      const servStr=(r.servicos||[]).map(s=>TMAP[s.tipo]||s.tipo).join(' + ');
+      const pecStr=(r.servicos||[]).flatMap(s=>(s.pecas||[]).map(p=>p.nome+'×'+p.qtd)).join(', ');
+      return`<tr><td><b>${m2.placa}</b></td><td style="font-size:11px;font-weight:700;color:var(--blu)">${r.km?fN(r.km)+' km':'—'}</td><td style="font-size:12px">${servStr}</td><td style="font-size:10px;color:var(--sub)">${pecStr||'—'}</td></tr>`;
+    }).join('');
+    return`<div class="card" style="border-color:rgba(59,130,246,.25)">
+      <div class="ch">
+        <span class="ct" style="color:var(--blu)">👷 Funcionário — Hoje (${hoje3})</span>
+        <button class="btn bx bxs" onclick="go('funcionario')" style="font-size:11px">📋 Ver histórico completo</button>
+      </div>
+      ${funcHoje.length
+        ?`<table class="tbl"><thead><tr><th>Moto</th><th>KM</th><th>Serviços</th><th>Peças</th></tr></thead><tbody>${rows}</tbody></table>`
+        :`<div style="font-size:12px;color:var(--sub);text-align:center;padding:12px">Nenhum serviço registrado hoje pelo funcionário</div>`}
+    </div>`;
+  })()}`;
 }
 
 function editarIntervencao(id){
@@ -3516,6 +3540,20 @@ function initFirebase(cfg){
     const btn=document.getElementById('fbBtn');
     if(btn){btn.textContent='🔥 Sync ✓';btn.style.background='#22c55e';btn.style.color='#000';}
     console.log('Firebase AMS conectado.');
+    // ── Listener: serviços do funcionário interno ─────────────────────────
+    window._fbRef.child('servsFunc').on('child_added',snap=>{
+      const reg=snap.val();if(!reg||!reg.id)return;
+      if(!DB.servsFunc)DB.servsFunc=[];
+      if(DB.servsFunc.find(x=>x.id===reg.id))return; // já existe
+      DB.servsFunc.push(reg);
+      aplicarServFuncionario(reg);
+      sv('servsFunc');
+      const btnF=document.getElementById('fbBtn');
+      if(btnF){btnF.textContent='👷 Func (+1)';btnF.style.background='#3b82f6';btnF.style.color='#fff';}
+      if(TAB==='funcionario'||TAB==='mnt'||TAB==='est') render();
+    });
+    // Publica estoque e motos para o portal do funcionário
+    publicarEstoqueFirebase();
     // ── Sincronização GPS via Firebase (Cloudflare Worker) ─────────────────
     // O Worker grava em ams_motos/gps_sync a cada 5 min — leitura silenciosa a cada 2 min
     startFirebaseGpsSync();
@@ -3542,6 +3580,55 @@ function publicarMotosFirebase(){
     loilKm:m.loilKm||0, lrevKm:m.lrevKm||0, lpneuKm:m.lpneuKm||0, lcorrKm:m.lcorrKm||0
   }));
   window._fbRef.child('motos_lista').set(lista).catch(e=>console.warn('Erro ao publicar motos:',e));
+}
+// Publica estoque simplificado para o portal do funcionário
+function publicarEstoqueFirebase(){
+  if(!window._fbRef)return;
+  const estoque=DB.est.map(e=>({id:e.id,nome:e.nome,un:e.un,qtd:e.qtd,min:e.min}));
+  window._fbRef.child('estoque_lista').set(estoque).catch(e=>console.warn('Erro ao publicar estoque:',e));
+}
+// ── Aplica serviço do funcionário diretamente (sem aprovação) ─────────────────
+function aplicarServFuncionario(reg){
+  const m=DB.motos.find(x=>x.id===reg.mId);
+  const km=Number(reg.km)||0;
+  const data=reg.data||tod();
+  const TIPOS_MNT_MAP={
+    oil:{key:'loilKm'},rev:{key:'lrevKm'},pneu:{key:'lpneuKm'},corr:{key:'lcorrKm'},
+    past:{key:'lpastKm'},vela:{key:'lvelaKm'},filtrar:{key:'lfiltArKm'},
+    filtoleo:{key:'lfiltOlKm'},escova:{key:'lescovaKm'},freio:{key:'lfreioKm'},
+    embreia:{key:'lembKm'},bucha:{key:'lbuchaKm'},outro:{key:null}
+  };
+  if(m&&km>0){
+    (reg.servicos||[]).forEach(s=>{
+      const t=TIPOS_MNT_MAP[s.tipo];
+      if(t&&t.key){const atual=m[t.key]||0;if(km>=atual)m[t.key]=km;}
+      // Histórico de manutenção — anti-duplicata ±50km
+      if(!DB.mhist.find(h=>h.mId===reg.mId&&h.tipo===s.tipo&&Math.abs((h.km||0)-km)<=50&&h.origem==='funcionario')){
+        const pecaNomes=(s.pecas||[]).map(p=>p.nome).join(', ');
+        DB.mhist.push({id:uid(),mId:reg.mId,tipo:s.tipo,km,
+          obs:(s.obs||'')+(pecaNomes?' ['+pecaNomes+']':''),
+          custo:0,ofic:'Funcionário AMS',data,origem:'funcionario',
+          itens:(s.pecas||[]).map(p=>({...p}))});
+      }
+    });
+    if(km>(m.odo||0))m.odo=km;
+    sv('m');sv('mhist');
+    publicarMotosFirebase();
+  }
+  // Baixa peças do estoque
+  let baixouEstoque=false;
+  (reg.servicos||[]).forEach(s=>{
+    (s.pecas||[]).forEach(p=>{
+      const item=DB.est.find(x=>x.id===p.eId);
+      if(item&&p.qtd>0){
+        item.qtd=Math.max(0,item.qtd-p.qtd);
+        DB.mov.push({id:uid(),eId:item.id,tipo:'out',qtd:p.qtd,data,
+          ref:'FUNC',obs:(s.label||s.tipo)+' — '+(m?m.placa:reg.mId)+' (Funcionário)'});
+        baixouEstoque=true;
+      }
+    });
+  });
+  if(baixouEstoque){sv('est');sv('mv');publicarEstoqueFirebase();}
 }
 // Inicia Firebase automaticamente se configurado
 (function(){
@@ -6025,6 +6112,554 @@ function vFin(){
 // ── DOCUMENTOS (Contratos, Caução, Fotos) ─────────────────────────────────────
 
 // ── PORTAL DO LOCATÁRIO ───────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// 👷 FUNCIONÁRIO INTERNO — Vista de histórico + geração de portal
+// ══════════════════════════════════════════════════════════════════════════════
+let _funcFiltroMes=tod().slice(0,7);
+let _funcFiltroMoto='';
+
+function vFuncionario(){
+  const hoje2=tod();
+  const fbCfg=getFbConfig();
+  const fbOk=fbCfg&&window._fbConnected;
+  const fbBadge=fbOk
+    ?`<span style="background:var(--grnbg);color:var(--grn);border-radius:6px;padding:2px 10px;font-size:11px;font-weight:700">🔥 Firebase OK</span>`
+    :`<span style="background:var(--redbg);color:var(--red);border-radius:6px;padding:2px 10px;font-size:11px;font-weight:700">⚠️ Firebase não configurado</span>`;
+
+  // Estatísticas do mês
+  const doMes=(DB.servsFunc||[]).filter(r=>r.data&&r.data.startsWith(_funcFiltroMes));
+  const tiposC={};doMes.forEach(r=>(r.servicos||[]).forEach(s=>{tiposC[s.tipo]=(tiposC[s.tipo]||0)+1;}));
+  const topTipo=Object.entries(tiposC).sort((a,b)=>b[1]-a[1])[0];
+  const pecasC={};doMes.forEach(r=>(r.servicos||[]).forEach(s=>(s.pecas||[]).forEach(p=>{pecasC[p.nome]=(pecasC[p.nome]||0)+p.qtd;})));
+
+  // Histórico filtrado
+  const hist=[...(DB.servsFunc||[])]
+    .filter(r=>(r.data||'').startsWith(_funcFiltroMes)&&(!_funcFiltroMoto||r.mId===_funcFiltroMoto))
+    .sort((a,b)=>(b.data||'').localeCompare(a.data||'')||(b.ts||0)-(a.ts||0));
+
+  const meses=[...new Set((DB.servsFunc||[]).filter(r=>r.data).map(r=>r.data.slice(0,7)))].sort().reverse();
+  if(!meses.includes(hoje2.slice(0,7)))meses.unshift(hoje2.slice(0,7));
+  const mesOpts=meses.slice(0,12).map(m=>`<option value="${m}" ${m===_funcFiltroMes?'selected':''}>${new Date(m+'-01T12:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</option>`).join('');
+  const motos=DB.motos.filter(m=>m.on).sort((a,b)=>a.placa.localeCompare(b.placa));
+  const motoOpts=`<option value="">Todas</option>`+motos.map(m=>`<option value="${m.id}" ${_funcFiltroMoto===m.id?'selected':''}>${m.placa}${m.nome?' — '+m.nome.split(' ').slice(0,2).join(' '):''}</option>`).join('');
+
+  const TIPOS_LABEL={oil:'🛢️ Óleo',rev:'🔧 Revisão',pneu:'🔵 Pneu',corr:'⛓️ Correia/Kit',past:'🔴 Pastilha',vela:'🔥 Vela',filtrar:'🌪️ Filtro Ar',filtoleo:'🫙 Filtro Óleo',escova:'⚡ Escova Arranque',freio:'🛑 Cabo Freio',embreia:'🔗 Embreagem',bucha:'⚙️ Bucha Coroa',outro:'🔩 Outro'};
+
+  function rowHist(r){
+    const m=DB.motos.find(x=>x.id===r.mId)||{placa:'?',nome:''};
+    const servStr=(r.servicos||[]).map(s=>{
+      const pStr=(s.pecas||[]).length?` <span style="font-size:10px;color:var(--sub)">[${(s.pecas||[]).map(p=>p.nome+'×'+p.qtd).join(', ')}]</span>`:'';
+      return`<span style="font-size:12px">• ${TIPOS_LABEL[s.tipo]||s.tipo}${pStr}</span>`;
+    }).join('<br>');
+    return`<tr>
+      <td style="font-size:11px;white-space:nowrap">${fD(r.data)}</td>
+      <td><b style="font-size:12px">${m.placa}</b><div style="font-size:10px;color:var(--sub)">${m.nome?m.nome.split(' ').slice(0,2).join(' '):'—'}</div></td>
+      <td style="font-size:12px;font-weight:700;color:var(--blu)">${r.km?fN(r.km)+' km':'—'}</td>
+      <td>${servStr}</td>
+      <td style="font-size:11px;color:var(--sub);max-width:140px">${r.obs||'—'}</td>
+      <td><button class="btn br bxs" onclick="funcExcluirLanc('${r.id}')">✕</button></td>
+    </tr>`;
+  }
+
+  return`
+  <!-- Cabeçalho -->
+  <div class="card" style="margin-bottom:12px;background:linear-gradient(135deg,#0f172a,#1a1a2e);border-color:rgba(59,130,246,.3)">
+    <div class="ch">
+      <span class="ct" style="color:var(--blu)">👷 Portal do Funcionário</span>
+      ${fbBadge}
+    </div>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:12px">
+      O funcionário acessa o portal pelo celular → lança os serviços → aparecem aqui automaticamente com <b style="color:var(--grn)">baixa no estoque e atualização da manutenção em tempo real</b>, sem necessidade de aprovação.
+    </p>
+    <div class="row" style="gap:8px;flex-wrap:wrap">
+      <button class="btn bg bxs" onclick="abrirPortalFuncionario()" ${fbOk?'':'disabled title="Configure o Firebase primeiro"'}>📱 Abrir Portal</button>
+      <button class="btn bx bxs" onclick="copiarLinkPortalFunc()" ${fbOk?'':'disabled'}>🔗 Copiar Link</button>
+      <button class="btn bx bxs" onclick="openFirebaseConfig()">⚙️ Config Firebase</button>
+      ${!fbOk?`<span style="font-size:11px;color:var(--yel)">⚠️ Configure o Firebase (botão 🔥 Sync) para ativar o portal</span>`:''}
+    </div>
+  </div>
+
+  <!-- Stats do mês -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+    <div class="card" style="padding:14px;text-align:center">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">LANÇAMENTOS NO MÊS</div>
+      <div style="font-size:28px;font-weight:800;color:var(--blu)">${doMes.length}</div>
+    </div>
+    <div class="card" style="padding:14px;text-align:center">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">MOTOS ATENDIDAS</div>
+      <div style="font-size:28px;font-weight:800;color:var(--grn)">${new Set(doMes.map(r=>r.mId)).size}</div>
+    </div>
+    <div class="card" style="padding:14px;text-align:center">
+      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">SERVIÇO MAIS FEITO</div>
+      <div style="font-size:13px;font-weight:700;color:var(--acc);margin-top:6px">${topTipo?`${TIPOS_LABEL[topTipo[0]]||topTipo[0]}<div style="font-size:11px;color:var(--sub)">${topTipo[1]}× este mês</div>`:'<span style="color:var(--sub)">—</span>'}</div>
+    </div>
+  </div>
+
+  <!-- Peças consumidas -->
+  ${Object.keys(pecasC).length?`<div class="card" style="margin-bottom:12px">
+    <div style="font-size:12px;font-weight:700;color:var(--sub);margin-bottom:8px">📦 PEÇAS UTILIZADAS — ${new Date(_funcFiltroMes+'-01T12:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).toUpperCase()}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      ${Object.entries(pecasC).sort((a,b)=>b[1]-a[1]).map(([n,q])=>`<span style="background:var(--blubg);color:var(--blu);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600">📦 ${n}: <b>${q}</b></span>`).join('')}
+    </div>
+  </div>`:''}
+
+  <!-- Histórico -->
+  <div class="card">
+    <div class="ch">
+      <span class="ct">📋 Histórico de Serviços</span>
+      <div class="row" style="gap:6px;flex-wrap:wrap">
+        <select onchange="_funcFiltroMes=this.value;render()" class="inp" style="width:auto;font-size:12px">${mesOpts}</select>
+        <select onchange="_funcFiltroMoto=this.value;render()" class="inp" style="width:auto;font-size:12px">${motoOpts}</select>
+        <button class="btn bx bxs" onclick="funcExportarCSV()">📥 CSV</button>
+      </div>
+    </div>
+    ${hist.length===0
+      ?`<div class="empty">Nenhum serviço registrado${_funcFiltroMoto?' para esta moto':''} em ${new Date(_funcFiltroMes+'-01T12:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</div>`
+      :`<div style="overflow-x:auto"><table class="tbl">
+        <thead><tr><th>Data</th><th>Moto</th><th>KM</th><th>Serviços / Peças</th><th>Obs</th><th></th></tr></thead>
+        <tbody>${hist.map(rowHist).join('')}</tbody>
+      </table></div>`}
+  </div>`;
+}
+
+function abrirPortalFuncionario(){
+  const fbCfg=getFbConfig();
+  if(!fbCfg){alert('Configure o Firebase primeiro.\n\nClique em 🔥 Sync no topo.');return;}
+  const motosJson=JSON.stringify(DB.motos.filter(m=>m.on).map(m=>({id:m.id,placa:m.placa,nome:m.nome||'',odo:m.odo||0,loilKm:m.loilKm||0,lrevKm:m.lrevKm||0})));
+  const estoqueJson=JSON.stringify(DB.est.map(e=>({id:e.id,nome:e.nome,un:e.un,qtd:e.qtd})));
+  const fbJson=JSON.stringify(fbCfg);
+  const w=window.open('','_blank','width=430,height=820');
+  w.document.write(gerarHtmlPortalFuncionario(motosJson,estoqueJson,fbJson));
+  w.document.close();
+}
+
+function copiarLinkPortalFunc(){
+  // Gera HTML como blob URL para compartilhar
+  const fbCfg=getFbConfig();
+  if(!fbCfg){alert('Configure o Firebase primeiro.');return;}
+  const motosJson=JSON.stringify(DB.motos.filter(m=>m.on).map(m=>({id:m.id,placa:m.placa,nome:m.nome||'',odo:m.odo||0,loilKm:m.loilKm||0,lrevKm:m.lrevKm||0})));
+  const estoqueJson=JSON.stringify(DB.est.map(e=>({id:e.id,nome:e.nome,un:e.un,qtd:e.qtd})));
+  const fbJson=JSON.stringify(fbCfg);
+  const html=gerarHtmlPortalFuncionario(motosJson,estoqueJson,fbJson);
+  const blob=new Blob([html],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  // Abre e instrui a salvar como favorito/atalho
+  const w=window.open(url,'_blank');
+  if(w) setTimeout(()=>alert('✅ Portal aberto!\n\nPara o funcionário acessar sempre:\n1. Abra o portal\n2. Clique nos 3 pontinhos do Chrome\n3. "Adicionar à tela inicial"\n\nOu salve o arquivo HTML e mande pelo WhatsApp.'),800);
+}
+
+function funcExcluirLanc(id){
+  if(!confirm('Excluir este lançamento do histórico?\n\n⚠️ As peças baixadas NÃO serão devolvidas ao estoque.'))return;
+  DB.servsFunc=(DB.servsFunc||[]).filter(x=>x.id!==id);
+  sv('servsFunc');render();
+  toast('Lançamento removido','red');
+}
+
+function funcExportarCSV(){
+  const hist=[...(DB.servsFunc||[])]
+    .filter(r=>(r.data||'').startsWith(_funcFiltroMes)&&(!_funcFiltroMoto||r.mId===_funcFiltroMoto))
+    .sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  if(!hist.length){alert('Nenhum registro para exportar.');return;}
+  const TIPOS_LABEL={oil:'Troca de Óleo',rev:'Revisão Geral',pneu:'Troca de Pneu',corr:'Correia/Kit Transmissão',past:'Pastilha de Freio',vela:'Vela',filtrar:'Filtro de Ar',filtoleo:'Filtro de Óleo',escova:'Escova de Arranque',freio:'Cabo de Freio',embreia:'Embreagem',bucha:'Bucha da Coroa',outro:'Outro'};
+  let csv='\uFEFF"Data";"Placa";"Locatário";"KM";"Serviços";"Peças";"Obs"\n';
+  hist.forEach(r=>{
+    const m=DB.motos.find(x=>x.id===r.mId)||{placa:'?',nome:''};
+    const servStr=(r.servicos||[]).map(s=>TIPOS_LABEL[s.tipo]||s.tipo).join(' | ');
+    const pecStr=(r.servicos||[]).flatMap(s=>(s.pecas||[]).map(p=>p.nome+'×'+p.qtd)).join(', ');
+    csv+=`"${fD(r.data)}";"${m.placa}";"${m.nome||'—'}";"${r.km||0}";"${servStr}";"${pecStr||'—'}";"${r.obs||'—'}"\n`;
+  });
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`Funcionario_${_funcFiltroMes}.csv`;a.click();
+}
+
+// ── Portal HTML autônomo para o funcionário ───────────────────────────────────
+function gerarHtmlPortalFuncionario(motosJson,estoqueJson,fbJson){
+  return`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AMS Funcionário">
+<title>👷 Portal Funcionário – AMS Motos</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"><\/script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"><\/script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{--bg:#0f172a;--card:#1e293b;--card2:#253047;--bor:#334155;--acc:#3b82f6;--grn:#22c55e;--red:#ef4444;--yel:#eab308;--txt:#f1f5f9;--sub:#94a3b8;--mut:#4b5563}
+body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;padding-bottom:32px}
+input,select,textarea{background:var(--card2);border:1px solid var(--bor);color:var(--txt);border-radius:10px;padding:12px 14px;width:100%;font-size:16px;font-family:inherit;outline:none;-webkit-appearance:none}
+input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+button{cursor:pointer;border:none;border-radius:10px;font-family:inherit;font-weight:700;transition:opacity .15s;-webkit-tap-highlight-color:transparent}
+button:active{opacity:.75;transform:scale(.98)}
+.btn-blue{background:var(--acc);color:#fff;padding:14px 20px;font-size:16px;width:100%}
+.btn-grn{background:var(--grn);color:#000;padding:14px 20px;font-size:16px;width:100%}
+.btn-out{background:var(--card2);color:var(--sub);border:1px solid var(--bor);padding:10px 16px;font-size:14px}
+.btn-red{background:var(--red);color:#fff;padding:6px 12px;font-size:13px;border-radius:8px}
+.card{background:var(--card);border:1px solid var(--bor);border-radius:14px;padding:16px;margin-bottom:12px}
+label{display:block;font-size:11px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}
+.fg{margin-bottom:14px}
+.row{display:flex;gap:8px;align-items:center}
+.badge{display:inline-flex;align-items:center;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700}
+.serv-card{background:var(--card2);border:1px solid rgba(59,130,246,.3);border-radius:10px;padding:12px;margin-bottom:8px}
+.peca-tag{display:inline-flex;align-items:center;gap:4px;background:rgba(59,130,246,.15);color:var(--acc);border-radius:6px;padding:4px 8px;font-size:12px;margin:2px}
+.step-num{width:28px;height:28px;border-radius:50%;background:var(--acc);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0}
+#toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:20px;font-weight:700;font-size:14px;display:none;z-index:999;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+.divider{height:1px;background:var(--bor);margin:14px 0}
+select option{background:#1e293b;color:var(--txt)}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-bottom:1px solid var(--bor);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100">
+  <div>
+    <div style="font-size:18px;font-weight:800;color:var(--acc)">👷 AMS Motos</div>
+    <div style="font-size:11px;color:var(--sub)">Portal do Funcionário</div>
+  </div>
+  <span id="fbStatus" style="font-size:11px;background:#1a1500;color:var(--yel);padding:5px 12px;border-radius:20px;font-weight:700">⏳ Conectando...</span>
+</div>
+
+<div style="padding:16px">
+
+<!-- Seção de lançamento -->
+<div id="secLancar">
+
+  <!-- Passo 1: Moto + KM + Data -->
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span class="step-num">1</span>
+      <span style="font-size:15px;font-weight:700">Moto, KM e Data</span>
+    </div>
+    <div class="fg">
+      <label>Moto *</label>
+      <select id="pMoto" onchange="atualizarOdo()">
+        <option value="">— Selecionar moto —</option>
+      </select>
+      <div id="odoInfo" style="font-size:12px;color:var(--sub);margin-top:6px;min-height:16px"></div>
+    </div>
+    <div class="row">
+      <div class="fg" style="flex:3;margin:0">
+        <label>KM atual da moto *</label>
+        <input type="number" id="pKm" placeholder="Ex: 15230" inputmode="numeric" style="font-size:20px;font-weight:700">
+      </div>
+      <div class="fg" style="flex:2;margin:0">
+        <label>Data</label>
+        <input type="date" id="pData">
+      </div>
+    </div>
+  </div>
+
+  <!-- Passo 2: Serviços -->
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span class="step-num">2</span>
+      <span style="font-size:15px;font-weight:700">Serviços realizados</span>
+    </div>
+
+    <!-- Serviços já adicionados -->
+    <div id="listaServicos"></div>
+
+    <!-- Adicionar serviço -->
+    <div style="background:rgba(59,130,246,.06);border:1px dashed rgba(59,130,246,.3);border-radius:10px;padding:12px">
+      <div style="font-size:13px;font-weight:700;color:var(--acc);margin-bottom:10px">➕ Adicionar serviço</div>
+      <div class="fg">
+        <label>Tipo de serviço</label>
+        <select id="sTipo" onchange="sugerirPecas()">
+          <option value="oil">🛢️ Troca de Óleo</option>
+          <option value="rev">🔧 Revisão Geral</option>
+          <option value="pneu">🔵 Troca de Pneu</option>
+          <option value="corr">⛓️ Correia / Kit Transmissão</option>
+          <option value="past">🔴 Troca de Pastilha</option>
+          <option value="vela">🔥 Troca de Vela</option>
+          <option value="filtrar">🌪️ Filtro de Ar</option>
+          <option value="filtoleo">🫙 Filtro de Óleo</option>
+          <option value="escova">⚡ Escova de Arranque</option>
+          <option value="freio">🛑 Cabo de Freio</option>
+          <option value="embreia">🔗 Cabo de Embreagem</option>
+          <option value="bucha">⚙️ Bucha da Coroa</option>
+          <option value="outro">🔩 Outro Serviço</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Observação do serviço (opcional)</label>
+        <input type="text" id="sObs" placeholder="Ex: verificado freio, corrente boa...">
+      </div>
+
+      <!-- Peças sugeridas -->
+      <div id="pecasSugeridas" style="margin-bottom:10px"></div>
+
+      <!-- Adicionar peça manual -->
+      <div class="fg">
+        <label>Peças usadas (estoque)</label>
+        <div class="row" style="gap:8px">
+          <select id="sPecaSel" style="flex:4;font-size:14px">
+            <option value="">— Selecionar peça —</option>
+          </select>
+          <input type="number" id="sPecaQtd" value="1" min="1" style="flex:1;font-size:15px;font-weight:700;text-align:center">
+          <button class="btn-out" onclick="addPecaManual()" style="flex:0 0 auto;white-space:nowrap">+ Add</button>
+        </div>
+      </div>
+      <div id="pecasAdicionadas" style="margin-bottom:10px"></div>
+
+      <button class="btn-blue" onclick="confirmarServico()" style="margin-top:4px">✅ Adicionar este serviço</button>
+    </div>
+  </div>
+
+  <!-- Passo 3: Obs + Enviar -->
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span class="step-num">3</span>
+      <span style="font-size:15px;font-weight:700">Finalizar</span>
+    </div>
+    <div class="fg">
+      <label>Observação geral (opcional)</label>
+      <input type="text" id="pObs" placeholder="Ex: moto chegou com problema no freio traseiro...">
+    </div>
+    <button class="btn-grn" onclick="enviarRegistro()" style="margin-top:4px">✅ Registrar e Enviar</button>
+  </div>
+
+</div><!-- /secLancar -->
+
+<!-- Histórico do dia -->
+<div class="card">
+  <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--sub)">📋 Registros de hoje</div>
+  <div id="histHoje"><div style="font-size:13px;color:var(--sub);text-align:center;padding:16px">Carregando...</div></div>
+</div>
+
+</div><!-- /padding -->
+<div id="toast"></div>
+
+<script>
+const MOTOS=${motosJson};
+const ESTOQUE=${estoqueJson};
+const FB_CFG=${fbJson};
+
+// Mapa de peças sugeridas por tipo
+const PECAS_SUGERIDAS={
+  oil:['Oleo de Motor','Filtro de Oleo'],
+  rev:['Filtro de Ar','Vela de Ignicao'],
+  pneu:['Pneu Traseiro','Pneu Dianteiro','Pneu Matrix Dianteiro','Pneu Matrix Traseiro'],
+  corr:['Kit Transmissao','Bucha da Coroa'],
+  past:['Pastilha de Freio','Lona de Freio'],
+  vela:['Vela de Ignicao'],
+  filtrar:['Filtro de Ar'],
+  filtoleo:['Filtro de Oleo'],
+  escova:['Escova de Arranque'],
+  freio:['Cabo AB'],
+  embreia:['Cabo de Embreagem'],
+  bucha:['Bucha da Coroa'],
+};
+const TIPOS_LABEL={oil:'🛢️ Troca de Óleo',rev:'🔧 Revisão Geral',pneu:'🔵 Troca de Pneu',corr:'⛓️ Correia/Kit',past:'🔴 Pastilha',vela:'🔥 Vela',filtrar:'🌪️ Filtro Ar',filtoleo:'🫙 Filtro Óleo',escova:'⚡ Escova Arranque',freio:'🛑 Cabo Freio',embreia:'🔗 Embreagem',bucha:'⚙️ Bucha',outro:'🔩 Outro'};
+
+let db=null;
+let _servicos=[]; // serviços confirmados
+let _pecasAtual=[]; // peças do serviço em edição
+
+// Preenche motos
+const selMoto=document.getElementById('pMoto');
+MOTOS.forEach(m=>{
+  const o=document.createElement('option');
+  o.value=m.id;
+  o.textContent=m.placa+(m.nome?' — '+m.nome.split(' ').slice(0,2).join(' '):'');
+  o.dataset.odo=m.odo||0;
+  selMoto.appendChild(o);
+});
+
+// Preenche estoque
+const selPeca=document.getElementById('sPecaSel');
+ESTOQUE.forEach(e=>{
+  if(e.qtd<=0)return; // não mostra itens sem estoque
+  const o=document.createElement('option');
+  o.value=e.id;
+  o.textContent=e.nome+' ('+e.qtd+' '+e.un+')';
+  o.dataset.nome=e.nome;o.dataset.un=e.un;o.dataset.qtd=e.qtd;
+  selPeca.appendChild(o);
+});
+
+// Data de hoje
+document.getElementById('pData').value=new Date().toISOString().split('T')[0];
+
+// Firebase
+try{
+  firebase.initializeApp(FB_CFG);
+  db=firebase.database();
+  document.getElementById('fbStatus').textContent='🔥 Conectado';
+  document.getElementById('fbStatus').style.background='#052010';
+  document.getElementById('fbStatus').style.color='#22c55e';
+  // Escuta registros de hoje
+  const hoje=new Date().toISOString().split('T')[0];
+  db.ref('ams_motos/servsFunc').orderByChild('data').equalTo(hoje).on('value',snap=>{
+    const items=[];snap.forEach(s=>items.push(s.val()));
+    renderHistHoje(items.sort((a,b)=>(b.ts||0)-(a.ts||0)));
+  });
+  // Atualiza estoque e motos em tempo real
+  db.ref('ams_motos/estoque_lista').on('value',snap=>{
+    const data=snap.val();if(!data)return;
+    // Atualiza qtd das peças no select
+    selPeca.querySelectorAll('option').forEach(o=>{
+      const item=data.find(e=>e.id===o.value);
+      if(item){o.textContent=item.nome+' ('+item.qtd+' '+item.un+')';o.dataset.qtd=item.qtd;}
+    });
+  });
+  db.ref('ams_motos/motos_lista').on('value',snap=>{
+    const data=snap.val();if(!data)return;
+    data.forEach(m=>{
+      const opt=selMoto.querySelector('option[value="'+m.id+'"]');
+      if(opt)opt.dataset.odo=m.odo||0;
+    });
+  });
+}catch(e){
+  document.getElementById('fbStatus').textContent='❌ Sem conexão';
+  document.getElementById('fbStatus').style.color='#ef4444';
+}
+
+function atualizarOdo(){
+  const sel=document.getElementById('pMoto');
+  const opt=sel.options[sel.selectedIndex];
+  const el=document.getElementById('odoInfo');
+  const kmInp=document.getElementById('pKm');
+  if(!sel.value){el.textContent='';return;}
+  const odo=parseInt(opt.dataset.odo||0);
+  el.innerHTML='📏 Odômetro atual no sistema: <b style="color:#3b82f6">'+odo.toLocaleString('pt-BR')+' km</b>';
+  if(!kmInp.value&&odo>0) kmInp.value=odo;
+}
+
+function sugerirPecas(){
+  const tipo=document.getElementById('sTipo').value;
+  const sugs=PECAS_SUGERIDAS[tipo]||[];
+  const el=document.getElementById('pecasSugeridas');
+  if(!sugs.length){el.innerHTML='';return;}
+  const btns=sugs.map(nome=>{
+    const item=ESTOQUE.find(e=>e.nome.toLowerCase().includes(nome.toLowerCase().split(' ')[0]));
+    if(!item||item.qtd<=0)return'';
+    return'<button onclick="addPecaSugerida(\\'' +item.id+'\\',\\''+item.nome+'\\')" style="background:rgba(59,130,246,.12);color:#3b82f6;border:1px solid rgba(59,130,246,.3);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;margin:3px">📦 '+item.nome+' ('+item.qtd+')</button>';
+  }).join('');
+  el.innerHTML=btns?'<div style="font-size:11px;color:var(--sub);margin-bottom:6px">SUGESTÃO DE PEÇAS:</div>'+btns:'';
+}
+
+function addPecaSugerida(eId,nome){
+  const exist=_pecasAtual.find(x=>x.eId===eId);
+  if(exist)exist.qtd++;
+  else{const item=ESTOQUE.find(x=>x.id===eId);if(item)_pecasAtual.push({eId,nome:item.nome,un:item.un,qtd:1});}
+  renderPecasAtual();
+}
+
+function addPecaManual(){
+  const sel=document.getElementById('sPecaSel');
+  const qtd=parseInt(document.getElementById('sPecaQtd').value||1)||1;
+  if(!sel.value)return;
+  const opt=sel.options[sel.selectedIndex];
+  const eId=sel.value;
+  const nome=opt.dataset.nome||opt.textContent.split(' (')[0];
+  const un=opt.dataset.un||'un';
+  const qtdDisp=parseInt(opt.dataset.qtd||0);
+  if(qtd>qtdDisp){alert('⚠️ Estoque insuficiente!\\n\\nDisponível: '+qtdDisp);return;}
+  const exist=_pecasAtual.find(x=>x.eId===eId);
+  if(exist){exist.qtd+=qtd;}
+  else{_pecasAtual.push({eId,nome,un,qtd});}
+  sel.value='';document.getElementById('sPecaQtd').value='1';
+  renderPecasAtual();
+}
+
+function renderPecasAtual(){
+  const el=document.getElementById('pecasAdicionadas');
+  if(!_pecasAtual.length){el.innerHTML='';return;}
+  el.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">'+
+    _pecasAtual.map((p,i)=>'<span class="peca-tag">📦 '+p.nome+' ×'+p.qtd+'<button onclick="_pecasAtual.splice('+i+',1);renderPecasAtual()" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:14px;padding:0 0 0 4px">✕</button></span>').join('')+'</div>';
+}
+
+function confirmarServico(){
+  const tipo=document.getElementById('sTipo').value;
+  const obs=document.getElementById('sObs').value.trim();
+  const pecas=[..._pecasAtual];
+  const label=TIPOS_LABEL[tipo]||tipo;
+  _servicos.push({tipo,label,obs,pecas});
+  _pecasAtual=[];
+  renderPecasAtual();
+  document.getElementById('sObs').value='';
+  document.getElementById('pecasSugeridas').innerHTML='';
+  renderServicos();
+  toast('✅ '+label+' adicionado','#22c55e','#000');
+}
+
+function renderServicos(){
+  const el=document.getElementById('listaServicos');
+  if(!_servicos.length){el.innerHTML='<div style="font-size:13px;color:var(--sub);text-align:center;padding:10px 0;margin-bottom:10px">Nenhum serviço adicionado ainda</div>';return;}
+  el.innerHTML=_servicos.map((s,i)=>
+    '<div class="serv-card">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start">'+
+        '<div style="font-size:14px;font-weight:700;color:#3b82f6">'+s.label+'</div>'+
+        '<button class="btn-red" onclick="_servicos.splice('+i+',1);renderServicos()" style="padding:4px 10px;font-size:12px">✕</button>'+
+      '</div>'+
+      (s.obs?'<div style="font-size:12px;color:var(--sub);margin-top:4px">📝 '+s.obs+'</div>':'')+
+      (s.pecas&&s.pecas.length?'<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:3px">'+s.pecas.map(p=>'<span class="peca-tag" style="font-size:11px">📦 '+p.nome+' ×'+p.qtd+'</span>').join('')+'</div>':'')+
+    '</div>'
+  ).join('');
+}
+
+function renderHistHoje(items){
+  const el=document.getElementById('histHoje');
+  if(!items.length){el.innerHTML='<div style="font-size:13px;color:var(--sub);text-align:center;padding:16px">Nenhum registro hoje</div>';return;}
+  el.innerHTML=items.map(r=>{
+    const m=MOTOS.find(x=>x.id===r.mId)||{placa:'?'};
+    const servStr=(r.servicos||[]).map(s=>TIPOS_LABEL[s.tipo]||s.tipo).join(', ');
+    const pecStr=(r.servicos||[]).flatMap(s=>(s.pecas||[]).map(p=>p.nome+'×'+p.qtd)).join(', ');
+    return'<div style="background:var(--card2);border-radius:10px;padding:12px;margin-bottom:8px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
+        '<div><b>'+m.placa+'</b><span style="font-size:11px;color:var(--sub);margin-left:8px">'+r.km.toLocaleString('pt-BR')+' km</span></div>'+
+        '<span class="badge" style="background:#052010;color:#22c55e;font-size:10px">✓ Enviado</span>'+
+      '</div>'+
+      '<div style="font-size:12px;color:var(--txt)">'+servStr+'</div>'+
+      (pecStr&&pecStr!=='—'?'<div style="font-size:11px;color:var(--sub);margin-top:3px">📦 '+pecStr+'</div>':'')+
+      (r.obs?'<div style="font-size:11px;color:var(--sub);margin-top:3px">📝 '+r.obs+'</div>':'')+
+    '</div>';
+  }).join('');
+}
+
+function uid(){return Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,6);}
+function toast(msg,bg,color){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.background=bg||'#22c55e';t.style.color=color||'#000';
+  t.style.display='block';setTimeout(()=>t.style.display='none',2800);
+}
+
+function enviarRegistro(){
+  const mId=document.getElementById('pMoto').value;
+  const km=parseInt(document.getElementById('pKm').value||0)||0;
+  const data=document.getElementById('pData').value;
+  const obs=document.getElementById('pObs').value.trim();
+  if(!mId){toast('⚠️ Selecione a moto!','#ef4444','#fff');return;}
+  if(!km){toast('⚠️ Informe o KM!','#ef4444','#fff');return;}
+  if(!_servicos.length){toast('⚠️ Adicione pelo menos um serviço!','#ef4444','#fff');return;}
+  if(!db){toast('❌ Sem conexão Firebase','#ef4444','#fff');return;}
+  const reg={id:uid(),mId,km,data,obs,servicos:_servicos.map(s=>({...s,pecas:[...s.pecas]})),ts:Date.now(),autor:'Funcionário AMS',origem:'func_portal'};
+  // Desabilita botão durante envio
+  const btn=document.querySelector('.btn-grn');if(btn){btn.disabled=true;btn.textContent='⏳ Enviando...';}
+  db.ref('ams_motos/servsFunc/'+reg.id).set(reg)
+    .then(()=>{
+      toast('✅ Registrado com sucesso!','#22c55e','#000');
+      _servicos=[];_pecasAtual=[];
+      renderServicos();renderPecasAtual();
+      document.getElementById('pKm').value='';
+      document.getElementById('pObs').value='';
+      document.getElementById('pMoto').value='';
+      document.getElementById('odoInfo').textContent='';
+    })
+    .catch(e=>toast('❌ Erro: '+e.message,'#ef4444','#fff'))
+    .finally(()=>{if(btn){btn.disabled=false;btn.textContent='✅ Registrar e Enviar';}});
+}
+
+// Init
+renderServicos();
+sugerirPecas();
+<\/script>
+</body>
+</html>`;
+}
+
 let _portalMId=null;
 
 DB.pixAms=localStorage.getItem('mg_pixAms')||'';
