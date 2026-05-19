@@ -89,6 +89,7 @@ label{display:block;font-size:11px;color:var(--sub);margin-bottom:3px;font-weigh
   <button onclick="exportBackup()" title="Exportar backup" style="display:flex;align-items:center;gap:5px;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">📥 Backup</button>
   <button onclick="verAutoBackups()" title="Restaurar de um backup automático recente (5 últimos salvamentos)" style="display:flex;align-items:center;gap:5px;background:#0891b2;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">🕒 Auto</button>
   <button onclick="gerarRelatorioSemanal()" title="Gerar relatório semanal em PDF" style="display:flex;align-items:center;gap:5px;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">📊 Relatório</button>
+  <button onclick="resetarTodosPagamentos()" title="Apagar todo o histórico de pagamentos e zerar saldos (cadastros preservados)" style="display:flex;align-items:center;gap:5px;background:#dc2626;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">🗑️ Zerar Pgtos</button>
   <label title="Importar backup" style="display:flex;align-items:center;gap:5px;background:#7c3aed;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:8px">📤 Restaurar<input type="file" accept=".json" onchange="importBackup(event)" style="display:none"></label>
   <div id="tabs"><button class="tab active" onclick="go(&#39;dash&#39;)">📊 Dashboard</button><button class="tab" onclick="go(&#39;odo&#39;)">📏 Odômetro</button><button class="tab" onclick="go(&#39;mnt&#39;)">🔧 Manutenção</button><button class="tab" onclick="go(&#39;seg&#39;)">🛡️ Seguros</button><button class="tab" onclick="go(&#39;mul&#39;)">🚨 Multas</button><button class="tab" onclick="go(&#39;est&#39;)">📦 Estoque</button><button class="tab" onclick="go(&#39;os&#39;)">🔩 OS</button><button class="tab" onclick="go(&#39;pag&#39;)">💰 Pagamentos</button><button class="tab" onclick="go(&#39;rel&#39;)">📈 Relatórios</button><button class="tab" onclick="go(&#39;mts&#39;)">🏍️ Motos</button><button class="tab" onclick="go(&#39;ind&#39;)">⚠️ Inadimplência</button></div>
 </div>
@@ -8211,6 +8212,53 @@ function gerarRelatorioSemanal(){
   w.document.write(html);
   w.document.close();
   setTimeout(()=>w.print(),500);
+}
+
+function resetarTodosPagamentos(){
+  const total = DB.pg.length;
+  if(total === 0){ alert('ℹ️ Não há pagamentos registrados para apagar.'); return; }
+
+  const conf1 = confirm(
+    '⚠️ RESET GERAL DE PAGAMENTOS\n\n' +
+    'Isso vai APAGAR permanentemente:\n' +
+    '• ' + total + ' registro(s) de pagamento\n' +
+    '• Todo o histórico de semanas pagas\n' +
+    '• Todos os saldos devedores acumulados\n\n' +
+    'Os cadastros das motos e locatários serão PRESERVADOS.\n\n' +
+    'Deseja continuar?'
+  );
+  if(!conf1) return;
+
+  const conf2 = prompt('⚠️ CONFIRMAÇÃO FINAL\n\nPara confirmar, digite exatamente:\n\nRESETAR PAGAMENTOS');
+  if(conf2 !== 'RESETAR PAGAMENTOS'){
+    alert('❌ Reset cancelado. Nenhum dado foi alterado.');
+    return;
+  }
+
+  // Salvar backup automático antes de destruir
+  try {
+    const bkp = JSON.stringify({
+      ts: Date.now(),
+      tipo: 'pre_reset_pagamentos',
+      pg: DB.pg,
+      negociacoes: DB.negociacoes
+    });
+    localStorage.setItem('mg_bkp_pre_reset', bkp);
+  } catch(e){}
+
+  // Apagar pagamentos e negociações de saldo
+  DB.pg = [];
+  DB.negociacoes = [];
+
+  // Remover corte de semana se existir
+  localStorage.removeItem('mg_pg_corte');
+
+  // Salvar no localStorage
+  sv('pg');
+  sv('negoc');
+
+  render();
+  toast('✅ Reset concluído — ' + total + ' pagamento(s) apagado(s). Cadastros preservados.', 'grn');
 }
 
 function exportBackup(){
