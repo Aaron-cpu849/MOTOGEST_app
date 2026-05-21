@@ -175,9 +175,10 @@ const DB={
   negociacoes: S.get('mg_negoc')||[],
   sinistros: S.get('mg_sinistros')||[],
   wamensagens: S.get('mg_wamsg')||[],
+  locPastas: S.get('mg_locpastas')||[],
 };
 function sv(k){
-  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos',chats:'chats',solics:'solics',intv:'intervencoes',histloc:'histLoc',agenda:'agenda',extras:'extras',negoc:'negociacoes'};
+  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos',chats:'chats',solics:'solics',intv:'intervencoes',histloc:'histLoc',agenda:'agenda',extras:'extras',negoc:'negociacoes',locpastas:'locPastas'};
   const prop=map[k]||k;
   S.set('mg_'+k,DB[prop]);
 }
@@ -472,7 +473,6 @@ const TABS=[
   {id:'sinistros',label:'🚗 Sinistros'},
   {id:'mecanico',label:'🔩 Painel Mecânico'},
   {id:'mapa',label:'🗺️ Mapa Frota'},
-  {id:'contrato',label:'📝 Contratos'},
 ];
 let TAB='dash';
 let _tabAnterior='';
@@ -483,7 +483,7 @@ function go(t){
 }
 function render(){
   document.getElementById('tabs').innerHTML=TABS.map(t=>`<button class="tab${TAB===t.id?' active':''}" onclick="go('${t.id}')">${t.label}</button>`).join('');
-  const fn={dash:vDash,fin:vFin,odo:vOdo,mnt:vMnt,agenda:vAgendaTab,seg:vSeg,mul:vMul,est:vEst,os:vOs,oficina:vOficina,pag:vPag,rel:vRel,mts:vMts,loc:vLoc,ind:vInd,docs:vDocs,portal:vPortal,scoring:vScoring,regua:vRegua,sinistros:vSinistros,mecanico:vMecanico,mapa:vMapa,contrato:vContrato};
+  const fn={dash:vDash,fin:vFin,odo:vOdo,mnt:vMnt,agenda:vAgendaTab,seg:vSeg,mul:vMul,est:vEst,os:vOs,oficina:vOficina,pag:vPag,rel:vRel,mts:vMts,loc:vLoc,ind:vInd,docs:vDocs,portal:vPortal,scoring:vScoring,regua:vRegua,sinistros:vSinistros,mecanico:vMecanico,mapa:vMapa};
   document.getElementById('content').innerHTML=fn[TAB]();
 }
 function closeM(id){const e=document.getElementById(id);if(e)e.remove()}
@@ -931,8 +931,7 @@ async function syncGps(verbose=false){
     }).filter(x=>x.km>0||x.status);
     processarDadosGps(gpsData);
   }catch(e){
-    if(verbose) alert('Erro na sincronização:\n'+e.message+'\n\nO servidor pode estar bloqueando requisições externas (CORS).\nUse o bookmarklet como alternativa.');
-    else console.warn('[MotoGest] GPS sync silencioso falhou:',e.message);
+    alert('Erro na sincronização:\n'+e.message+'\n\nO servidor pode estar bloqueando requisições externas (CORS).\nUse o bookmarklet como alternativa.');
   }finally{
     if(btn){btn.textContent='Sincronizar GPS';btn.disabled=false;}
   }
@@ -1196,23 +1195,9 @@ function vDash(){
   const diasP2=(d)=>{if(!d)return null;return Math.ceil((new Date(d+'T12:00')-hoje2)/86400000)};
   const cnhVenc=ativ.filter(m=>m.nome&&m.cnhValidade&&diasP2(m.cnhValidade)<=15&&diasP2(m.cnhValidade)>=0);
   const cnhExp=ativ.filter(m=>m.nome&&m.cnhValidade&&diasP2(m.cnhValidade)<0);
-  // Alertas de plano vencendo
-  const planosVencendo=ativ.filter(m=>{
-    if(!m.nome||!m.dataInicio||!m.duracaoSemanas)return false;
-    const d=new Date(m.dataInicio+'T12:00');d.setDate(d.getDate()+m.duracaoSemanas*7);
-    const dias=Math.ceil((d-new Date())/86400000);
-    return dias>=0&&dias<=14;
-  });
-  const planosVencidos=ativ.filter(m=>{
-    if(!m.nome||!m.dataInicio||!m.duracaoSemanas)return false;
-    const d=new Date(m.dataInicio+'T12:00');d.setDate(d.getDate()+m.duracaoSemanas*7);
-    return Math.ceil((d-new Date())/86400000)<0;
-  });
   const ctVenc=DB.contratos.filter(c=>{const d=diasP2(c.venc);return d!==null&&d<=15&&d>=0;});
   if(cnhExp.length) al+=`<div style="background:var(--redbg);border-radius:8px;padding:10px 14px;color:var(--red);display:flex;gap:8px;cursor:pointer" onclick="go('docs')">🪪 <b>${cnhExp.length} CNH(s) VENCIDA(S):</b>&nbsp;${cnhExp.map(m=>m.nome.split(' ')[0]+' ('+m.placa+')').join(', ')}</div>`;
   if(cnhVenc.length) al+=`<div style="background:var(--yelbg);border-radius:8px;padding:10px 14px;color:var(--yel);display:flex;gap:8px;cursor:pointer" onclick="go('docs')">🪪 <b>${cnhVenc.length} CNH(s)</b>&nbsp;vence(m) em até 15 dias — clique para ver</div>`;
-  if(planosVencidos.length) al+=`<div style="background:var(--redbg);border-radius:8px;padding:10px 14px;color:var(--red);display:flex;gap:8px;cursor:pointer" onclick="go('mts')">📋 <b>${planosVencidos.length} plano(s) VENCIDO(S):</b>&nbsp;${planosVencidos.map(m=>m.nome.split(' ')[0]+' · '+m.placa).join(', ')} — renovar contrato</div>`;
-  if(planosVencendo.length) al+=`<div style="background:var(--yelbg);border-radius:8px;padding:10px 14px;color:var(--yel);display:flex;gap:8px;cursor:pointer" onclick="go('mts')">📋 <b>${planosVencendo.length} plano(s)</b>&nbsp;vence(m) em até 14 dias — ${planosVencendo.map(m=>{const d=new Date(m.dataInicio+'T12:00');d.setDate(d.getDate()+m.duracaoSemanas*7);const dias=Math.ceil((d-new Date())/86400000);return m.placa+' ('+dias+'d)';}).join(', ')}</div>`;
   if(ctVenc.length) al+=`<div style="background:var(--yelbg);border-radius:8px;padding:10px 14px;color:var(--yel);display:flex;gap:8px;cursor:pointer" onclick="go('docs')">📝 <b>${ctVenc.length} contrato(s)</b>&nbsp;vence(m) em até 15 dias — clique para ver</div>`;
 
   const _avisosHoje=(DB.avisos&&DB.avisos[tod()])||0;
@@ -1227,14 +1212,8 @@ function vDash(){
     <button class="btn bxs" style="font-size:12px" onclick="vCustoReceita()">📊 Custo vs Receita</button>
     <button class="btn bxs" style="font-size:12px" onclick="gerarRelatorioSemanal()">📄 Rel. Semanal PDF</button>
     <button class="btn bxs" style="font-size:12px" onclick="gerarWALote()">📱 WA em Lote</button>
-    <button class="btn bxs" style="font-size:12px;background:rgba(34,197,94,.2);color:var(--grn)" onclick="gerarPixLote()">💰 PIX em Lote</button>
     <button class="btn bxs" style="font-size:12px;background:var(--blu);color:var(--txt)" onclick="openImport()">📥 Importar Extrato</button>
     <button class="btn bxs" style="font-size:12px" onclick="openGpsSettings()">📡 Config GPS</button>
-    <button class="btn bxs" style="font-size:12px;background:rgba(59,130,246,.2);color:var(--blu)" onclick="vROI()">📈 ROI por Moto</button>
-    <button class="btn bxs" style="font-size:12px;background:rgba(34,197,94,.2);color:var(--grn)" onclick="vOcupacao()">🔄 Ocupação da Frota</button>
-    <button class="btn bxs" style="font-size:12px;background:rgba(234,179,8,.2);color:var(--yel)" onclick="vDRE()">📊 DRE Completa</button>
-    <button class="btn bxs" style="font-size:12px;background:rgba(249,115,22,.2);color:var(--acc)" onclick="vFluxoCaixa()">💹 Fluxo de Caixa</button>
-    <button class="btn bxs" style="font-size:12px;background:rgba(168,85,247,.2);color:#a855f7" onclick="vVistoria()">📋 Checklist Vistoria</button>
   </div>`;
   if(!al) al=`<div style="background:var(--grnbg);border-radius:8px;padding:10px 14px;color:var(--grn)">✅ Tudo em ordem hoje!</div>`;
 
@@ -1570,11 +1549,8 @@ function vMnt(){
         <span class="ct" style="color:var(--acc)">⚡ Troca de Óleo Urgente (${alertOil.length} motos)</span>
         <button class="btn ba bs" onclick="registrarOleoLote()" title="Registrar troca para todas as motos vencidas de uma vez">🛢️ Registrar em Lote</button>
       </div>
-      <div style="margin-bottom:10px">
-        <input id="filtroOilAlert" type="text" class="inp" placeholder="🔍 Filtrar por placa ou locatário..." oninput="filtrarCardsOleo()" style="max-width:320px;font-size:13px">
-      </div>
-      <div id="listaCardsOleo" style="display:flex;flex-wrap:wrap;gap:8px">
-        ${alertOil.map(m=>{const{ol}=ms(m);const cor=ol<=0?'var(--red)':ol<=100?'var(--acc)':'var(--yel)';return`<div class="card-oleo-alert" data-placa="${(m.placa||'').toLowerCase()}" data-nome="${(m.nome||'').toLowerCase()}" style="background:var(--sur);border:1px solid ${cor}44;border-radius:10px;padding:10px 14px;min-width:160px;flex:1">
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${alertOil.map(m=>{const{ol}=ms(m);const cor=ol<=0?'var(--red)':ol<=100?'var(--acc)':'var(--yel)';return`<div style="background:var(--sur);border:1px solid ${cor}44;border-radius:10px;padding:10px 14px;min-width:160px;flex:1">
           <div style="font-weight:700;font-size:13px">${m.placa}</div>
           <div style="font-size:11px;color:var(--sub)">${m.nome||'sem nome'}</div>
           <div style="font-size:12px;font-weight:700;color:${cor};margin:4px 0">${ol<=0?'⚠️ VENCIDO '+Math.abs(ol)+'km atrás':'⏳ '+ol+'km restantes'}</div>
@@ -1772,14 +1748,438 @@ function correcaoEmergenciaKm(){
   }
 }
 
-// ── Filtro de busca nos cards de Troca de Óleo Urgente ───────────────────────
-function filtrarCardsOleo(){
-  const q=(document.getElementById('filtroOilAlert')?.value||'').toLowerCase().trim();
-  document.querySelectorAll('.card-oleo-alert').forEach(el=>{
-    const placa=el.dataset.placa||'';
-    const nome=el.dataset.nome||'';
-    el.style.display=(!q||placa.includes(q)||nome.includes(q))?'':'none';
-  });
+// ── OS via IA — lê foto de nota fiscal e preenche formulário ─────────────────
+async function osLerViaNf(inp){
+  const f=inp.files[0];if(!f)return;
+  const st=document.getElementById('osIaStatus');
+  if(st){st.style.display='block';st.textContent='⏳ Lendo nota fiscal…';}
+  try{
+    const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f);});
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      model:'claude-sonnet-4-20250514',max_tokens:800,
+      system:'Você é um assistente de lançamento de ordens de serviço para locadora de motos. Analise a imagem e extraia os dados. Responda SOMENTE em JSON válido, sem markdown, sem texto extra. Formato: {"placa":"","oficina":"","nf":"","pec":0,"mao":0,"obs":"","data":""}. Para placa use formato AAA0000 ou AAA0A00. Para valores use número sem R$. Se não encontrar um campo, use string vazia ou 0. Para obs liste os serviços separados por vírgula.',
+      messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:f.type||'image/jpeg',data:b64}},{type:'text',text:'Extraia os dados desta nota fiscal ou registro de manutenção de moto.'}]}]
+    })});
+    const d=await resp.json();
+    const txt=(d.content||[]).map(x=>x.text||'').join('');
+    let dados;
+    try{dados=JSON.parse(txt);}catch{const m=txt.match(/\{[\s\S]*\}/);if(m)dados=JSON.parse(m[0]);else throw new Error('Resposta inválida');}
+    // Preenche campos
+    if(dados.oficina) document.getElementById('osOf').value=dados.oficina;
+    if(dados.nf)      document.getElementById('osNf').value=dados.nf;
+    if(dados.pec)     document.getElementById('osPc').value=dados.pec;
+    if(dados.mao)     document.getElementById('osMo').value=dados.mao;
+    if(dados.obs)     document.getElementById('osOb').value=dados.obs;
+    if(dados.data)    document.getElementById('osD').value=dados.data;
+    if(dados.placa){
+      const sel=document.getElementById('osM');
+      const placa=dados.placa.replace(/[^A-Z0-9]/gi,'').toUpperCase();
+      const opt=[...sel.options].find(o=>o.text.toUpperCase().includes(placa));
+      if(opt) sel.value=opt.value;
+    }
+    if(st){st.style.background='var(--grnbg)';st.style.color='var(--grn)';st.textContent='✅ Campos preenchidos — confira e ajuste se necessário';}
+  }catch(e){
+    if(st){st.style.background='var(--redbg)';st.style.color='var(--red)';st.textContent='❌ Erro ao ler: '+e.message;}
+  }
+}
+
+// ── Pasta do Locatário ────────────────────────────────────────────────────────
+function abrirPastaLoc(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  let pasta=DB.locPastas.find(p=>p.mId===mId);
+  if(!pasta){pasta={id:uid(),mId,cpf:'',rg:'',nascimento:'',telefone:'',email:'',endereco:'',cnh:'',cnhCat:'',obs:'',docs:[]};DB.locPastas.push(pasta);sv('locpastas');}
+  const docList=()=>pasta.docs.map((d,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--sur);border-radius:8px;margin-bottom:4px;border:1px solid var(--bor)">
+      <span style="font-size:16px">${d.tipo==='contrato'?'📝':d.tipo==='crlv'?'🚗':d.tipo==='cnh'?'🪪':d.tipo==='rg'?'🆔':d.tipo==='comprovante'?'🏠':'📎'}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.nome}</div>
+        <div style="font-size:10px;color:var(--sub)">${d.tipo.toUpperCase()} · ${fD(d.data)}</div>
+      </div>
+      <button class="btn bxs" style="font-size:10px;padding:2px 7px" onclick="verDocPasta('${mId}',${i})">Ver</button>
+      <button class="btn br bxs" style="font-size:10px;padding:2px 6px" onclick="remDocPasta('${mId}',${i})">✕</button>
+    </div>`).join('')||'<div style="color:var(--sub);font-size:12px;text-align:center;padding:12px">Nenhum documento anexado</div>';
+  showM(mWrap('mPasta',`<div class="modal" style="max-width:640px">
+    <div class="mh"><span class="ct">📁 Pasta — ${m.nome||m.placa}</span><button class="btn bx" onclick="closeM('mPasta')">✕</button></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div><label style="font-size:10px;color:var(--sub)">CPF</label><input id="lpCpf" class="inp" value="${pasta.cpf||''}" placeholder="000.000.000-00"></div>
+      <div><label style="font-size:10px;color:var(--sub)">RG</label><input id="lpRg" class="inp" value="${pasta.rg||''}" placeholder="0000000-00"></div>
+      <div><label style="font-size:10px;color:var(--sub)">NASCIMENTO</label><input type="date" id="lpNasc" class="inp" value="${pasta.nascimento||''}"></div>
+      <div><label style="font-size:10px;color:var(--sub)">TELEFONE</label><input id="lpTel" class="inp" value="${pasta.telefone||''}" placeholder="(71) 99999-9999"></div>
+      <div><label style="font-size:10px;color:var(--sub)">E-MAIL</label><input id="lpEmail" class="inp" value="${pasta.email||''}" placeholder="email@email.com"></div>
+      <div><label style="font-size:10px;color:var(--sub)">CNH Nº / CATEGORIA</label>
+        <div style="display:flex;gap:4px"><input id="lpCnh" class="inp" value="${pasta.cnh||''}" placeholder="Número CNH">
+        <input id="lpCnhCat" class="inp" value="${pasta.cnhCat||''}" placeholder="Cat" style="width:60px"></div>
+      </div>
+      <div style="grid-column:1/-1"><label style="font-size:10px;color:var(--sub)">ENDEREÇO</label><input id="lpEnd" class="inp" value="${pasta.endereco||''}" placeholder="Rua, nº, bairro, cidade"></div>
+      <div style="grid-column:1/-1"><label style="font-size:10px;color:var(--sub)">OBSERVAÇÕES</label><textarea id="lpObs" class="inp" rows="2" style="resize:vertical">${pasta.obs||''}</textarea></div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:700">📎 Documentos (${pasta.docs.length})</span>
+        <button class="btn bg bxs" style="font-size:11px" onclick="document.getElementById('lpDocFile').click()">+ Anexar</button>
+        <input type="file" id="lpDocFile" accept="image/*,.pdf" style="display:none" onchange="addDocPasta('${mId}',this)">
+      </div>
+      <div id="lpDocList">${docList()}</div>
+    </div>
+    <div class="mact">
+      <button class="btn bx" onclick="closeM('mPasta')">Cancelar</button>
+      <button class="btn ba" onclick="salvarPastaLoc('${mId}')">✓ Salvar</button>
+    </div>
+  </div>`));
+}
+function salvarPastaLoc(mId){
+  const p=DB.locPastas.find(x=>x.mId===mId);if(!p)return;
+  p.cpf=document.getElementById('lpCpf').value.trim();
+  p.rg=document.getElementById('lpRg').value.trim();
+  p.nascimento=document.getElementById('lpNasc').value;
+  p.telefone=document.getElementById('lpTel').value.trim();
+  p.email=document.getElementById('lpEmail').value.trim();
+  p.cnh=document.getElementById('lpCnh').value.trim();
+  p.cnhCat=document.getElementById('lpCnhCat').value.trim();
+  p.endereco=document.getElementById('lpEnd').value.trim();
+  p.obs=document.getElementById('lpObs').value.trim();
+  // Sincroniza CPF com moto
+  const m=DB.motos.find(x=>x.id===mId);
+  if(m&&p.cpf)m.cpfLoc=p.cpf;
+  sv('locpastas');sv('m');
+  closeM('mPasta');render();
+}
+function addDocPasta(mId,inp){
+  const f=inp.files[0];if(!f)return;
+  const nome=f.name;
+  const tipo=nome.toLowerCase().includes('contrat')?'contrato':nome.toLowerCase().includes('crlv')?'crlv':nome.toLowerCase().includes('cnh')?'cnh':nome.toLowerCase().includes('rg')?'rg':nome.toLowerCase().includes('comprov')?'comprovante':'outro';
+  const r=new FileReader();
+  r.onload=e=>{
+    const p=DB.locPastas.find(x=>x.mId===mId);if(!p)return;
+    p.docs.push({nome,tipo,data:tod(),b64:e.target.result});
+    sv('locpastas');
+    const el=document.getElementById('lpDocList');
+    if(el) abrirPastaLoc(mId);// re-render modal
+  };
+  r.readAsDataURL(f);
+}
+function verDocPasta(mId,idx){
+  const p=DB.locPastas.find(x=>x.mId===mId);if(!p)return;
+  const d=p.docs[idx];if(!d)return;
+  const w=window.open('');
+  if(d.b64.includes('pdf')){w.document.write(`<iframe src="${d.b64}" style="width:100%;height:100vh;border:none"></iframe>`);}
+  else{w.document.write(`<img src="${d.b64}" style="max-width:100%;display:block;margin:auto">`);}
+  w.document.close();
+}
+function remDocPasta(mId,idx){
+  if(!confirm('Remover documento?'))return;
+  const p=DB.locPastas.find(x=>x.mId===mId);if(!p)return;
+  p.docs.splice(idx,1);sv('locpastas');abrirPastaLoc(mId);
+}
+
+// ── Contrato Avulso (sem locatário cadastrado) ────────────────────────────────
+function contratoAvulso(){
+  showM(mWrap('mCtAv',`<div class="modal" style="max-width:600px">
+    <div class="mh"><span class="ct">📝 Contrato Avulso</span><button class="btn bx" onclick="closeM('mCtAv')">✕</button></div>
+    <div style="font-size:11px;color:var(--sub);margin-bottom:14px">Gere um contrato antes de cadastrar o locatário. Os dados não são salvos no sistema.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div><label style="font-size:10px;color:var(--sub)">NOME DO LOCATÁRIO</label><input id="avNome" class="inp" placeholder="Nome completo"></div>
+      <div><label style="font-size:10px;color:var(--sub)">CPF</label><input id="avCpf" class="inp" placeholder="000.000.000-00"></div>
+      <div><label style="font-size:10px;color:var(--sub)">PLACA DA MOTO</label><input id="avPlaca" class="inp" placeholder="AAA0000" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>
+      <div><label style="font-size:10px;color:var(--sub)">MODELO</label><input id="avModelo" class="inp" placeholder="Yamaha Factor 150" value="Yamaha YBR 150 Factor"></div>
+      <div><label style="font-size:10px;color:var(--sub)">VALOR SEMANAL (R$)</label><input type="number" id="avVal" class="inp" value="0" step="0.01"></div>
+      <div><label style="font-size:10px;color:var(--sub)">CAUÇÃO (R$)</label><input type="number" id="avCau" class="inp" value="0" step="0.01"></div>
+      <div><label style="font-size:10px;color:var(--sub)">DIA DE PAGAMENTO</label>
+        <select id="avDia" class="inp">
+          ${['SEG','TER','QUA','QUI','SEX','SAB','DOM'].map(d=>`<option>${d}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div><label style="font-size:10px;color:var(--sub)">INÍCIO</label><input type="date" id="avIni" class="inp" value="${tod()}" oninput="calcCtAvVenc()"></div>
+      <div><label style="font-size:10px;color:var(--sub)">DURAÇÃO</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="number" id="avAnos" class="inp" min="0" max="10" value="1" style="width:60px;text-align:center" oninput="calcCtAvVenc()">
+          <span style="font-size:11px;color:var(--sub)">ano(s)</span>
+          <input type="number" id="avMeses" class="inp" min="0" max="11" value="0" style="width:60px;text-align:center" oninput="calcCtAvVenc()">
+          <span style="font-size:11px;color:var(--sub)">mês(es)</span>
+        </div>
+        <div style="margin-top:4px;font-size:11px;color:var(--sub)">Vence: <b id="avVencLabel" style="color:var(--yel)">—</b></div>
+        <input type="hidden" id="avVenc">
+      </div>
+    </div>
+    <div><label style="font-size:10px;color:var(--sub)">CLÁUSULAS ADICIONAIS</label>
+      <textarea id="avObs" class="inp" rows="3" placeholder="Observações específicas deste contrato…"></textarea>
+    </div>
+    <div class="mact">
+      <button class="btn bx" onclick="closeM('mCtAv')">Cancelar</button>
+      <button class="btn ba" onclick="gerarPdfAvulso()">📄 Gerar PDF</button>
+    </div>
+  </div>`));
+  setTimeout(()=>calcCtAvVenc(),80);
+}
+function calcCtAvVenc(){
+  const ini=document.getElementById('avIni')?.value;
+  const anos=parseInt(document.getElementById('avAnos')?.value||0);
+  const meses=parseInt(document.getElementById('avMeses')?.value||0);
+  if(!ini||(!anos&&!meses)){document.getElementById('avVenc').value='';document.getElementById('avVencLabel').textContent='—';return;}
+  const d=new Date(ini+'T12:00:00');d.setFullYear(d.getFullYear()+anos);d.setMonth(d.getMonth()+meses);
+  const iso=d.toISOString().slice(0,10);
+  document.getElementById('avVenc').value=iso;
+  document.getElementById('avVencLabel').textContent=fD(iso);
+}
+function gerarPdfAvulso(){
+  const nome=document.getElementById('avNome').value.trim()||'___________________________';
+  const cpf=document.getElementById('avCpf').value.trim()||'___.___.___-__';
+  const placa=document.getElementById('avPlaca').value.trim()||'_______';
+  const modelo=document.getElementById('avModelo').value.trim()||'Yamaha YBR 150 Factor';
+  const val=Number(document.getElementById('avVal').value)||0;
+  const cau=Number(document.getElementById('avCau').value)||0;
+  const dia=document.getElementById('avDia').value;
+  const ini=document.getElementById('avIni').value;
+  const venc=document.getElementById('avVenc').value;
+  const obs=document.getElementById('avObs').value.trim();
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Contrato ${placa}</title>
+  <style>body{font-family:'Segoe UI',Arial,sans-serif;max-width:700px;margin:40px auto;padding:20px;color:#111;font-size:14px;line-height:1.7}
+  h1{font-size:20px;text-align:center;margin-bottom:4px}h2{font-size:13px;text-align:center;color:#666;margin-bottom:30px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+  .field label{font-size:10px;color:#666;font-weight:700;text-transform:uppercase;display:block;margin-bottom:3px}
+  .field .val{border-bottom:1px solid #999;padding-bottom:4px;min-height:22px;font-size:14px}
+  .clausula{margin-bottom:8px;font-size:13px}
+  .assin{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:60px}
+  .assin-box{text-align:center;border-top:1px solid #111;padding-top:8px;font-size:12px}
+  @media print{button{display:none}}</style></head><body>
+  <h1>🏍️ AMS MOTOS</h1>
+  <h2>CONTRATO DE LOCAÇÃO DE MOTOCICLETA</h2>
+  <div class="grid">
+    <div class="field"><label>Locatário</label><div class="val">${nome}</div></div>
+    <div class="field"><label>CPF</label><div class="val">${cpf}</div></div>
+    <div class="field"><label>Placa da Moto</label><div class="val">${placa}</div></div>
+    <div class="field"><label>Modelo</label><div class="val">${modelo}</div></div>
+    <div class="field"><label>Data de Início</label><div class="val">${fD(ini)}</div></div>
+    <div class="field"><label>Vencimento</label><div class="val">${venc?fD(venc):'Indeterminado'}</div></div>
+    <div class="field"><label>Valor Semanal</label><div class="val">${fR(val)}</div></div>
+    <div class="field"><label>Dia de Pagamento</label><div class="val">${dia}</div></div>
+    ${cau>0?`<div class="field"><label>Caução</label><div class="val">${fR(cau)}</div></div>`:''}</div>
+  <div style="border-top:1px solid #ddd;padding-top:16px;margin-bottom:20px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;margin-bottom:10px">Cláusulas e Condições</div>
+    <div class="clausula">1. O locatário é responsável por todas as multas de trânsito geradas durante o período de locação.</div>
+    <div class="clausula">2. O pagamento deverá ser efetuado toda semana no dia acordado (${dia}).</div>
+    <div class="clausula">3. O atraso de 3 (três) semanas consecutivas implica na rescisão automática do contrato.</div>
+    <div class="clausula">4. A moto deverá ser devolvida nas mesmas condições em que foi entregue.</div>
+    <div class="clausula">5. O locatário é responsável pela manutenção básica (óleo, pneus e freios).</div>
+    ${obs?`<div class="clausula"><b>Obs:</b> ${obs}</div>`:''}
+  </div>
+  <div class="assin">
+    <div class="assin-box">AMS Motos<br><small>Locador</small></div>
+    <div class="assin-box">${nome}<br><small>Locatário</small></div>
+  </div>
+  <div style="text-align:center;margin-top:20px;font-size:11px;color:#999">Gerado em ${new Date().toLocaleString('pt-BR')}</div>
+  <br><button onclick="window.print()" style="padding:10px 24px;background:#1e293b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;display:block;margin:0 auto">🖨️ Imprimir / Salvar PDF</button>
+  </body></html>`);
+  w.document.close();
+}
+
+// ── Assistente IA MotoGest ────────────────────────────────────────────────────
+let _iaHistory=[];
+
+function toggleIaPanel(){
+  const p=document.getElementById('iaPanel');
+  if(!p)return;
+  const open=p.style.display!=='none';
+  p.style.display=open?'none':'flex';
+  p.style.flexDirection='column';
+  if(!open) setTimeout(()=>document.getElementById('iaInput')?.focus(),80);
+}
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='i'){e.preventDefault();toggleIaPanel();}});
+
+function iaAddMsg(texto,tipo){
+  const el=document.getElementById('iaMessages');if(!el)return;
+  const isUser=tipo==='user';
+  const div=document.createElement('div');
+  div.style.cssText=`display:flex;gap:6px;align-items:flex-start;${isUser?'flex-direction:row-reverse':''}`;
+  div.innerHTML=`<span style="font-size:16px;flex-shrink:0">${isUser?'👤':'🤖'}</span>
+    <div style="background:${isUser?'rgba(99,102,241,.2)':'var(--sur)'};border-radius:10px;padding:8px 12px;font-size:12px;line-height:1.5;max-width:85%;${isUser?'border-bottom-right-radius:2px':'border-bottom-left-radius:2px'}">${texto}</div>`;
+  el.appendChild(div);
+  el.scrollTop=el.scrollHeight;
+}
+
+function iaAddLoading(){
+  const el=document.getElementById('iaMessages');if(!el)return;
+  const div=document.createElement('div');div.id='iaLoading';
+  div.style.cssText='display:flex;gap:6px;align-items:center';
+  div.innerHTML=`<span style="font-size:16px">🤖</span><div style="background:var(--sur);border-radius:10px;padding:8px 14px;font-size:18px;color:var(--sub)">···</div>`;
+  el.appendChild(div);el.scrollTop=el.scrollHeight;
+}
+function iaRemoveLoading(){document.getElementById('iaLoading')?.remove();}
+
+async function enviarComandoIA(){
+  const inp=document.getElementById('iaInput');if(!inp)return;
+  const cmd=inp.value.trim();if(!cmd)return;
+  inp.value='';
+  iaAddMsg(cmd,'user');
+  iaAddLoading();
+  document.getElementById('iaEnvBtn').disabled=true;
+
+  // Monta contexto resumido da frota para a IA
+  const motosCtx=DB.motos.filter(m=>m.on).map(m=>`${m.placa}|${m.nome||'sem nome'}|odo:${m.odo}|loilKm:${m.loilKm||0}|val:${m.val||0}|dia:${m.dia||'?'}|id:${m.id}`).join('\n');
+
+  const systemPrompt=`Você é o assistente operacional do MotoGest, sistema de gestão de frota de motos da AMS Locação de Motos em Salvador, BA.
+
+Você recebe comandos em linguagem natural e retorna um JSON com as ações a executar.
+
+FROTA ATUAL (placa|nome|odo atual|último óleo km|valor semanal|dia pag|id):
+${motosCtx}
+
+REGRAS:
+- Identifique a moto por placa (parcial ou completa) ou nome do locatário
+- Retorne SOMENTE JSON válido, sem markdown, sem texto extra
+- Para múltiplas ações, use array de actions
+- Se não entender o comando, retorne action "erro" com mensagem explicativa
+
+FORMATO DE RESPOSTA:
+{"actions":[{"action":"TIPO","params":{...},"mensagem":"texto confirmação"}]}
+
+TIPOS DE AÇÃO DISPONÍVEIS:
+- troca_oleo: params={mId,km,custo(opcional),obs(opcional)}
+- atualizar_odo: params={mId,km}
+- registrar_pagamento: params={mId,valor(opcional)}
+- nova_multa: params={mId,valor,auto(opcional),prazo(opcional)}
+- nova_os: params={mId,obs,pec(opcional),mao(opcional),ofic(opcional)}
+- consulta_status: params={mId} — retorna info da moto
+- listar_motos: params={filtro} — filtro pode ser "oleo_vencido","oleo_critico","inadimplente","sem_nome"
+- erro: params={mensagem}
+
+EXEMPLOS:
+Comando: "troca de óleo TGX0J77 odômetro 45800"
+{"actions":[{"action":"troca_oleo","params":{"mId":"ID_DA_MOTO","km":45800},"mensagem":"✅ Óleo registrado para TGX0J77 em 45.800 km"}]}
+
+Comando: "registrar pagamento lucas tgx0j77"
+{"actions":[{"action":"registrar_pagamento","params":{"mId":"ID_DA_MOTO"},"mensagem":"✅ Pagamento registrado para TGX0J77"}]}
+
+Comando: "status TGX0J77"
+{"actions":[{"action":"consulta_status","params":{"mId":"ID_DA_MOTO"},"mensagem":""}]}`;
+
+  try{
+    _iaHistory.push({role:'user',content:cmd});
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        system:systemPrompt,
+        messages:_iaHistory.slice(-6)
+      })
+    });
+    const data=await resp.json();
+    const txt=(data.content||[]).map(x=>x.text||'').join('');
+    _iaHistory.push({role:'assistant',content:txt});
+
+    let resultado;
+    try{resultado=JSON.parse(txt);}
+    catch{const m=txt.match(/\{[\s\S]*\}/);if(m)resultado=JSON.parse(m[0]);else throw new Error('JSON inválido: '+txt.slice(0,100));}
+
+    iaRemoveLoading();
+    const respostas=await executarAcoesIA(resultado.actions||[]);
+    respostas.forEach(r=>iaAddMsg(r,r.startsWith('❌')?'erro':'bot'));
+
+  }catch(e){
+    iaRemoveLoading();
+    iaAddMsg('❌ Erro: '+e.message,'bot');
+  }finally{
+    document.getElementById('iaEnvBtn').disabled=false;
+    document.getElementById('iaInput')?.focus();
+  }
+}
+
+async function executarAcoesIA(actions){
+  const respostas=[];
+  for(const ac of actions){
+    const p=ac.params||{};
+    const m=p.mId?DB.motos.find(x=>x.id===p.mId):null;
+    try{
+      switch(ac.action){
+
+        case 'troca_oleo':{
+          if(!m){respostas.push('❌ Moto não encontrada');break;}
+          const km=parseInt(p.km)||m.odo;
+          if(!km){respostas.push('❌ Informe o odômetro da troca');break;}
+          m.loilKm=km;
+          if(km>m.odo) m.odo=km;
+          DB.mhist.push({id:uid(),mId:m.id,tipo:'oil',km,obs:p.obs||'',custo:Number(p.custo||0),ofic:p.ofic||'Oficina Parceira',data:tod(),itens:[]});
+          if(Number(p.custo||0)>0){DB.os.push({id:uid(),mId:m.id,data:tod(),ofic:p.ofic||'Oficina Parceira',pec:0,mao:Number(p.custo),nf:'',obs:'Troca de Óleo'+(p.obs?' — '+p.obs:''),st:'pendente',origem:'ia'});sv('os');}
+          sv('m');sv('mhist');render();
+          respostas.push(ac.mensagem||`✅ Óleo registrado — <b>${m.placa}</b> em ${fN(km)} km. Próxima em ${fN(km+OIL)} km`);
+          break;}
+
+        case 'atualizar_odo':{
+          if(!m){respostas.push('❌ Moto não encontrada');break;}
+          const km=parseInt(p.km)||0;
+          if(!km){respostas.push('❌ Informe o valor do odômetro');break;}
+          if(km<m.odo&&!confirm(`Odômetro ${fN(km)} km é menor que o atual ${fN(m.odo)} km. Confirma?`)){respostas.push('⚠️ Atualização cancelada');break;}
+          m.odo=km;sv('m');render();
+          respostas.push(`✅ Odômetro de <b>${m.placa}</b> atualizado para ${fN(km)} km`);
+          break;}
+
+        case 'registrar_pagamento':{
+          if(!m){respostas.push('❌ Moto não encontrada');break;}
+          const hoje2=new Date();hoje2.setHours(12,0,0,0);
+          const diaJS={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
+          const jsDay=m.dia?diaJS[m.dia]:1;
+          let ref=new Date(hoje2);
+          const diff=(ref.getDay()-jsDay+7)%7;ref.setDate(ref.getDate()-diff);
+          const sem=wS(ref.toISOString().split('T')[0]);
+          const jaExiste=DB.pg.find(x=>x.mId===m.id&&x.sem===sem);
+          if(jaExiste){respostas.push(`⚠️ <b>${m.placa}</b> já tem pagamento registrado esta semana (${fD(sem)})`);break;}
+          const valor=Number(p.valor||m.val||0);
+          DB.pg.push({id:uid(),mId:m.id,sem,valor,data:tod()});sv('pg');render();
+          respostas.push(`✅ Pagamento registrado — <b>${m.placa}</b> (${m.nome?.split(' ')[0]||'—'}) ${fR(valor)} · sem. ${fD(sem)}`);
+          break;}
+
+        case 'nova_multa':{
+          if(!m){respostas.push('❌ Moto não encontrada');break;}
+          const val=Number(p.valor||0);
+          if(!val){respostas.push('❌ Informe o valor da multa');break;}
+          DB.multas.push({id:uid(),mId:m.id,data:tod(),val,auto:p.auto||'',loc:m.nome||'',prazo:p.prazo||'',codbar:'',st:'p'});
+          sv('multas');render();
+          respostas.push(`✅ Multa registrada — <b>${m.placa}</b> ${fR(val)}${p.auto?' · '+p.auto:''}`);
+          break;}
+
+        case 'nova_os':{
+          if(!m){respostas.push('❌ Moto não encontrada');break;}
+          DB.os.push({id:uid(),mId:m.id,data:tod(),ofic:p.ofic||'Oficina Parceira',pec:Number(p.pec||0),mao:Number(p.mao||0),nf:'',obs:p.obs||'',st:'pendente',origem:'ia'});
+          sv('os');render();
+          respostas.push(`✅ OS registrada — <b>${m.placa}</b> · ${p.obs||'—'} · ${fR(Number(p.pec||0)+Number(p.mao||0))}`);
+          break;}
+
+        case 'consulta_status':{
+          if(!m){respostas.push('❌ Moto não encontrada');break;}
+          const st=ms(m);
+          const olStr=st.ol<=0?`<span style="color:var(--red)">⚠️ VENCIDO ${Math.abs(st.ol)}km</span>`:st.ol<=200?`<span style="color:var(--acc)">⏳ ${st.ol}km restantes</span>`:`<span style="color:var(--grn)">✅ ${st.ol}km restantes</span>`;
+          const pgs=DB.pg.filter(x=>x.mId===m.id);
+          const saldo=calcSaldo(m.id);
+          respostas.push(`<b>${m.placa}</b> — ${m.nome||'sem nome'}<br>🛢️ Óleo: ${olStr}<br>📍 Odômetro: ${fN(m.odo)} km<br>💰 Plano: ${fR(m.val)}/sem · Pag: ${m.dia||'—'}<br>${saldo>0?`💸 Saldo devedor: <span style="color:var(--red)">${fR(saldo)}</span>`:'✅ Pagamentos em dia'}`);
+          break;}
+
+        case 'listar_motos':{
+          const ativ=DB.motos.filter(x=>x.on);
+          let lista=[];
+          if(p.filtro==='oleo_vencido') lista=ativ.filter(x=>ms(x).ol<=0);
+          else if(p.filtro==='oleo_critico') lista=ativ.filter(x=>{const ol=ms(x).ol;return ol>0&&ol<=100;});
+          else if(p.filtro==='inadimplente') lista=ativ.filter(x=>calcSaldo(x.id)>0);
+          else if(p.filtro==='sem_nome') lista=ativ.filter(x=>!x.nome||!x.nome.trim());
+          else lista=ativ;
+          if(!lista.length){respostas.push('Nenhuma moto encontrada para este filtro');break;}
+          respostas.push(`<b>${lista.length} moto(s):</b><br>`+lista.slice(0,15).map(x=>`• ${x.placa} — ${x.nome||'sem nome'}`).join('<br>')+(lista.length>15?`<br><i>…e mais ${lista.length-15}</i>`:''));
+          break;}
+
+        case 'erro':
+          respostas.push('⚠️ '+(p.mensagem||ac.mensagem||'Comando não reconhecido'));
+          break;
+
+        default:
+          respostas.push('⚠️ Ação desconhecida: '+ac.action);
+      }
+    }catch(e){respostas.push('❌ Erro ao executar: '+e.message);}
+  }
+  return respostas.length?respostas:['⚠️ Nenhuma ação retornada'];
 }
 
 // ── Sincronizar KM de Manutenção do Histórico ────────────────────────────────
@@ -2629,14 +3029,7 @@ function vOs(){
       </td>
     </tr>`;
   }).join('');
-  // Custo de imobilização: OS pendentes com data -> dias aberta -> receita perdida
-  const custoImob=pendentes.reduce((a,o)=>{
-    if(!o.data)return a;
-    const m=DB.motos.find(x=>x.id===o.mId);if(!m)return a;
-    const diasAberta=Math.max(0,Math.ceil((new Date(tod()+'T12:00')-new Date(o.data+'T12:00'))/86400000));
-    return a+diasAberta*Number(m.val||370)/7;
-  },0);
-  return`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">
+  return`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
     <div class="card" style="padding:14px;text-align:center">
       <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">A PAGAR OFICINA</div>
       <div style="font-size:22px;font-weight:800;color:var(--red)">${fR(totalPend)}</div>
@@ -2648,11 +3041,6 @@ function vOs(){
     <div class="card" style="padding:14px;text-align:center">
       <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">TOTAL OS</div>
       <div style="font-size:22px;font-weight:800;color:var(--acc)">${DB.os.length}</div>
-    </div>
-    <div class="card" style="padding:14px;text-align:center;border-color:rgba(234,179,8,.4)" title="Receita perdida estimada enquanto motos ficam em OS abertas">
-      <div style="font-size:10px;color:var(--yel);font-weight:700;margin-bottom:4px">⏱️ CUSTO IMOB.</div>
-      <div style="font-size:20px;font-weight:800;color:var(--yel)">${fR(custoImob)}</div>
-      <div style="font-size:10px;color:var(--sub);margin-top:3px">receita perdida (OS abertas)</div>
     </div>
   </div>
   <div class="card"><div class="ch"><span class="ct">Ordens de Serviço</span>
@@ -2666,6 +3054,16 @@ function showAOs(){
   const opts=DB.motos.filter(m=>m.on).map(m=>`<option value="${m.id}">${m.placa} – ${m.nome||'sem nome'}</option>`).join('');
   const estOpts=DB.est.map(e=>`<option value="${e.id}">${e.nome} (${e.qtd} ${e.un})</option>`).join('');
   showM(mWrap('mOs',`<div class="modal" style="max-width:520px"><h2>Nova Ordem de Serviço</h2>
+    <div style="background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(168,85,247,.15));border:1px solid rgba(99,102,241,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:22px">🤖</span>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:700;color:#a78bfa">Preencher via IA</div>
+        <div style="font-size:11px;color:var(--sub)">Tire foto da NF ou nota do mecânico e a IA preenche os campos</div>
+      </div>
+      <button class="btn bs" style="background:rgba(99,102,241,.2);color:#a78bfa;border-color:rgba(99,102,241,.4);white-space:nowrap;font-size:12px" onclick="document.getElementById('osIaFile').click()">📷 Anexar foto</button>
+      <input type="file" id="osIaFile" accept="image/*" style="display:none" onchange="osLerViaNf(this)">
+    </div>
+    <div id="osIaStatus" style="display:none;font-size:11px;color:var(--acc);margin-bottom:8px;padding:6px 10px;background:var(--sur);border-radius:6px">⏳ Lendo nota fiscal…</div>
     <div class="fr"><div class="fg"><label>Moto</label><select id="osM">${opts}</select></div>
     <div class="fg"><label>Data</label><input type="date" id="osD" value="${tod()}"></div></div>
     <div class="fg"><label>Oficina</label><input id="osOf" placeholder="Nome da oficina" value="Oficina Parceira"></div>
@@ -3448,6 +3846,36 @@ h1{font-size:20px;font-weight:800;color:var(--acc);margin-bottom:4px}
   <div id="pHistList"><div style="font-size:12px;color:var(--sub);text-align:center;padding:16px">Carregando...</div></div>
 </div>
 <div id="toast"></div>
+
+<!-- IA Assistente MotoGest -->
+<div id="iaBtn" onclick="toggleIaPanel()" title="Assistente IA (Ctrl+I)" style="position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#a855f7);box-shadow:0 4px 20px rgba(99,102,241,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:9998;font-size:22px;transition:transform .2s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">🤖</div>
+
+<div id="iaPanel" style="display:none;position:fixed;bottom:86px;right:24px;width:420px;max-width:calc(100vw - 32px);background:var(--card);border:1px solid rgba(99,102,241,.4);border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.5);z-index:9999;overflow:hidden;font-family:inherit">
+  <div style="background:linear-gradient(135deg,rgba(99,102,241,.2),rgba(168,85,247,.2));padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(99,102,241,.2)">
+    <span style="font-size:20px">🤖</span>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700;color:#a78bfa">Assistente MotoGest</div>
+      <div style="font-size:10px;color:var(--sub)">Comandos em linguagem natural</div>
+    </div>
+    <button onclick="toggleIaPanel()" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:16px;padding:4px">✕</button>
+  </div>
+  <div id="iaMessages" style="height:280px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px">
+    <div style="background:rgba(99,102,241,.1);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--sub);border-left:3px solid #6366f1">
+      <b style="color:#a78bfa">Exemplos de comandos:</b><br>
+      • troca de óleo TGX0J77 odômetro 45800<br>
+      • atualizar odo TMM1D90 para 32500<br>
+      • registrar pagamento TGX8G60<br>
+      • multa TGX7B27 valor 180 auto infração 123<br>
+      • nova OS TGX9H81 óleo 80 mão de obra 50<br>
+      • status TGX0J77<br>
+      • motos com óleo vencido
+    </div>
+  </div>
+  <div style="padding:10px 12px;border-top:1px solid var(--bor);display:flex;gap:8px">
+    <input id="iaInput" class="inp" placeholder="Digite um comando…" style="flex:1;font-size:13px" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarComandoIA();}">
+    <button id="iaEnvBtn" onclick="enviarComandoIA()" style="background:linear-gradient(135deg,#6366f1,#a855f7);border:none;color:#fff;border-radius:8px;padding:0 14px;font-size:16px;cursor:pointer;flex-shrink:0">➤</button>
+  </div>
+</div>
 <script>
 const MOTOS=${motosJson};
 const FB_CFG=${fbJson};
@@ -3891,13 +4319,6 @@ function salvarCorte(){
   closeM('mCorteM');render();
   toast('✅ Corte aplicado: semanas anteriores a '+fD(semCorte)+' arquivadas','grn');
 }
-function zerarPendencias(){
-  if(!confirm('Zerar todas as pendências?\n\nIsso define o corte para a semana atual — semanas anteriores ficam arquivadas e não aparecem mais como pendentes.\n\nOs dados históricos são preservados.'))return;
-  const semHoje=wS(tod());
-  localStorage.setItem('mg_pg_corte',semHoje);
-  render();
-  toast('✅ Pendências zeradas — contagem começa esta semana','grn');
-}
 
 function vPag(){
   const ws=wS(pSem),we=wE(pSem);
@@ -4096,7 +4517,6 @@ function vPag(){
     <div class="row" style="gap:6px;flex-wrap:wrap">
       <button class="btn bg bs" onclick="openImport()">📥 Importar Extrato</button>
       <button class="btn bx bs" onclick="openCorteModal()" title="Define a partir de qual semana o sistema conta pendências — semanas anteriores ficam arquivadas">📅 Corte${getPgCorte()?'<span style="font-size:9px;color:var(--acc);margin-left:3px">✓</span>':''}</button>
-      <button class="btn br bs" onclick="zerarPendencias()" title="Define o corte para hoje — todas as semanas anteriores ficam arquivadas">🧹 Zerar Pendências</button>
       <button class="btn bx bs" onclick="exportSemanaCSV('${ws}','${we}','${lbl}')">📄 CSV</button>
       <button class="btn bx bs" onclick="exportSemanaPDF('${ws}','${we}','${lbl}')">🖨️ PDF</button>
       <button class="btn bx bs" onclick="exportHistorico()">⬇️ Histórico</button>
@@ -4781,15 +5201,7 @@ function showImportResults(credits){
   const semAtual=wS(tod());
   let nId=0,nNId=0,nDup=0,totalVal=0;
   const results=credits.map((c,i)=>{
-    // Tenta primeiro por txid (AMS + placa no nome do extrato)
-    let match=null;
-    const nomeUp=(c.nome||'').toUpperCase();
-    const mPorTxid=DB.motos.filter(m=>m.on&&m.nome).find(m=>{
-      const placa=(m.placa||'').replace(/[^A-Z0-9]/gi,'').toUpperCase();
-      return nomeUp.includes('AMS'+placa)||nomeUp.includes('AMS MOTOS '+placa)||nomeUp.includes(placa+'AMS');
-    });
-    if(mPorTxid) match={m:mPorTxid,score:1.0,learned:false,viaTxid:true};
-    else match=findMotoWithLearning(c.nome);
+    const match=findMotoWithLearning(c.nome);
     const mOpts=DB.motos.filter(m=>m.on&&m.nome).map(m=>`<option value="${m.id}" ${match&&match.m.id===m.id?'selected':''}>${m.placa} – ${m.nome.split(' ').slice(0,3).join(' ')}</option>`).join('');
     const conf=match&&match.score>=0.5;
     const semCalc=c.dataLanc?wS(c.dataLanc):semAtual;
@@ -4803,7 +5215,7 @@ function showImportResults(credits){
     conf?nId++:nNId++;
     if(isDup) nDup++;
     totalVal+=c.val;
-    const learned=match&&match.viaTxid?' 🎯 PIX ID':match&&match.learned?' 🧠':'';
+    const learned=match&&match.learned?' 🧠':'';
     return`<tr id="imp_row_${i}" style="background:${isDup?'rgba(0,0,0,.05)':conf?'var(--grnbg)':'var(--redbg)'}22;${isDup?'opacity:.6':''}">
       <td style="font-size:11px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.nome}">${c.nome}</td>
       <td><b>${fR(c.val)}</b>${valDiffStr}</td>
@@ -5630,102 +6042,15 @@ function waAlertaGeral(){
   const mEsc=resumo.replace(/`/g,'\\`');
   showM(mWrap('mWAG2',`<div class="modal"><div class="mh"><span class="ct">⚡ Alerta Geral AMS</span><button class="btn bx" onclick="closeM('mWAG2')">✕</button></div><div style="background:var(--sur);border-radius:10px;padding:14px;font-size:13px;white-space:pre-wrap;line-height:1.6;max-height:50vh;overflow-y:auto;font-family:monospace">${resumo}</div><div class="row" style="gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn bx" onclick="navigator.clipboard.writeText(\`${mEsc}\`).then(()=>alert('✅ Copiado!'))">📋 Copiar</button><button class="btn bx" onclick="closeM('mWAG2')">Fechar</button><button class="btn bxs" style="background:#25d366;color:#fff;border:none" onclick="window.open('https://wa.me/?text='+encodeURIComponent(\`${mEsc}\`),'_blank')">📱 WA</button></div></div>`));
 }
-// ── PIX EMV — Gerador de payload padrão Banco Central ─────────────────────
-function crc16(str){
-  let crc=0xFFFF;
-  for(let i=0;i<str.length;i++){
-    crc^=str.charCodeAt(i)<<8;
-    for(let j=0;j<8;j++) crc=(crc&0x8000)?(crc<<1)^0x1021:(crc<<1);
-  }
-  return(crc&0xFFFF).toString(16).toUpperCase().padStart(4,'0');
-}
-function emvField(id,val){const l=val.length.toString().padStart(2,'0');return id+l+val;}
-function gerarPixPayload(chave,valor,nome,cidade,txid){
-  // txid: máx 25 chars alfanumérico, usado como identificador no extrato
-  const txidClean=(txid||'***').replace(/[^A-Za-z0-9]/g,'').slice(0,25).padEnd(1,'A');
-  const merchantAccInfo=emvField('00','BR.GOV.BCB.PIX')+emvField('01',chave);
-  const mai=emvField('26',merchantAccInfo);
-  const addInfo=emvField('05',txidClean);
-  const adi=emvField('62',addInfo);
-  const valorStr=valor>0?emvField('54',valor.toFixed(2)):'';
-  const nomeClean=(nome||'AMS MOTOS').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9 ]/g,'').slice(0,25);
-  const cidadeClean=(cidade||'SALVADOR').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9 ]/g,'').slice(0,15);
-  let payload='000201'+mai+'520400005303986'+valorStr+'5802BR'+emvField('59',nomeClean)+emvField('60',cidadeClean)+adi+'6304';
-  const crc=crc16(payload);
-  return payload+crc;
-}
-function gerarTxid(moto){
-  // Formato: AMS + placa + semana atual → identificável no extrato
-  const placa=(moto.placa||'').replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,7);
-  const sem=wS(tod()).replace(/-/g,'').slice(2); // ex: 250518
-  return ('AMS'+placa+sem).slice(0,25);
-}
 function gerarQRPix(mId){
   const m=DB.motos.find(x=>x.id===mId);if(!m)return;
   const pix=DB.pixAms||'';
   if(!pix){alert('Configure a chave PIX primeiro (botão 💰 na aba Documentos).');return;}
-  const saldo=Number(m.val||0); // usa valor do plano como valor padrão
-  const txid=gerarTxid(m);
-  const payload=gerarPixPayload(pix,saldo,'AMS MOTOS','SALVADOR',txid);
-  const qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=260x260&data='+encodeURIComponent(payload);
-  const waMsg=encodeURIComponent('💰 *AMS Motos — Cobrança de Aluguel*\n\nOlá '+m.nome.split(' ')[0]+'! 👋\n\nSegue o PIX para pagamento do aluguel da moto *'+m.placa+'*:\n\n💵 Valor: *'+fR(saldo)+'*\n\nEscaneie o QR Code ou copie a chave abaixo.\n\n_Identificação automática — pagamento confirmado em instantes! ✅_\n\n_AMS Motos 🏍️_');
-  const fone=m.fone?m.fone.replace(/\D/g,''):'';
-  const waUrl=fone?'https://wa.me/55'+fone+'?text='+waMsg:'https://wa.me/?text='+waMsg;
-  showM(mWrap('mQR',`<div class="modal" style="max-width:400px;text-align:center">
-    <div class="mh"><span class="ct">💰 PIX — ${m.nome.split(' ')[0]} (${m.placa})</span><button class="btn bx" onclick="closeM('mQR')">✕</button></div>
-    <div style="background:var(--grnbg);border-radius:8px;padding:10px;margin-bottom:12px">
-      <div style="font-size:10px;color:var(--sub);font-weight:700">VALOR A PAGAR</div>
-      <div style="font-size:28px;font-weight:800;color:var(--grn)">${fR(saldo)}</div>
-    </div>
-    <img src="${qrUrl}" style="width:220px;height:220px;border-radius:12px;display:block;margin:0 auto 12px" onerror="this.style.display='none'">
-    <div style="background:var(--sur);border-radius:8px;padding:10px;margin-bottom:10px;text-align:left">
-      <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">📋 COPIA E COLA (PIX COPIA E COLA)</div>
-      <div style="font-size:10px;font-family:monospace;word-break:break-all;color:var(--txt);background:var(--bg);padding:6px;border-radius:4px;cursor:pointer" onclick="navigator.clipboard.writeText('${payload}').then(()=>toast('✅ Código PIX copiado!','grn'))">${payload.slice(0,40)}...</div>
-      <button class="btn bg" style="width:100%;margin-top:8px;font-size:12px" onclick="navigator.clipboard.writeText('${payload}').then(()=>toast('✅ Código PIX copiado!','grn'))">📋 Copiar Código PIX</button>
-    </div>
-    <div style="font-size:10px;color:var(--sub);margin-bottom:10px">🔑 ID no extrato: <b style="color:var(--acc);font-family:monospace">${txid}</b> — identificação automática</div>
-    <div class="row" style="gap:8px;justify-content:center">
-      <button class="btn bx" style="font-size:12px" onclick="navigator.clipboard.writeText('${pix}').then(()=>toast('✅ Chave copiada!','grn'))">🔑 Copiar Chave</button>
-      <a href="${waUrl}" target="_blank" class="btn" style="background:#25d366;color:#fff;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:5px">📱 Enviar WA</a>
-    </div>
-  </div>`));
-}
-
-// ── PIX em Lote — gera cobranças para todos os inadimplentes ─────────────
-function gerarPixLote(){
-  const pix=DB.pixAms||'';
-  if(!pix){alert('Configure a chave PIX primeiro.');return;}
-  const paidByM={};DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.sem);});
-  const devs=DB.motos.filter(m=>m.on&&m.val>0&&m.nome&&m.nome.trim()).filter(m=>wLateCalc(m,paidByM)>=1).sort((a,b)=>wLateCalc(b,paidByM)-wLateCalc(a,paidByM));
-  if(!devs.length){toast('✅ Nenhum inadimplente com PIX!','grn');return;}
-  const rows=devs.map(m=>{
-    const semAtras=wLateCalc(m,paidByM);
-    const valTotal=semAtras*Number(m.val||0);
-    const txid=gerarTxid(m);
-    const payload=gerarPixPayload(pix,valTotal,'AMS MOTOS','SALVADOR',txid);
-    const fone=(m.fone||'').replace(/\D/g,'');
-    return`<tr>
-      <td><b>${m.placa}</b></td>
-      <td style="font-size:11px">${m.nome.split(' ').slice(0,2).join(' ')}</td>
-      <td style="color:var(--red);font-weight:700">${semAtras}x</td>
-      <td style="font-weight:700;color:var(--acc)">${fR(valTotal)}</td>
-      <td style="font-family:monospace;font-size:9px;color:var(--sub)">${txid}</td>
-      <td class="row" style="gap:4px">
-        <button class="btn bxs" style="font-size:10px;background:var(--grn);color:#000;border:none" onclick="navigator.clipboard.writeText('${payload}').then(()=>toast('✅ PIX copiado — ${m.placa}','grn'))">📋 PIX</button>
-        ${fone?`<a href="https://wa.me/55${fone}?text=${encodeURIComponent('💰 *AMS Motos*\n\nOlá '+m.nome.split(' ')[0]+'! Segue PIX de '+fR(valTotal)+' ('+semAtras+'x):\n\n'+payload)}" target="_blank" class="btn bxs" style="font-size:10px;background:#25d366;color:#fff;text-decoration:none;display:inline-flex;align-items:center">📱</a>`:''}
-      </td>
-    </tr>`;
-  }).join('');
-  showM(mWrap('mPixLote',`<div class="modal" style="max-width:780px">
-    <div class="mh"><span class="ct">💰 PIX em Lote — ${devs.length} inadimplentes</span><button class="btn bx" onclick="closeM('mPixLote')">✕</button></div>
-    <div style="background:var(--accbg);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--acc)">
-      🔑 Cada PIX tem um <b>ID único no extrato</b> (coluna ID). Ao importar o extrato, o sistema identifica automaticamente quem pagou.
-    </div>
-    <div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>Placa</th><th>Locatário</th><th>Atraso</th><th>Total</th><th>ID Extrato</th><th>Ações</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div>
-  </div>`));
+  const saldo=calcSaldo(m.id);
+  if(saldo<=0){alert('Nenhum débito pendente para '+m.nome.split(' ')[0]+'.');return;}
+  const valor=saldo.toFixed(2);
+  const qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=240x240&data='+encodeURIComponent('pix:'+pix+'?amount='+valor+'&description=AMS+Motos+'+m.placa);
+  showM(mWrap('mQR',`<div class="modal" style="max-width:360px;text-align:center"><div class="mh"><span class="ct">💰 PIX — ${m.nome.split(' ')[0]}</span><button class="btn bx" onclick="closeM('mQR')">✕</button></div><div style="font-size:13px;color:var(--sub);margin-bottom:12px">Valor: <b style="color:var(--red);font-size:20px">${fR(saldo)}</b></div><img src="${qrUrl}" style="width:210px;height:210px;border-radius:12px;display:block;margin:0 auto"><div style="margin-top:12px;font-size:12px;color:var(--sub)">Chave PIX: <b>${pix}</b></div><button class="btn bx" style="margin-top:8px;width:100%" onclick="navigator.clipboard.writeText('${pix}').then(()=>alert('✅ Chave copiada!'))">📋 Copiar Chave</button></div>`));
 }
 // ── gerarRelatorioSemanal: versão moderna está mais abaixo no arquivo ──────
 function vRanking(){
@@ -5830,317 +6155,6 @@ function vSubutilizacao(){
     </table></div>
   </div>`));
 }
-
-// ── ROI por Moto ──────────────────────────────────────────────────────────
-function vROI(){
-  const ativ=DB.motos.filter(m=>m.on);
-  const paidByM={};
-  DB.pg.forEach(p=>{
-    const mo=DB.motos.find(x=>x.id===p.mId)||{val:0};
-    if(!paidByM[p.mId])paidByM[p.mId]=0;
-    paidByM[p.mId]+=(p.valor!=null?Number(p.valor):Number(mo.val||0));
-  });
-  const data=ativ.map(m=>{
-    const recTotal=paidByM[m.id]||0;
-    const custoOS=DB.os.filter(o=>o.mId===m.id&&(o.st==='pago'||o.st==='concluido'||!o.st||o.st==='pendente')).reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0);
-    const custoIntv=(DB.intervencoes||[]).filter(i=>i.mId===m.id&&i.st==='confirmado').reduce((a,i)=>a+Number(i.total||0),0);
-    const custoSeg=DB.seg.filter(s=>s.mId===m.id).reduce((a,s)=>a+Number(s.val||0),0);
-    const custoTotal=custoOS+custoIntv+custoSeg;
-    const roi=custoTotal>0?((recTotal-custoTotal)/custoTotal*100):null;
-    const lucro=recTotal-custoTotal;
-    return{m,recTotal,custoTotal,custoOS,custoIntv,custoSeg,lucro,roi};
-  }).sort((a,b)=>b.lucro-a.lucro);
-  const totalRec=data.reduce((a,x)=>a+x.recTotal,0);
-  const totalCusto=data.reduce((a,x)=>a+x.custoTotal,0);
-  const totalLucro=totalRec-totalCusto;
-  const rows=data.map((x,i)=>{
-    const cor=x.lucro>0?'var(--grn)':x.lucro===0?'var(--sub)':'var(--red)';
-    const roiStr=x.roi!==null?x.roi.toFixed(0)+'%':'N/A';
-    const roiCor=x.roi>50?'var(--grn)':x.roi>0?'var(--yel)':'var(--red)';
-    return`<tr>
-      <td><b>${x.m.placa}</b></td>
-      <td style="font-size:11px">${x.m.nome?x.m.nome.split(' ').slice(0,2).join(' '):'—'}</td>
-      <td style="color:var(--grn)">${fR(x.recTotal)}</td>
-      <td style="color:var(--red)">${fR(x.custoTotal)}</td>
-      <td style="font-weight:700;color:${cor}">${fR(x.lucro)}</td>
-      <td style="font-weight:700;color:${roiCor}">${roiStr}</td>
-    </tr>`;
-  }).join('');
-  const margemGeral=totalRec>0?((totalLucro/totalRec)*100).toFixed(1):0;
-  showM(mWrap('mROI',`<div class="modal" style="max-width:780px">
-    <div class="mh"><span class="ct">📈 ROI por Moto — Receita vs Custos</span><button class="btn bx" onclick="closeM('mROI')">✕</button></div>
-    <p style="font-size:11px;color:var(--sub);margin-bottom:12px">Receita = pagamentos registrados. Custo = OS + Intervenções + Seguros por moto.</p>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
-      <div style="background:var(--grnbg);border-radius:8px;padding:10px;text-align:center">
-        <div style="font-size:9px;color:var(--sub)">RECEITA TOTAL</div>
-        <div style="font-size:16px;font-weight:800;color:var(--grn)">${fR(totalRec)}</div>
-      </div>
-      <div style="background:var(--redbg);border-radius:8px;padding:10px;text-align:center">
-        <div style="font-size:9px;color:var(--sub)">CUSTO TOTAL</div>
-        <div style="font-size:16px;font-weight:800;color:var(--red)">${fR(totalCusto)}</div>
-      </div>
-      <div style="background:${totalLucro>=0?'var(--grnbg)':'var(--redbg)'};border-radius:8px;padding:10px;text-align:center">
-        <div style="font-size:9px;color:var(--sub)">LUCRO LÍQUIDO</div>
-        <div style="font-size:16px;font-weight:800;color:${totalLucro>=0?'var(--grn)':'var(--red)'}">${fR(totalLucro)}</div>
-      </div>
-      <div style="background:var(--blubg);border-radius:8px;padding:10px;text-align:center">
-        <div style="font-size:9px;color:var(--sub)">MARGEM GERAL</div>
-        <div style="font-size:16px;font-weight:800;color:var(--blu)">${margemGeral}%</div>
-      </div>
-    </div>
-    <div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>Placa</th><th>Locatário</th><th>Receita</th><th>Custos</th><th>Lucro</th><th>ROI</th></tr></thead>
-      <tbody>${rows||'<tr><td colspan="6" class="empty">Sem dados de pagamento.</td></tr>'}</tbody>
-    </table></div>
-  </div>`));
-}
-
-// ── Ocupação da Frota ─────────────────────────────────────────────────────
-function vOcupacao(){
-  const ativ=DB.motos.filter(m=>m.on);
-  const alugadas=ativ.filter(m=>m.nome&&m.nome.trim()!=='');
-  const disponiveis=ativ.filter(m=>!m.nome||m.nome.trim()==='');
-  const emServico=ativ.filter(m=>m.status==='oficina'||m.status==='acidente'||m.status==='sinistro');
-  const pctOcup=ativ.length?Math.round(alugadas.length/ativ.length*100):0;
-  const recSemPerdida=disponiveis.reduce((a,m)=>a+Number(m.val||370),0);
-  const paidByM={};
-  DB.pg.forEach(p=>{const mo=DB.motos.find(x=>x.id===p.mId)||{val:0};if(!paidByM[p.mId])paidByM[p.mId]=0;paidByM[p.mId]+=(p.valor!=null?Number(p.valor):Number(mo.val||0));});
-  const corOcup=pctOcup>=90?'var(--grn)':pctOcup>=70?'var(--yel)':'var(--red)';
-  const rowsDisp=disponiveis.map(m=>`<tr>
-    <td><b>${m.placa}</b></td>
-    <td style="color:var(--sub)">${m.chassi||'—'}</td>
-    <td style="color:var(--yel)">${m.status||'Disponível'}</td>
-    <td style="color:var(--red)">${fR(Number(m.val||370))}/sem</td>
-    <td><button class="btn bxs" style="font-size:10px;background:var(--acc);color:#000;border:none" onclick="go('mts')">Locar</button></td>
-  </tr>`).join('');
-  const rowsServ=emServico.map(m=>`<tr>
-    <td><b>${m.placa}</b></td>
-    <td>${m.nome?m.nome.split(' ').slice(0,2).join(' '):'—'}</td>
-    <td style="color:var(--yel)">${m.status}</td>
-    <td style="color:var(--red)">${fR(Number(m.val||370))}/sem perdida</td>
-  </tr>`).join('');
-  showM(mWrap('mOcup',`<div class="modal" style="max-width:700px">
-    <div class="mh"><span class="ct">🔄 Ocupação da Frota</span><button class="btn bx" onclick="closeM('mOcup')">✕</button></div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
-      <div style="background:var(--grnbg);border-radius:8px;padding:12px;text-align:center">
-        <div style="font-size:9px;color:var(--sub)">ALUGADAS</div>
-        <div style="font-size:28px;font-weight:800;color:var(--grn)">${alugadas.length}</div>
-        <div style="font-size:11px;color:var(--sub)">de ${ativ.length} motos</div>
-      </div>
-      <div style="background:${corOcup==='var(--grn)'?'var(--grnbg)':corOcup==='var(--yel)'?'var(--yelbg)':'var(--redbg)'};border-radius:8px;padding:12px;text-align:center">
-        <div style="font-size:9px;color:var(--sub)">OCUPAÇÃO</div>
-        <div style="font-size:28px;font-weight:800;color:${corOcup}">${pctOcup}%</div>
-        <div style="font-size:11px;color:var(--sub)">Meta: 90%+</div>
-      </div>
-      <div style="background:var(--redbg);border-radius:8px;padding:12px;text-align:center">
-        <div style="font-size:9px;color:var(--sub)">RECEITA PERDIDA</div>
-        <div style="font-size:20px;font-weight:800;color:var(--red)">${fR(recSemPerdida)}</div>
-        <div style="font-size:11px;color:var(--sub)">por semana</div>
-      </div>
-    </div>
-    <div style="background:var(--bor);border-radius:8px;height:16px;margin-bottom:14px;overflow:hidden">
-      <div style="width:${pctOcup}%;height:100%;background:${corOcup};transition:width .5s"></div>
-    </div>
-    ${disponiveis.length?`<div class="ct" style="margin-bottom:8px;color:var(--yel)">🟡 Motos Disponíveis (${disponiveis.length})</div>
-    <div style="overflow-x:auto;margin-bottom:14px"><table class="tbl">
-      <thead><tr><th>Placa</th><th>Chassi</th><th>Status</th><th>Receita Perdida</th><th>Ação</th></tr></thead>
-      <tbody>${rowsDisp}</tbody>
-    </table></div>`:''}
-    ${emServico.length?`<div class="ct" style="margin-bottom:8px;color:var(--acc)">🔧 Em Manutenção/Sinistro (${emServico.length})</div>
-    <div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>Placa</th><th>Locatário</th><th>Status</th><th>Receita</th></tr></thead>
-      <tbody>${rowsServ}</tbody>
-    </table></div>`:''}
-    ${!disponiveis.length&&!emServico.length?'<div style="text-align:center;padding:20px;color:var(--grn)">✅ 100% da frota alocada!</div>':''}
-  </div>`));
-}
-
-// ── DRE Completa ──────────────────────────────────────────────────────────
-function vDRE(){
-  const ativ=DB.motos.filter(m=>m.on);
-  // Receita bruta = todos os pagamentos
-  const recBruta=DB.pg.reduce((a,p)=>{const mo=DB.motos.find(x=>x.id===p.mId)||{val:0};return a+(p.valor!=null?Number(p.valor):Number(mo.val||0));},0);
-  // Custos operacionais
-  const custoOS=(DB.os||[]).reduce((a,o)=>a+Number(o.pec||0)+Number(o.mao||0),0);
-  const custoIntv=(DB.intervencoes||[]).filter(i=>i.st==='confirmado').reduce((a,i)=>a+Number(i.total||0),0);
-  const custoSeg=(DB.seg||[]).reduce((a,s)=>a+Number(s.val||0),0);
-  const custoMultas=(DB.multas||[]).filter(m=>m.repasse!=='repassado').reduce((a,m)=>a+Number(m.val||0),0);
-  const custoOpTotal=custoOS+custoIntv+custoSeg+custoMultas;
-  // Depreciação estimada (15% a.a. / 52 semanas por semana de dados)
-  const totalSemanasRegistradas=new Set(DB.pg.map(p=>p.sem)).size||1;
-  const valorFrota=ativ.length*12000; // ~R$12k por Factor 150
-  const depreciacaoAnual=valorFrota*0.15;
-  const depreciacaoPeriodo=(depreciacaoAnual/52)*totalSemanasRegistradas;
-  // Provisão devedores duvidosos (10% receita)
-  const provisaoDD=recBruta*0.10;
-  // Inadimplência
-  const paidByM={};DB.pg.forEach(p=>{const mo=DB.motos.find(x=>x.id===p.mId)||{val:0};if(!paidByM[p.mId])paidByM[p.mId]=0;paidByM[p.mId]+=(p.valor!=null?Number(p.valor):Number(mo.val||0));});
-  // Resultados
-  const ebitda=recBruta-custoOpTotal;
-  const ebitdaPct=recBruta>0?(ebitda/recBruta*100).toFixed(1):0;
-  const lucroAntesProvisao=ebitda-depreciacaoPeriodo;
-  const lucroLiquido=lucroAntesProvisao-provisaoDD;
-  const corEbitda=ebitda>0?'var(--grn)':'var(--red)';
-  const corLucro=lucroLiquido>0?'var(--grn)':'var(--red)';
-  const row=(label,val,cor,bold,bg)=>`<tr style="${bg?'background:'+bg:''}">
-    <td style="padding:8px 10px;font-size:12px;${bold?'font-weight:700':''}">${label}</td>
-    <td style="padding:8px 10px;text-align:right;font-weight:${bold?800:500};color:${cor||'var(--txt)'}">${fR(val)}</td>
-  </tr>`;
-  showM(mWrap('mDRE',`<div class="modal" style="max-width:500px">
-    <div class="mh"><span class="ct">📊 DRE — Demonstrativo de Resultado</span><button class="btn bx" onclick="closeM('mDRE')">✕</button></div>
-    <p style="font-size:11px;color:var(--sub);margin-bottom:12px">Período: ${totalSemanasRegistradas} semana(s) com dados. Frota estimada: ${ativ.length} motos × R$12.000.</p>
-    <table style="width:100%;border-collapse:collapse">
-      ${row('(+) Receita Bruta',recBruta,'var(--grn)',true,'rgba(34,197,94,.05)')}
-      ${row('(-) OS e Intervenções',-custoOS-custoIntv,'var(--red)')}
-      ${row('(-) Seguros',-custoSeg,'var(--red)')}
-      ${row('(-) Multas AMS',-custoMultas,'var(--red)')}
-      <tr style="border-top:2px solid var(--acc)">
-        <td style="padding:10px;font-weight:800;font-size:13px">= EBITDA</td>
-        <td style="padding:10px;text-align:right;font-weight:800;font-size:15px;color:${corEbitda}">${fR(ebitda)} <span style="font-size:10px;color:var(--sub)">(${ebitdaPct}%)</span></td>
-      </tr>
-      ${row('(-) Depreciação Frota (15%/ano)',-depreciacaoPeriodo,'var(--sub)')}
-      ${row('(=) Lucro antes provisão',lucroAntesProvisao,lucroAntesProvisao>=0?'var(--grn)':'var(--red)',true)}
-      ${row('(-) Provisão Devedores (10%)',-provisaoDD,'var(--sub)')}
-      <tr style="border-top:2px solid var(--blu);background:var(--blubg)">
-        <td style="padding:12px;font-weight:800;font-size:14px">= LUCRO LÍQUIDO ESTIMADO</td>
-        <td style="padding:12px;text-align:right;font-weight:800;font-size:18px;color:${corLucro}">${fR(lucroLiquido)}</td>
-      </tr>
-    </table>
-    <p style="font-size:10px;color:var(--mut);margin-top:12px">⚠️ Estimativa — depreciação e provisão são teóricas. Para DRE formal consulte seu contador.</p>
-  </div>`));
-}
-
-// ── Fluxo de Caixa Projetado ──────────────────────────────────────────────
-function vFluxoCaixa(){
-  const hoje=tod();
-  const ativPg=DB.motos.filter(m=>m.on&&m.val>0&&m.nome&&m.nome.trim());
-  const diasSem={'SEG':0,'TER':1,'QUA':2,'QUI':3,'SEX':4,'SAB':5,'DOM':6};
-  const nomeDia={'SEG':'Segunda','TER':'Terça','QUA':'Quarta','QUI':'Quinta','SEX':'Sexta','SAB':'Sábado','DOM':'Domingo'};
-  // Agrupa motos por dia de vencimento para próximas 4 semanas
-  const projecao=[];
-  for(let sem=0;sem<4;sem++){
-    const dias=['SEG','TER','QUA','QUI','SEX','SAB','DOM'];
-    let totalSem=0;
-    const diasProj=dias.map(dia=>{
-      const mDia=ativPg.filter(m=>m.dia===dia);
-      const val=mDia.reduce((a,m)=>a+Number(m.val||0),0);
-      totalSem+=val;
-      return{dia,qtd:mDia.length,val};
-    }).filter(d=>d.qtd>0);
-    const ws=new Date(wS(hoje));ws.setDate(ws.getDate()+sem*7);
-    const wsStr=ws.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
-    projecao.push({sem:sem+1,wsStr,diasProj,totalSem});
-  }
-  // Vencimentos futuros de seguros e revisões
-  const segVenc=DB.seg.filter(s=>{const d=new Date(s.venc+'T12:00');return d>new Date()&&(d-new Date())<1000*60*60*24*28;}).sort((a,b)=>a.venc.localeCompare(b.venc));
-  const recTotal4sem=projecao.reduce((a,s)=>a+s.totalSem,0);
-  const rows4sem=projecao.map(s=>`
-    <div style="background:var(--sur);border-radius:8px;padding:12px;margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <b>Semana ${s.sem} — a partir de ${s.wsStr}</b>
-        <b style="color:var(--grn)">${fR(s.totalSem)}</b>
-      </div>
-      ${s.diasProj.map(d=>`<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--sub);padding:3px 0">
-        <span>${nomeDia[d.dia]} (${d.qtd} moto${d.qtd>1?'s':''})</span>
-        <span style="color:var(--txt)">${fR(d.val)}</span>
-      </div>`).join('')}
-    </div>`).join('');
-  const rowsSeg=segVenc.length?segVenc.slice(0,6).map(s=>{const m=DB.motos.find(x=>x.id===s.mId)||{placa:'?'};return`<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--bor)"><span>${m.placa} — ${s.tipo||'Seguro'}</span><span style="color:var(--yel)">${fD(s.venc)} — ${fR(s.val)}</span></div>`;}).join(''):'<p style="font-size:12px;color:var(--sub)">Nenhum seguro vencendo nos próximos 28 dias.</p>';
-  showM(mWrap('mFluxo',`<div class="modal" style="max-width:580px">
-    <div class="mh"><span class="ct">💹 Fluxo de Caixa — Próximas 4 Semanas</span><button class="btn bx" onclick="closeM('mFluxo')">✕</button></div>
-    <div style="background:var(--grnbg);border-radius:8px;padding:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:12px;color:var(--sub)">Receita Projetada (4 semanas)</span>
-      <b style="font-size:20px;color:var(--grn)">${fR(recTotal4sem)}</b>
-    </div>
-    <p style="font-size:11px;color:var(--sub);margin-bottom:10px">Baseado nos ${ativPg.length} locatários ativos com dia de pagamento definido. Não considera inadimplência.</p>
-    ${rows4sem}
-    <div class="ct" style="margin-bottom:8px;margin-top:4px;color:var(--yel)">⚠️ Saídas Previstas — Seguros</div>
-    ${rowsSeg}
-  </div>`));
-}
-
-// ── Checklist de Vistoria ─────────────────────────────────────────────────
-function vVistoria(){
-  const motos=DB.motos.filter(m=>m.on);
-  const itens=[
-    {id:'espelhos',label:'🪞 Espelhos retrovisores'},
-    {id:'luzes',label:'💡 Luzes dianteira e traseira'},
-    {id:'pisca',label:'🔦 Piscas (esquerdo e direito)'},
-    {id:'pneu_d',label:'🔵 Pneu dianteiro (calibragem e estado)'},
-    {id:'pneu_t',label:'🔵 Pneu traseiro (calibragem e estado)'},
-    {id:'freio_d',label:'🛑 Freio dianteiro'},
-    {id:'freio_t',label:'🛑 Freio traseiro'},
-    {id:'documentos',label:'📄 CRLV e documentos na moto'},
-    {id:'cnh',label:'🪪 CNH do locatário válida'},
-    {id:'chave',label:'🔑 Chave reserva entregue'},
-    {id:'retrovisor',label:'🔄 Retrovisor direito'},
-    {id:'hodometro',label:'📏 Odômetro registrado'},
-    {id:'combustivel',label:'⛽ Nível de combustível'},
-    {id:'riscos',label:'⚠️ Riscos e amassados registrados'},
-    {id:'motor',label:'🔧 Motor sem vazamentos'},
-  ];
-  const tipo=DB.vistorias?DB.vistorias.length+1:1;
-  if(!DB.vistorias)DB.vistorias=[];
-  const html=`<div class="modal" style="max-width:520px">
-    <div class="mh"><span class="ct">📋 Checklist de Vistoria</span><button class="btn bx" onclick="closeM('mVistoria')">✕</button></div>
-    <div class="fg" style="margin-bottom:10px">
-      <label>Tipo de Vistoria</label>
-      <select id="vistipoSel" class="inp" style="width:100%">
-        <option value="entrega">📤 Entrega ao Locatário</option>
-        <option value="devolucao">📥 Devolução do Locatário</option>
-      </select>
-    </div>
-    <div class="fg" style="margin-bottom:10px">
-      <label>Moto</label>
-      <select id="visMotSel" class="inp" style="width:100%">
-        ${motos.map(m=>`<option value="${m.id}">${m.placa} — ${m.nome||'Disponível'}</option>`).join('')}
-      </select>
-    </div>
-    <div class="fg" style="margin-bottom:10px">
-      <label>Data</label>
-      <input type="date" id="visData" class="inp" value="${tod()}">
-    </div>
-    <div style="background:var(--sur);border-radius:8px;padding:12px;margin-bottom:12px">
-      <div style="font-size:11px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:10px">Itens da Vistoria</div>
-      ${itens.map(it=>`<label style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--bor);cursor:pointer;font-size:13px;text-transform:none;font-weight:400;color:var(--txt)">
-        <input type="checkbox" id="vis_${it.id}" style="width:18px;height:18px;accent-color:var(--grn);cursor:pointer">
-        ${it.label}
-      </label>`).join('')}
-    </div>
-    <div class="fg" style="margin-bottom:12px">
-      <label>Observações / Danos</label>
-      <textarea id="visObs" class="inp" rows="3" placeholder="Descreva danos visíveis, arranhados, observações gerais..."></textarea>
-    </div>
-    <div class="fg" style="margin-bottom:14px">
-      <label>Odômetro no momento da vistoria</label>
-      <input type="number" id="visOdo" class="inp" placeholder="Ex: 12450">
-    </div>
-    <div class="mact">
-      <button class="btn bx" onclick="closeM('mVistoria')">Cancelar</button>
-      <button class="btn bg" onclick="salvarVistoria()">✅ Salvar Vistoria</button>
-    </div>
-  </div>`;
-  showM(mWrap('mVistoria',html));
-}
-
-function salvarVistoria(){
-  const tipo=document.getElementById('vistipoSel').value;
-  const mId=document.getElementById('visMotSel').value;
-  const data=document.getElementById('visData').value;
-  const obs=document.getElementById('visObs').value;
-  const odo=document.getElementById('visOdo').value;
-  const itens=['espelhos','luzes','pisca','pneu_d','pneu_t','freio_d','freio_t','documentos','cnh','chave','retrovisor','hodometro','combustivel','riscos','motor'];
-  const checks={};itens.forEach(id=>{checks[id]=document.getElementById('vis_'+id)?.checked||false;});
-  const totalChecked=Object.values(checks).filter(Boolean).length;
-  const vistoria={id:uid(),mId,tipo,data,obs,odo:Number(odo)||0,checks,totalChecked,total:itens.length,ts:Date.now()};
-  if(!DB.vistorias)DB.vistorias=[];
-  DB.vistorias.push(vistoria);
-  const m=DB.motos.find(x=>x.id===mId)||{placa:'?'};
-  closeM('mVistoria');
-  saveAll();
-  toast(`✅ Vistoria ${tipo==='entrega'?'de entrega':'de devolução'} salva — ${m.placa} — ${totalChecked}/${itens.length} itens OK`,'grn');
-}
-
 
 function vCustoReceita(){
   const paidByM={};DB.pg.forEach(p=>{const mo3=DB.motos.find(x=>x.id===p.mId)||{val:0};if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push(p.valor!=null?Number(p.valor):Number(mo3.val||0));});
@@ -7520,6 +7534,7 @@ function vDocs(){
       </td>
       <td style="display:flex;gap:4px;flex-wrap:wrap">
         <button class="btn bxs" style="font-size:10px;padding:2px 6px" onclick="novoContrato('${m.id}')">📝</button>
+        <button class="btn bxs" style="font-size:10px;padding:2px 6px" onclick="abrirPastaLoc('${m.id}')" title="Pasta do locatário">📁</button>
         <button class="btn bxs" style="font-size:10px;padding:2px 6px;background:${temPortal?'var(--grnbg)':'var(--sur)'};color:${temPortal?'var(--grn)':'var(--sub)'}" onclick="configAcessoLoc('${m.id}')" title="${temPortal?'Portal ativo':'Criar acesso portal'}">🔑${temPortal?' ✓':''}</button>
         ${temPortal?`<button class="btn bxs" style="font-size:10px;padding:2px 6px;position:relative;background:${(chatPend+solicPend)>0?'rgba(249,115,22,.15)':'var(--sur)'}" onclick="abrirChatAms('${m.id}')" title="Chat / Solicitações">💬${(chatPend+solicPend)>0?`<span style="position:absolute;top:-4px;right:-4px;background:var(--acc);color:#000;border-radius:8px;font-size:8px;font-weight:700;padding:0 3px">${chatPend+solicPend}</span>`:''}
         </button>`:''}
@@ -7530,7 +7545,10 @@ function vDocs(){
   ${alertHtml?`<div class="card" style="margin-bottom:12px"><div class="ch" style="margin-bottom:8px"><span class="ct">🔔 Alertas de Documentos</span></div><div style="display:flex;flex-direction:column;gap:6px">${alertHtml}</div></div>`:''}
   <div class="card"><div class="ch">
     <span class="ct">📋 Situação Documental</span>
-    <button class="btn bx bs" onclick="configPixAms()">💰 Config PIX</button>
+    <div style="display:flex;gap:6px">
+      <button class="btn bx bs" onclick="contratoAvulso()">📝 Contrato Avulso</button>
+      <button class="btn bx bs" onclick="configPixAms()">💰 Config PIX</button>
+    </div>
   </div>
   <div style="overflow-x:auto"><table class="tbl">
     <thead><tr><th>Placa</th><th>Locatário</th><th>CNH</th><th>Contrato</th><th>Caução</th><th>Fotos</th><th>Ações</th></tr></thead>
@@ -7539,6 +7557,18 @@ function vDocs(){
 }
 
 // ── Contrato ──────────────────────────────────────────────────────────────────
+function calcCtVenc(){
+  const ini=document.getElementById('ctIni')?.value;
+  const anos=parseInt(document.getElementById('ctAnos')?.value||0);
+  const meses=parseInt(document.getElementById('ctMeses')?.value||0);
+  if(!ini||(!anos&&!meses)){document.getElementById('ctVenc').value='';document.getElementById('ctVencLabel').textContent='—';return;}
+  const d=new Date(ini+'T12:00:00');
+  d.setFullYear(d.getFullYear()+anos);
+  d.setMonth(d.getMonth()+meses);
+  const iso=d.toISOString().slice(0,10);
+  document.getElementById('ctVenc').value=iso;
+  document.getElementById('ctVencLabel').textContent=fD(iso);
+}
 function novoContrato(mId){
   const m=DB.motos.find(x=>x.id===mId);if(!m)return;
   const ct=DB.contratos.filter(c=>c.mId===mId).sort((a,b)=>(b.venc||'').localeCompare(a.venc||''))[0];
@@ -7547,9 +7577,17 @@ function novoContrato(mId){
     <div style="font-size:12px;color:var(--sub);margin-bottom:14px">${m.nome||'—'}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
       <div><label style="font-size:11px;color:var(--sub)">INÍCIO</label>
-        <input type="date" id="ctIni" value="${tod()}" class="inp"></div>
-      <div><label style="font-size:11px;color:var(--sub)">VENCIMENTO</label>
-        <input type="date" id="ctVenc" class="inp"></div>
+        <input type="date" id="ctIni" value="${tod()}" class="inp" oninput="calcCtVenc()"></div>
+      <div><label style="font-size:11px;color:var(--sub)">DURAÇÃO</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="number" id="ctAnos" class="inp" min="0" max="10" value="1" style="width:60px;text-align:center" oninput="calcCtVenc()">
+          <span style="font-size:11px;color:var(--sub);white-space:nowrap">ano(s)</span>
+          <input type="number" id="ctMeses" class="inp" min="0" max="11" value="0" style="width:60px;text-align:center" oninput="calcCtVenc()">
+          <span style="font-size:11px;color:var(--sub);white-space:nowrap">mês(es)</span>
+        </div>
+        <div style="margin-top:4px;font-size:11px;color:var(--sub)">Vence em: <b id="ctVencLabel" style="color:var(--yel)">—</b></div>
+        <input type="hidden" id="ctVenc">
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
       <div><label style="font-size:11px;color:var(--sub)">VALOR SEMANAL</label>
@@ -7573,6 +7611,7 @@ function novoContrato(mId){
       <button class="btn ba" onclick="salvarContrato('${mId}')">✓ Salvar</button>
     </div>
   </div>`));
+  setTimeout(()=>calcCtVenc(),80);
 }
 
 let _ctFileB64='';
@@ -7812,14 +7851,6 @@ function vMts(){
     <td><b>${m.placa}</b></td>
     <td>${m.nome||'<span style="color:var(--mut)">—</span>'}</td>
     <td>${m.dia||'—'}</td><td>${m.val?fR(m.val):'—'}</td>
-    <td>${(()=>{
-      if(!m.dataInicio||!m.duracaoSemanas)return'<span style="color:var(--mut);font-size:11px">—</span>';
-      const d=new Date(m.dataInicio+'T12:00');d.setDate(d.getDate()+m.duracaoSemanas*7);
-      const hoje=new Date();const dias=Math.ceil((d-hoje)/86400000);
-      const cor=dias<=0?'var(--red)':dias<=14?'var(--red)':dias<=30?'var(--yel)':'var(--grn)';
-      const txt=dias<=0?'⚠️ Vencido':(dias===1?'1 dia':dias+'d');
-      return`<div style="font-size:11px;font-weight:700;color:${cor}">${txt}</div><div style="font-size:10px;color:var(--sub)">${d.toLocaleDateString('pt-BR')}</div>`;
-    })()}</td>
     <td>${fN(m.odo)} km</td>
     <td>${mStatusBadge(mStatus(m))}${m.ocorrencia?`<br><span style="font-size:9px;color:var(--yel);max-width:120px;display:block;white-space:normal">${m.ocorrencia}</span>`:''}</td>
     <td><span style="color:${gc};font-size:12px" title="${g?g.e+' – '+g.u+(g.end?' – '+g.end:''): 'Sem dados'}">${gi} ${g?g.e:'—'}</span>${g&&g.end?`<br><span style="font-size:10px;color:var(--mut)">${g.end.split(',').slice(0,2).join(',')}</span>`:''}</td>
@@ -7828,7 +7859,6 @@ function vMts(){
       <button class="btn bx bxs" onclick="verHistLocatario('${m.placa}')" title="Histórico de locatários"${histLoc.length?'':' style="opacity:.4"'}>👥${histLoc.length?` <span style="background:var(--acc);color:#000;border-radius:8px;padding:0 4px;font-size:9px">${histLoc.length}</span>`:''}</button>
       <label class="btn bx bxs" title="Importar CRLV-e (PDF)" style="cursor:pointer">📄 CRLV<input type="file" accept=".pdf" style="display:none" onchange="parseCrlv(this.files[0],'${m.id}');this.value=''"></label>
       <button class="btn bx bxs" onclick="togM('${m.id}')">${m.on?'Inativar':'Ativar'}</button>
-      ${m.nome?`<button class="btn bxs" style="font-size:11px;background:rgba(31,56,100,.3);color:#7eb0f0;border:1px solid rgba(31,56,100,.4)" onclick="go('contrato');setTimeout(()=>abrirGerarContrato('${m.id}'),200)" title="Gerar contrato para este locatário">📝</button>`:''}
       <button class="btn br bxs" onclick="excluirMoto('${m.id}')" title="Excluir moto permanentemente">🗑️</button>
     </td>
   </tr>`;
@@ -7840,7 +7870,7 @@ function vMts(){
       <button class="btn ba" onclick="showAM()">+ Nova Moto</button>
     </div></div>
     <div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>Placa</th><th>Locatário</th><th>Dia Pag.</th><th>Valor Plano</th><th>⏱️ Plano</th><th>Odômetro</th><th>Status</th><th>GPS / Localização</th><th>Ações</th></tr></thead>
+      <thead><tr><th>Placa</th><th>Locatário</th><th>Dia Pag.</th><th>Valor Plano</th><th>Odômetro</th><th>Status</th><th>GPS / Localização</th><th>Ações</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div></div>`;
 }
@@ -7886,18 +7916,9 @@ function editM(id){
     <div class="fr"><div class="fg"><label>CPF do Locatário</label><input id="emCpf" value="${m.cpfLoc||''}" placeholder="000.000.000-00"></div>
     <div class="fg"><label>Validade CNH</label><input type="date" id="emCnh" value="${m.cnhValidade||''}"></div></div>
     <div class="fg"><label>📅 Data de Retirada (início da cobrança)</label>
-      <input type="date" id="emDataInicio" value="${m.dataInicio||''}" oninput="calcTerminoPlano()">
+      <input type="date" id="emDataInicio" value="${m.dataInicio||''}">
       <div style="font-size:11px;color:var(--sub);margin-top:3px">⚡ A cobrança só começa na semana desta data</div>
     </div>
-    <div class="fr"><div class="fg"><label>⏱️ Duração do Plano</label>
-      <select id="emDuracao" oninput="calcTerminoPlano()">
-        <option value="">— Indeterminado —</option>
-        ${[1,2,3,4,5,6,8,12,13,16,24,26,52].map(s=>{const lbl=s>=52?'(1 ano)':s>=26?'(6 meses)':s>=13?'(3 meses)':s>=8?'(2 meses)':s>=4?'(1 mês)':'';return`<option value="${s}" ${(m.duracaoSemanas||0)===s?'selected':''}>${s} semana${s>1?'s':''} ${lbl}</option>`;}).join('')}
-      </select>
-    </div>
-    <div class="fg"><label>📆 Término do Plano</label>
-      <div id="emTermino" style="background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--sub);min-height:38px">${(()=>{if(m.dataInicio&&m.duracaoSemanas){const d=new Date(m.dataInicio+'T12:00');d.setDate(d.getDate()+m.duracaoSemanas*7);return'<b style="color:var(--txt)">'+d.toLocaleDateString('pt-BR')+'</b>'+(()=>{const hoje=new Date();const dias=Math.ceil((d-hoje)/86400000);return dias>0?` <span style="font-size:10px;color:${dias<=14?'var(--red)':dias<=30?'var(--yel)':'var(--grn)'}">— ${dias}d restantes</span>`:'<span style="font-size:10px;color:var(--red)"> — VENCIDO</span>';})();}return'—';})()}</div>
-    </div></div>
     <div class="fg"><label>Disponibilidade</label>
       <select id="emSt">
         <option value="alugada">🟢 Alugada</option>
@@ -7923,25 +7944,6 @@ function editM(id){
     const oi=document.getElementById('emOcorr');if(oi)oi.value=m.ocorrencia||'';
   },50);
 }
-// ── Cálculo de término do plano no modal ─────────────────────────────────
-function calcTerminoPlano(){
-  const dtEl=document.getElementById('emDataInicio');
-  const durEl=document.getElementById('emDuracao');
-  const termEl=document.getElementById('emTermino');
-  if(!termEl)return;
-  const dt=dtEl?dtEl.value:'';
-  const dur=durEl?parseInt(durEl.value||'0')||0:0;
-  if(!dt||!dur){termEl.innerHTML='<span style="color:var(--sub)">—</span>';return;}
-  const d=new Date(dt+'T12:00');
-  d.setDate(d.getDate()+dur*7);
-  const hoje=new Date();
-  const dias=Math.ceil((d-hoje)/86400000);
-  const cor=dias>0?(dias<=14?'var(--red)':dias<=30?'var(--yel)':'var(--grn)'):'var(--red)';
-  const restStr=dias>0?`<span style="font-size:11px;color:${cor}"> — ${dias} dia${dias!==1?'s':''} restante${dias!==1?'s':''}</span>`:'<span style="font-size:11px;color:var(--red)"> — VENCIDO</span>';
-  termEl.innerHTML=`<b style="color:var(--txt)">${d.toLocaleDateString('pt-BR')}</b>${restStr}`;
-}
-
-
 function svM(id){
   const m=DB.motos.find(x=>x.id===id);
   const novoNome=document.getElementById('emNm').value.trim();
@@ -7976,9 +7978,6 @@ function svM(id){
   m.dia=document.getElementById('emDi').value;
   const cpf=document.getElementById('emCpf')?.value?.trim();if(cpf)m.cpfLoc=cpf;
   const cnh=document.getElementById('emCnh')?.value?.trim();if(cnh)m.cnhValidade=cnh;
-  const duracaoSemanas=parseInt(document.getElementById('emDuracao')?.value||'0')||0;
-  if(duracaoSemanas) m.duracaoSemanas=duracaoSemanas;
-  else delete m.duracaoSemanas;
   const dataInicio=document.getElementById('emDataInicio')?.value?.trim();
   // Salva data de início: se está sendo atribuído novo locatário e não tinha, usa hoje
   if(novoNome && !nomeAnterior && !dataInicio){
@@ -10153,561 +10152,7 @@ window.installPWA=function(){
     deferredPrompt.userChoice.then(()=>{deferredPrompt=null;});
   };
 })();
-
-
-// ═══════════════════════════════════════════════════════════════
-// MÓDULO DE CONTRATOS — Geração automática de .docx
-// ═══════════════════════════════════════════════════════════════
-
-function vContrato(){
-  if(!DB.contratos_gerados)DB.contratos_gerados=[];
-  const motos=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim());
-  const rows=DB.contratos_gerados.slice().reverse().slice(0,30).map(c=>{
-    const m=DB.motos.find(x=>x.id===c.mId)||{placa:'?',nome:'?'};
-    return`<tr>
-      <td><b>${m.placa}</b></td>
-      <td style="font-size:12px">${c.nomeLocatario||m.nome}</td>
-      <td>${fD(c.dataContrato)}</td>
-      <td style="font-size:11px;color:var(--sub)">${c.plano||'—'}</td>
-      <td style="color:var(--grn)">${c.valAlg?fR(c.valAlg):'—'}</td>
-      <td class="row" style="gap:4px">
-        <button class="btn bg bxs" onclick="abrirGerarContrato('${c.mId}','${c.id}')">📄 Baixar novamente</button>
-        <button class="btn br bxs" onclick="excluirContrato('${c.id}')">✕</button>
-      </td>
-    </tr>`;
-  }).join('');
-
-  return`<div class="card" style="margin-bottom:12px">
-    <div class="ch">
-      <span class="ct">📝 Gerador de Contratos</span>
-      <button class="btn ba" onclick="abrirGerarContrato()">+ Gerar Novo Contrato</button>
-    </div>
-    <p style="font-size:12px;color:var(--sub);margin-bottom:0">Selecione a moto, preencha os dados e baixe o contrato .docx pronto — dados do locatário já vêm preenchidos automaticamente do cadastro.</p>
-  </div>
-  <div class="card">
-    <div class="ch" style="margin-bottom:10px"><span class="ct">Contratos Gerados</span></div>
-    ${DB.contratos_gerados.length?`<div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>Placa</th><th>Locatário</th><th>Data</th><th>Plano</th><th>ALG</th><th>Ações</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div>`:'<div class="empty">Nenhum contrato gerado ainda. Clique em "+ Gerar Novo Contrato".</div>'}
-  </div>`;
-}
-
-function excluirContrato(id){
-  if(!confirm('Remover registro deste contrato?'))return;
-  DB.contratos_gerados=(DB.contratos_gerados||[]).filter(c=>c.id!==id);
-  sv('contratos_gerados');render();
-}
-
-function abrirGerarContrato(mIdPre,contratoId){
-  const motos=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim());
-  const mSel=mIdPre?DB.motos.find(x=>x.id===mIdPre):null;
-  const cPre=contratoId?(DB.contratos_gerados||[]).find(c=>c.id===contratoId):null;
-
-  const mOpts=motos.map(m=>`<option value="${m.id}" ${mIdPre===m.id?'selected':''}>${m.placa} — ${m.nome.split(' ').slice(0,3).join(' ')}</option>`).join('');
-
-  // Datas
-  const hoje=tod();
-  const dataFmt=(d)=>{if(!d)return'';const p=d.split('-');return p[2]+'/'+p[1]+'/'+p[0];};
-  const nomeMes=(d)=>{if(!d)return'';const m=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];const dt=new Date(d+'T12:00');return dt.getDate()+' de '+m[dt.getMonth()]+' de '+dt.getFullYear();};
-
-  showM(mWrap('mContrato',`<div class="modal" style="max-width:680px;max-height:92vh;overflow-y:auto">
-    <div class="mh"><span class="ct">📝 Gerar Contrato de Locação</span><button class="btn bx" onclick="closeM('mContrato')">✕</button></div>
-
-    <div style="background:var(--blubg);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--sub)">
-      ℹ️ Os dados do locatário são puxados do cadastro da moto. Complete as informações que faltam abaixo.
-    </div>
-
-    <div class="fg"><label>🏍️ Moto / Locatário</label>
-      <select id="ctMoto" class="inp" onchange="preencherDadosMoto()">${mOpts}</select>
-    </div>
-
-    <div style="border-top:1px solid var(--bor);padding-top:12px;margin-top:4px;font-size:11px;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:8px">👤 Dados do Locatário</div>
-    <div class="fr">
-      <div class="fg"><label>Nome Completo</label><input id="ctNome" class="inp" placeholder="NOME COMPLETO EM MAIÚSCULAS"></div>
-      <div class="fg"><label>CPF</label><input id="ctCpf" class="inp" placeholder="000.000.000-00"></div>
-    </div>
-    <div class="fr">
-      <div class="fg"><label>Nacionalidade</label><input id="ctNac" class="inp" value="Brasileira"></div>
-      <div class="fg"><label>Estado Civil</label><select id="ctEstCivil" class="inp">
-        <option>Solteiro</option><option>Casado</option><option>Divorciado</option><option>Viúvo</option><option>União Estável</option>
-      </select></div>
-    </div>
-    <div class="fr">
-      <div class="fg"><label>Data de Nascimento</label><input type="date" id="ctNasc" class="inp"></div>
-      <div class="fg"><label>Profissão</label><input id="ctProf" class="inp" placeholder="Ex: Entregador"></div>
-    </div>
-    <div class="fr">
-      <div class="fg"><label>RG / Documento</label><input id="ctRg" class="inp" placeholder="Número + órgão emissor (ex: 1234567 SSP BA)"></div>
-      <div class="fg"><label>CNH</label><input id="ctCnh" class="inp" placeholder="Número da CNH"></div>
-    </div>
-    <div class="fr">
-      <div class="fg"><label>Categoria CNH</label><input id="ctCnhCat" class="inp" value="A"></div>
-      <div class="fg"><label>Validade CNH</label><input type="date" id="ctCnhVal" class="inp"></div>
-    </div>
-    <div class="fg"><label>Endereço Completo</label><input id="ctEnd" class="inp" placeholder="Rua, número, complemento"></div>
-    <div class="fr">
-      <div class="fg"><label>Cidade / UF</label><input id="ctCidade" class="inp" value="Salvador / BA"></div>
-      <div class="fg"><label>CEP</label><input id="ctCep" class="inp" placeholder="00000-000"></div>
-    </div>
-    <div class="fr">
-      <div class="fg"><label>Telefone</label><input id="ctTel" class="inp" placeholder="71 9 0000-0000"></div>
-      <div class="fg"><label>E-mail</label><input id="ctEmail" class="inp" placeholder="email@exemplo.com"></div>
-    </div>
-
-    <div style="border-top:1px solid var(--bor);padding-top:12px;margin-top:8px;font-size:11px;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:8px">🚨 Contato de Emergência</div>
-    <div class="fr">
-      <div class="fg"><label>Nome</label><input id="ctEmNome" class="inp" placeholder="Nome do contato"></div>
-      <div class="fg"><label>Parentesco</label><input id="ctEmPar" class="inp" placeholder="Ex: Pai / Mãe"></div>
-    </div>
-    <div class="fg"><label>Telefone(s)</label><input id="ctEmTel" class="inp" placeholder="71 99999-0000"></div>
-
-    <div style="border-top:1px solid var(--bor);padding-top:12px;margin-top:8px;font-size:11px;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:8px">📋 Dados do Contrato</div>
-    <div class="fr">
-      <div class="fg"><label>Data de Início</label><input type="date" id="ctDataInicio" class="inp" value="${hoje}"></div>
-      <div class="fg"><label>Plano</label><select id="ctPlano" class="inp" onchange="atualizarPlanoContrato()">
-        <option value="indeterminado">Prazo Indeterminado</option>
-        <option value="4anos">4 Anos (208 semanas)</option>
-        <option value="3anos">3 Anos (156 semanas)</option>
-        <option value="2anos">2 Anos (104 semanas)</option>
-        <option value="meses">Prazo em Meses</option>
-      </select></div>
-    </div>
-    <div class="fr" id="ctMesesDiv" style="display:none">
-      <div class="fg"><label>Quantidade de Meses</label><input type="number" id="ctMeses" class="inp" placeholder="Ex: 6" min="1" max="60"></div>
-      <div class="fg"><label>Data Origem (se seminova)</label><input type="date" id="ctOrigem" class="inp"></div>
-    </div>
-    <div class="fr">
-      <div class="fg"><label>Valor ALG (Aluguel) R$/sem</label><input type="number" id="ctValAlg" class="inp" step="0.01" placeholder="0.00"></div>
-      <div class="fg"><label>Valor RES (Reserva) R$/sem</label><input type="number" id="ctValRes" class="inp" step="0.01" value="0" placeholder="0.00 (só planos determinados)"></div>
-    </div>
-    <div class="fr">
-      <div class="fg"><label>Dia de Vencimento</label><select id="ctDia" class="inp">
-        ${['SEG','TER','QUA','QUI','SEX','SAB','DOM'].map(d=>`<option value="${d}">${d}</option>`).join('')}
-      </select></div>
-      <div class="fg"><label>Perfil de Uso</label><select id="ctPerfil" class="inp">
-        <option value="intensivo">Intensivo (entregador)</option>
-        <option value="normal">Normal</option>
-      </select></div>
-    </div>
-
-    <div style="border-top:1px solid var(--bor);padding-top:12px;margin-top:8px;font-size:11px;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:8px">💰 Reserva de Garantia (RG)</div>
-    <div class="fr">
-      <div class="fg"><label>Entrada RG (valor cheio)</label><input type="number" id="ctEntRg" class="inp" step="0.01" placeholder="Ex: 1000.00"></div>
-      <div class="fg"><label>Desconto RG</label><input type="number" id="ctDescRg" class="inp" step="0.01" value="0"></div>
-    </div>
-    <div class="fr">
-      <div class="fg"><label>Forma de Pagamento RG</label><select id="ctFormaRg" class="inp" onchange="atualizarParcelasRg()">
-        <option value="avista">À vista</option>
-        <option value="parcelada">Parcelada</option>
-      </select></div>
-      <div class="fg" id="ctParcelasDiv" style="display:none"><label>Parcelas (ex: 3 × R$ 250,00 /sem)</label><input id="ctParcelas" class="inp" placeholder="3 × R$ 250,00 /sem"></div>
-    </div>
-
-    <div style="border-top:1px solid var(--bor);padding-top:12px;margin-top:8px;font-size:11px;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:8px">🏍️ Dados do Veículo</div>
-    <div class="fr">
-      <div class="fg"><label>Placa</label><input id="ctPlaca" class="inp"></div>
-      <div class="fg"><label>Chassi</label><input id="ctChassi" class="inp"></div>
-    </div>
-    <div class="fr">
-      <div class="fg"><label>Renavam</label><input id="ctRenavam" class="inp"></div>
-      <div class="fg"><label>Hodômetro (km)</label><input type="number" id="ctOdo" class="inp"></div>
-    </div>
-    <div class="fr">
-      <div class="fg"><label>Ano Fab./Modelo</label><input id="ctAno" class="inp" value="2025/2025"></div>
-      <div class="fg"><label>Cor</label><input id="ctCor" class="inp" value="Preta"></div>
-    </div>
-
-    <div class="mact" style="margin-top:16px">
-      <button class="btn bx" onclick="closeM('mContrato')">Cancelar</button>
-      <button class="btn ba" onclick="gerarContratoDocx()">📄 Gerar e Baixar .docx</button>
-    </div>
-  </div>`));
-
-  setTimeout(()=>preencherDadosMoto(),100);
-}
-
-function preencherDadosMoto(){
-  const sel=document.getElementById('ctMoto');if(!sel)return;
-  const m=DB.motos.find(x=>x.id===sel.value);if(!m)return;
-  const set=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
-  set('ctNome',(m.nome||'').toUpperCase());
-  set('ctCpf',m.cpfLoc||'');
-  set('ctTel',m.fone||'');
-  set('ctCnh',m.cnh||'');
-  if(m.cnhValidade)set('ctCnhVal',m.cnhValidade);
-  set('ctPlaca',m.placa||'');
-  set('ctChassi',m.chassi||'');
-  set('ctRenavam',m.renavam||'');
-  set('ctOdo',m.odo||0);
-  set('ctValAlg',m.val||0);
-  if(m.dia)set('ctDia',m.dia);
-  if(m.dataInicio)set('ctDataInicio',m.dataInicio);
-}
-
-function atualizarPlanoContrato(){
-  const v=document.getElementById('ctPlano')?.value;
-  document.getElementById('ctMesesDiv').style.display=v==='meses'?'':'none';
-}
-
-function atualizarParcelasRg(){
-  const v=document.getElementById('ctFormaRg')?.value;
-  document.getElementById('ctParcelasDiv').style.display=v==='parcelada'?'':'none';
-}
-
-function gerarContratoDocx(){
-  const g=(id)=>document.getElementById(id)?.value?.trim()||'';
-  const gN=(id)=>parseFloat(document.getElementById(id)?.value||'0')||0;
-
-  // Coleta todos os dados
-  const mId=g('ctMoto');
-  const dados={
-    // Locatário
-    nomeLocatario:g('ctNome')||'___________________________',
-    nacionalidade:g('ctNac')||'Brasileira',
-    nascimento:g('ctNasc')?fmtDataContrato(g('ctNasc')):'___/___/______',
-    estCivil:g('ctEstCivil')||'Solteiro',
-    profissao:g('ctProf')||'Não informada',
-    rg:g('ctRg')||'___________________________',
-    cpf:g('ctCpf')||'___.___.___-__',
-    cnh:g('ctCnh')||'___________________________',
-    cnhCat:g('ctCnhCat')||'A',
-    cnhVal:g('ctCnhVal')?fmtDataContrato(g('ctCnhVal')):'___/___/______',
-    endereco:g('ctEnd')||'___________________________',
-    cidadeUf:g('ctCidade')||'Salvador / BA',
-    cep:g('ctCep')||'_____-___',
-    tel:g('ctTel')||'___________________________',
-    email:g('ctEmail')||'___________________________',
-    // Emergência
-    emNome:g('ctEmNome')||'___________________________',
-    emPar:g('ctEmPar')||'___________________________',
-    emTel:g('ctEmTel')||'___________________________',
-    // Contrato
-    dataContrato:g('ctDataInicio')?fmtDataContrato(g('ctDataInicio')):fmtDataContrato(tod()),
-    dataContratoExtenso:g('ctDataInicio')?nomeMesContrato(g('ctDataInicio')):nomeMesContrato(tod()),
-    plano:g('ctPlano'),
-    meses:g('ctMeses'),
-    valAlg:gN('ctValAlg'),
-    valRes:gN('ctValRes'),
-    valPln:gN('ctValAlg')+gN('ctValRes'),
-    dia:g('ctDia'),
-    perfil:g('ctPerfil'),
-    // RG
-    entRg:gN('ctEntRg'),
-    descRg:gN('ctDescRg'),
-    entRgLiq:gN('ctEntRg')-gN('ctDescRg'),
-    formaRg:g('ctFormaRg'),
-    parcelas:g('ctParcelas'),
-    // Veículo
-    placa:g('ctPlaca'),
-    chassi:g('ctChassi'),
-    renavam:g('ctRenavam'),
-    odo:g('ctOdo'),
-    ano:g('ctAno')||'2025/2025',
-    cor:g('ctCor')||'Preta',
-  };
-
-  // Gera o docx
-  _baixarContratoDocx(dados,mId);
-}
-
-function fmtDataContrato(iso){
-  if(!iso)return'';const p=iso.split('-');return p[2]+'/'+p[1]+'/'+p[0];
-}
-function nomeMesContrato(iso){
-  if(!iso)return'';
-  const m=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
-  const d=new Date(iso+'T12:00');
-  return d.getDate()+' de '+m[d.getMonth()]+' de '+d.getFullYear();
-}
-
-function _planoLabel(dados){
-  if(dados.plano==='4anos')return'4 Anos';
-  if(dados.plano==='3anos')return'3 Anos';
-  if(dados.plano==='2anos')return'2 Anos';
-  if(dados.plano==='meses')return dados.meses+' Meses';
-  return'Prazo indeterminado';
-}
-function _planoSemanas(dados){
-  if(dados.plano==='4anos')return'208';
-  if(dados.plano==='3anos')return'156';
-  if(dados.plano==='2anos')return'104';
-  if(dados.plano==='meses')return String(parseInt(dados.meses||0)*4);
-  return'Mínimo 4 semanas';
-}
-function _checkPlano(dados,tipo){
-  // Returns 'X' or ' '
-  if(tipo==='4anos'&&dados.plano==='4anos')return'X';
-  if(tipo==='3anos'&&dados.plano==='3anos')return'X';
-  if(tipo==='2anos'&&dados.plano==='2anos')return'X';
-  if(tipo==='meses'&&dados.plano==='meses')return'X';
-  if(tipo==='ind'&&dados.plano==='indeterminado')return'X';
-  return' ';
-}
-
-async function _baixarContratoDocx(dados,mId){
-  toast('⏳ Gerando contrato...','acc');
-
-  // Carrega docx.js dinamicamente
-  if(!window.docx){
-    await new Promise((res,rej)=>{
-      const s=document.createElement('script');
-      s.src='https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js';
-      s.onload=res;s.onerror=rej;
-      document.head.appendChild(s);
-    });
-  }
-
-  const {Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,
-         AlignmentType,WidthType,BorderStyle,HeadingLevel,PageBreak,
-         VerticalAlign,ShadingType}=window.docx;
-
-  const fR2=(v)=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-  const bor1={style:BorderStyle.SINGLE,size:1,color:'CCCCCC'};
-  const bors={top:bor1,bottom:bor1,left:bor1,right:bor1};
-  const cm=(v)=>({size:v,type:WidthType.DXA});
-  const p=(text,opts={})=>new Paragraph({
-    alignment:opts.center?AlignmentType.CENTER:opts.right?AlignmentType.RIGHT:AlignmentType.JUSTIFIED,
-    spacing:{after:opts.noSpace?0:120,line:opts.line||276},
-    children:[new TextRun({text:text||'',bold:opts.bold,size:opts.size||22,font:'Arial',color:opts.color||'000000'})]
-  });
-  const pMult=(runs,opts={})=>new Paragraph({
-    alignment:opts.center?AlignmentType.CENTER:AlignmentType.JUSTIFIED,
-    spacing:{after:opts.noSpace?0:120,line:276},
-    children:runs.map(r=>new TextRun({...r,font:'Arial',size:r.size||22}))
-  });
-  const h=(text,level)=>new Paragraph({
-    heading:level||HeadingLevel.HEADING_2,
-    spacing:{after:100,before:200},
-    children:[new TextRun({text,bold:true,font:'Arial',size:level===HeadingLevel.HEADING_1?28:24,color:'1F3864'})]
-  });
-  const tRow=(cells)=>new TableRow({children:cells.map(([txt,w,bold,bg])=>new TableCell({
-    borders:bors,width:cm(w||2500),
-    shading:bg?{fill:bg,type:ShadingType.CLEAR}:{fill:'FFFFFF',type:ShadingType.CLEAR},
-    margins:{top:60,bottom:60,left:100,right:100},
-    children:[new Paragraph({children:[new TextRun({text:txt||'',bold:!!bold,font:'Arial',size:20})],spacing:{after:0}})]
-  }))});
-
-  // Linha separadora
-  const sep=()=>new Paragraph({border:{bottom:{style:BorderStyle.SINGLE,size:4,color:'1F3864',space:1}},spacing:{after:160,before:160},children:[]});
-
-  const planoLabel=_planoLabel(dados);
-  const planoSemanas=_planoSemanas(dados);
-
-  const children=[
-    // TÍTULO
-    new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:80,before:0},children:[new TextRun({text:'CONTRATO DE LOCAÇÃO DE MOTOCICLETA',bold:true,font:'Arial',size:28,color:'1F3864'})]}),
-    sep(),
-
-    // PREÂMBULO
-    h('PREÂMBULO',HeadingLevel.HEADING_1),
-    h('LOCADORA',HeadingLevel.HEADING_2),
-    pMult([
-      {text:'AMS LOCAÇÃO DE MOTOS LTDA.',bold:true},
-      {text:', sociedade limitada unipessoal, inscrita no CNPJ sob nº 61.318.480/0001-28, NIRE 29206730271, com sede na Rua José Jorge Pereira, nº 202, Galpão, Buraquinho, Lauro de Freitas/BA, CEP 42.710-480, neste ato representada por seu administrador na forma do contrato social, doravante denominada simplesmente '},
-      {text:'LOCADORA',bold:true},{text:'.'}
-    ]),
-
-    // Contato LOCADORA
-    new Table({width:cm(9200),columnWidths:[3000,6200],rows:[
-      tRow([['Campo','3000',true,'EBF3FB'],['Dados','6200',true,'EBF3FB']]),
-      tRow([['Telefone','3000'],['71 9 82361499','6200']]),
-      tRow([['WhatsApp','3000'],['71 9 82361499','6200']]),
-      tRow([['E-mail','3000'],['ams.motos.aluguel@gmail.com','6200']]),
-    ]}),
-    new Paragraph({spacing:{after:160},children:[]}),
-
-    h('LOCATÁRIO',HeadingLevel.HEADING_2),
-    new Table({width:cm(9200),columnWidths:[3000,6200],rows:[
-      tRow([['Campo','3000',true,'EBF3FB'],['Dados','6200',true,'EBF3FB']]),
-      tRow([['Nome completo','3000'],[dados.nomeLocatario,'6200']]),
-      tRow([['Nacionalidade','3000'],[dados.nacionalidade,'6200']]),
-      tRow([['Data de nascimento','3000'],[dados.nascimento,'6200']]),
-      tRow([['Estado civil','3000'],[dados.estCivil,'6200']]),
-      tRow([['Profissão','3000'],[dados.profissao,'6200']]),
-      tRow([['Documento de identificação','3000'],['(X) RG  ( ) Passaporte  ( ) CRNM','6200']]),
-      tRow([['Número do documento','3000'],[dados.rg,'6200']]),
-      tRow([['CPF','3000'],[dados.cpf,'6200']]),
-      tRow([['CNH / PID','3000'],[dados.cnh,'6200']]),
-      tRow([['Categoria CNH','3000'],[dados.cnhCat,'6200']]),
-      tRow([['Validade CNH','3000'],[dados.cnhVal,'6200']]),
-      tRow([['Endereço completo','3000'],[dados.endereco,'6200']]),
-      tRow([['Cidade / UF / CEP','3000'],[dados.cidadeUf+' / CEP '+dados.cep,'6200']]),
-      tRow([['Telefone','3000'],[dados.tel,'6200']]),
-      tRow([['E-mail','3000'],[dados.email,'6200']]),
-    ]}),
-    new Paragraph({spacing:{after:160},children:[]}),
-
-    h('Contato de Emergência',HeadingLevel.HEADING_2),
-    new Table({width:cm(9200),columnWidths:[3000,6200],rows:[
-      tRow([['Campo','3000',true,'EBF3FB'],['Dados','6200',true,'EBF3FB']]),
-      tRow([['Nome completo','3000'],[dados.emNome,'6200']]),
-      tRow([['Parentesco / Relação','3000'],[dados.emPar,'6200']]),
-      tRow([['Telefone','3000'],[dados.emTel,'6200']]),
-    ]}),
-    new Paragraph({spacing:{after:200},children:[]}),
-
-    // CLÁUSULA I
-    h('CLÁUSULA I — DO OBJETO',HeadingLevel.HEADING_1),
-    h('Seção II — Veículo',HeadingLevel.HEADING_2),
-    p('1.3. O veículo inicialmente disponibilizado ao LOCATÁRIO é o seguinte:'),
-    new Table({width:cm(9200),columnWidths:[3000,6200],rows:[
-      tRow([['Campo','3000',true,'EBF3FB'],['Dados','6200',true,'EBF3FB']]),
-      tRow([['Marca','3000'],['YAMAHA','6200']]),
-      tRow([['Modelo','3000'],['YBR150 FACTOR','6200']]),
-      tRow([['Ano fabricação/modelo','3000'],[dados.ano,'6200']]),
-      tRow([['Cor','3000'],[dados.cor,'6200']]),
-      tRow([['Placa','3000'],[dados.placa,'6200']]),
-      tRow([['Chassi','3000'],[dados.chassi,'6200']]),
-      tRow([['Renavam','3000'],[dados.renavam,'6200']]),
-      tRow([['Hodômetro na entrega','3000'],[String(dados.odo)+' km','6200']]),
-    ]}),
-    new Paragraph({spacing:{after:200},children:[]}),
-
-    // CLÁUSULA II
-    h('CLÁUSULA II — DO PRAZO',HeadingLevel.HEADING_1),
-    new Table({width:cm(9200),columnWidths:[2500,3000,3700],rows:[
-      tRow([['Plano','2500',true,'EBF3FB'],['Prazo','3000',true,'EBF3FB'],['Natureza','3700',true,'EBF3FB']]),
-      tRow([['('+_checkPlano(dados,'4anos')+') 4 Anos','2500'],['208 semanas','3000'],['Prazo determinado','3700']]),
-      tRow([['('+_checkPlano(dados,'3anos')+') 3 Anos','2500'],['156 semanas','3000'],['Prazo determinado','3700']]),
-      tRow([['('+_checkPlano(dados,'2anos')+') 2 Anos','2500'],['104 semanas','3000'],['Prazo determinado','3700']]),
-      tRow([['('+_checkPlano(dados,'meses')+') '+(dados.meses||'____')+' Meses','2500'],[(dados.meses?String(parseInt(dados.meses)*4):'____')+' semanas','3000'],['Prazo determinado (seminova)','3700']]),
-      tRow([['('+_checkPlano(dados,'ind')+') Prazo indeterminado','2500'],['Mínimo 4 semanas','3000'],['Renovação automática','3700']]),
-    ]}),
-    new Paragraph({spacing:{after:120},children:[]}),
-    new Table({width:cm(9200),columnWidths:[3000,6200],rows:[
-      tRow([['Campo','3000',true,'EBF3FB'],['Dados','6200',true,'EBF3FB']]),
-      tRow([['Data de início','3000'],[dados.dataContrato,'6200']]),
-      tRow([['Data de término previsto','3000'],[dados.plano==='indeterminado'?'Prazo indeterminado':dados.dataContrato,'6200']]),
-    ]}),
-    new Paragraph({spacing:{after:200},children:[]}),
-
-    // CLÁUSULA III
-    h('CLÁUSULA III — DO PLANO E VALORES',HeadingLevel.HEADING_1),
-    new Table({width:cm(9200),columnWidths:[3800,5400],rows:[
-      tRow([['Campo','3800',true,'EBF3FB'],['Dados','5400',true,'EBF3FB']]),
-      tRow([['Modelo do veículo','3800'],['YAMAHA YBR150 FACTOR','5400']]),
-      tRow([['Plano','3800'],[
-        '('+_checkPlano(dados,'4anos')+') 4A  ('+_checkPlano(dados,'3anos')+') 3A  ('+_checkPlano(dados,'2anos')+') 2A  ('+_checkPlano(dados,'meses')+') '+(dados.meses||'__')+'M  ('+_checkPlano(dados,'ind')+') Prazo indeterminado','5400'
-      ]]),
-      tRow([['Parcela PLN (Plano) semanal','3800'],[fR2(dados.valPln),'5400']]),
-      tRow([['Parcela ALG (Aluguel) semanal','3800'],[fR2(dados.valAlg),'5400']]),
-      tRow([['Parcela RES (Reserva) semanal','3800'],[dados.valRes>0?fR2(dados.valRes):'R$ ______________','5400']]),
-      tRow([['Dia de vencimento','3800'],[(()=>{
-        const dias=['SEG','TER','QUA','QUI','SEX','SAB','DOM'];
-        const labels=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
-        return dias.map((d,i)=>'('+(d===dados.dia?'X':' ')+') '+labels[i]).join('  ');
-      })(),'5400']]),
-    ]}),
-    new Paragraph({spacing:{after:200},children:[]}),
-
-    // CLÁUSULA V — RG
-    h('CLÁUSULA V — DA RESERVA DE GARANTIA (RG)',HeadingLevel.HEADING_1),
-    h('Seção V — Dados da Constituição',HeadingLevel.HEADING_2),
-    new Table({width:cm(9200),columnWidths:[3800,5400],rows:[
-      tRow([['Campo','3800',true,'EBF3FB'],['Dados','5400',true,'EBF3FB']]),
-      tRow([['Perfil de uso declarado','3800'],['('+( dados.perfil==='normal'?'X':' ')+') Normal  ('+(dados.perfil==='intensivo'?'X':' ')+') Intensivo','5400']]),
-      tRow([['Entrada RG (valor cheio)','3800'],[dados.entRg>0?fR2(dados.entRg):'R$ ______________','5400']]),
-      tRow([['Desconto concedido','3800'],[fR2(dados.descRg||0),'5400']]),
-      tRow([['Entrada RG líquida','3800'],[dados.entRgLiq>0?fR2(dados.entRgLiq):'R$ ______________','5400']]),
-      tRow([['Forma de pagamento','3800'],['('+(dados.formaRg==='avista'?'X':' ')+') À vista  ('+(dados.formaRg==='parcelada'?'X':' ')+') Parcelada','5400']]),
-      tRow([['Se parcelada: parcelas','3800'],[dados.formaRg==='parcelada'?(dados.parcelas||'_____ × R$ _____ /sem'):'—','5400']]),
-    ]}),
-    new Paragraph({spacing:{after:200},children:[]}),
-
-    // ASSINATURAS
-    new Paragraph({children:[new PageBreak()]}),
-    h('PÁGINA DE ASSINATURAS',HeadingLevel.HEADING_1),
-    p('E, por estarem assim justas e contratadas, as partes assinam o presente contrato em 2 (duas) vias de igual teor e forma, na presença das testemunhas abaixo, para que produza seus jurídicos e legais efeitos.'),
-    new Paragraph({spacing:{after:160},children:[]}),
-    pMult([{text:'Local e data: ',bold:true},{text:'Lauro de Freitas/BA, '+dados.dataContratoExtenso+'.'}]),
-    new Paragraph({spacing:{after:300},children:[]}),
-
-    new Table({width:cm(9200),columnWidths:[4600,4600],rows:[new TableRow({children:[
-      new TableCell({borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}},width:cm(4600),children:[
-        new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:0},children:[new TextRun({text:'LOCADORA',bold:true,font:'Arial',size:22})]}),
-        new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:60},children:[new TextRun({text:'AMS LOCAÇÃO DE MOTOS LTDA.',font:'Arial',size:20})]}),
-        new Paragraph({border:{top:{style:BorderStyle.SINGLE,size:6,color:'000000',space:1}},alignment:AlignmentType.CENTER,spacing:{after:0},children:[new TextRun({text:'AARON MARKUS SCHMID — Administrador',font:'Arial',size:20})]}),
-      ]}),
-      new TableCell({borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}},width:cm(4600),children:[
-        new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:0},children:[new TextRun({text:'LOCATÁRIO',bold:true,font:'Arial',size:22})]}),
-        new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:60},children:[new TextRun({text:dados.nomeLocatario,font:'Arial',size:20})]}),
-        new Paragraph({border:{top:{style:BorderStyle.SINGLE,size:6,color:'000000',space:1}},alignment:AlignmentType.CENTER,spacing:{after:0},children:[new TextRun({text:'CPF: '+dados.cpf,font:'Arial',size:20})]}),
-      ]}),
-    ]})]}),
-    new Paragraph({spacing:{after:300},children:[]}),
-
-    p('TESTEMUNHAS:',{bold:true}),
-    new Table({width:cm(9200),columnWidths:[4600,4600],rows:[new TableRow({children:[
-      new TableCell({borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}},width:cm(4600),children:[
-        new Paragraph({border:{top:{style:BorderStyle.SINGLE,size:4,color:'000000',space:1}},spacing:{after:20},children:[new TextRun({text:'Nome:',font:'Arial',size:20})]}),
-        new Paragraph({spacing:{after:0},children:[new TextRun({text:'CPF:',font:'Arial',size:20})]}),
-      ]}),
-      new TableCell({borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}},width:cm(4600),children:[
-        new Paragraph({border:{top:{style:BorderStyle.SINGLE,size:4,color:'000000',space:1}},spacing:{after:20},children:[new TextRun({text:'Nome:',font:'Arial',size:20})]}),
-        new Paragraph({spacing:{after:0},children:[new TextRun({text:'CPF:',font:'Arial',size:20})]}),
-      ]}),
-    ]})]}),
-
-    // CHECKLIST VISTORIA
-    new Paragraph({children:[new PageBreak()]}),
-    new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:80},children:[new TextRun({text:'CHECKLIST DE VISTORIA DE ENTREGA',bold:true,font:'Arial',size:26,color:'1F3864'})]}),
-    pMult([{text:'Data da vistoria: ',bold:true},{text:dados.dataContrato}]),
-    pMult([{text:'Veículo: ',bold:true},{text:'YAMAHA YBR150 FACTOR — Placa '+dados.placa}]),
-    pMult([{text:'Hodômetro: ',bold:true},{text:String(dados.odo)+' km'}]),
-    new Paragraph({spacing:{after:120},children:[]}),
-    new Table({width:cm(9200),columnWidths:[5000,2000,2200],rows:[
-      tRow([['Item','5000',true,'EBF3FB'],['Status','2000',true,'EBF3FB'],['Obs.','2200',true,'EBF3FB']]),
-      ...['Motor (funcionamento, ruídos)','Freios (dianteiro e traseiro)','Pneus (estado, calibragem)','Corrente / Coroa / Pinhão','Embreagem','Acelerador / Manopla','Farol (alto e baixo)','Lanterna traseira / Luz de freio','Setas (dianteiras e traseiras)','Buzina','Painel / Hodômetro','Retrovisores (esquerdo e direito)','Escapamento','Tanque de combustível (vazamentos)','Pintura / Carenagem / Lataria','Banco / Assento','Cavalete (central e/ou lateral)','Chave principal','Chave reserva','CRLV (documento do veículo)','Rastreador (RST) instalado','Nível de combustível','Placa (estado, legibilidade)','Pedaleiras / Pedal de câmbio','Manetes (freio e embreagem)','Suspensão (dianteira e traseira)','Bateria'].map(item=>tRow([[item,'5000'],['OK','2000'],['','2200']])),
-    ]}),
-    new Paragraph({spacing:{after:200},children:[]}),
-    p('O LOCATÁRIO declara ter vistoriado o veículo no ato da retirada, atestando que todos os itens acima conferem com o estado do veículo entregue.'),
-    new Paragraph({spacing:{after:300},children:[]}),
-    new Table({width:cm(9200),columnWidths:[4600,4600],rows:[new TableRow({children:[
-      new TableCell({borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}},width:cm(4600),children:[
-        new Paragraph({border:{top:{style:BorderStyle.SINGLE,size:4,color:'000000',space:1}},alignment:AlignmentType.CENTER,spacing:{after:0},children:[new TextRun({text:'AMS LOCAÇÃO DE MOTOS LTDA. — AARON MARKUS SCHMID',font:'Arial',size:18})]}),
-      ]}),
-      new TableCell({borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}},width:cm(4600),children:[
-        new Paragraph({border:{top:{style:BorderStyle.SINGLE,size:4,color:'000000',space:1}},alignment:AlignmentType.CENTER,spacing:{after:0},children:[new TextRun({text:dados.nomeLocatario+' — CPF: '+dados.cpf,font:'Arial',size:18})]}),
-      ]}),
-    ]})]}),
-  ];
-
-  const doc=new Document({
-    styles:{default:{document:{run:{font:'Arial',size:22}}}},
-    sections:[{
-      properties:{page:{size:{width:11906,height:16838},margin:{top:1134,right:1134,bottom:1134,left:1134}}},
-      children
-    }]
-  });
-
-  Packer.toBlob(doc).then(blob=>{
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    const nomeArq='Contrato_'+(dados.nomeLocatario||'Locatario').split(' ')[0]+'_'+dados.placa+'_'+dados.dataContrato.replace(/\//g,'')+'.docx';
-    a.href=url;a.download=nomeArq;a.click();
-    URL.revokeObjectURL(url);
-
-    // Salva registro no banco
-    if(!DB.contratos_gerados)DB.contratos_gerados=[];
-    DB.contratos_gerados.push({
-      id:uid(),mId,nomeLocatario:dados.nomeLocatario,
-      dataContrato:tod(),plano:_planoLabel(dados),
-      valAlg:dados.valAlg,arquivo:nomeArq,ts:Date.now()
-    });
-    sv('contratos_gerados');
-
-    closeM('mContrato');
-    toast('✅ Contrato gerado: '+nomeArq,'grn');
-  }).catch(e=>{
-    console.error(e);
-    toast('❌ Erro ao gerar: '+e.message,'red');
-  });
-}
-
-
 </script>
 
 
 </body></html>
-<!-- CONTRATO MODULE PLACEHOLDER -->
