@@ -114,24 +114,8 @@ label{display:block;font-size:11px;color:var(--sub);margin-bottom:3px;font-weigh
   <label title="Importar backup" style="display:flex;align-items:center;gap:5px;background:#7c3aed;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:8px">📤 Restaurar<input type="file" accept=".json" onchange="importBackup(event)" style="display:none"></label>
   <div id="tabs"><button class="tab active" onclick="go(&#39;dash&#39;)">📊 Dashboard</button><button class="tab" onclick="go(&#39;odo&#39;)">📏 Odômetro</button><button class="tab" onclick="go(&#39;mnt&#39;)">🔧 Manutenção</button><button class="tab" onclick="go(&#39;seg&#39;)">🛡️ Seguros</button><button class="tab" onclick="go(&#39;mul&#39;)">🚨 Multas</button><button class="tab" onclick="go(&#39;est&#39;)">📦 Estoque</button><button class="tab" onclick="go(&#39;os&#39;)">🔩 OS</button><button class="tab" onclick="go(&#39;pag&#39;)">💰 Pagamentos</button><button class="tab" onclick="go(&#39;rel&#39;)">📈 Relatórios</button><button class="tab" onclick="go(&#39;mts&#39;)">🏍️ Motos</button><button class="tab" onclick="go(&#39;ind&#39;)">⚠️ Inadimplência</button></div>
 </div>
-<div id="content"><div class="g4" style="margin-bottom:12px">
-    <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Motos Ativas</div><div class="num" style="color:var(--acc)">87</div></div>
-    <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Manutenção Crítica</div><div class="num" style="color:var(--red)">48</div></div>
-    <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Multas Pendentes</div><div class="num" style="color:var(--grn)">0</div></div>
-  </div>
-  ${buildCentralAlertas()}
-  <div class="card" style="margin-bottom:12px">
-    <div class="ch"><span class="ct">📡 GPS / Rastreadores</span><div class="row" style="gap:6px"><button id="btnSyncGps" class="btn bg bs" onclick="syncGps(true)">🔄 Sync GPS</button>
-      </div><span style="font-size:11px;color:var(--sub)">automático via Rastrear System</span></div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-      <div style="background:var(--grnbg);border-radius:8px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800;color:var(--grn)">67</div><div style="font-size:11px;color:var(--sub);margin-top:3px">🟢 Conectados</div></div>
-      <div style="background:var(--yelbg);border-radius:8px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800;color:var(--yel)">20</div><div style="font-size:11px;color:var(--sub);margin-top:3px">🟡 Desconhecidos</div></div>
-      <div style="background:var(--redbg);border-radius:8px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800;color:var(--red)">7</div><div style="font-size:11px;color:var(--sub);margin-top:3px">🔴 Desconectados</div></div>
-    </div>
-  </div>
-  <div class="card"><div class="ch"><span class="ct">Alertas do Dia</span></div><div style="display:flex;flex-direction:column;gap:8px"><div style="background:var(--redbg);border-radius:8px;padding:10px 14px;color:var(--red);display:flex;gap:8px">⚠️ <b>48 moto(s)</b>&nbsp;com manutenção crítica</div><div style="background:var(--redbg);border-radius:8px;padding:10px 14px;color:var(--red);display:flex;gap:8px">📡 <b>7 rastreador(es) desconectado(s):</b>&nbsp;TGX4D63, TGX7A44, TGX7I03, TGX8A08, THE7E32, TMM3H81, TMP9A31</div></div></div></div>
+<div id="content"><script>
 
-<script>
 // ── Storage ──────────────────────────────────────────────────────────────
 const S={
   get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch{return null}},
@@ -4013,15 +3997,6 @@ h1{font-size:20px;font-weight:800;color:var(--acc);margin-bottom:4px}
 <div id="toast"></div>
 <div style="position:fixed;bottom:6px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--mut);pointer-events:none;z-index:100">Atalhos: <b>N</b> Nova OS · <b>P</b> Pagamentos · <b>M</b> Motos · <b>L</b> Locatários · <b>Ctrl+K</b> Busca · <b>Ctrl+I</b> IA · <b>?</b> Ajuda</div>
 
-<!-- IA Assistente MotoGest -->
-<div id="iaBtn" onclick="toggleIaPanel()" title="Assistente IA (Ctrl+I)" style="position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#a855f7);box-shadow:0 4px 20px rgba(99,102,241,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:9998;font-size:22px;transition:transform .2s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">🤖</div>
-
-<div id="iaPanel" style="display:none;position:fixed;bottom:86px;right:24px;width:420px;max-width:calc(100vw - 32px);background:var(--card);border:1px solid rgba(99,102,241,.4);border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.5);z-index:9999;overflow:hidden;font-family:inherit">
-  <div style="background:linear-gradient(135deg,rgba(99,102,241,.2),rgba(168,85,247,.2));padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(99,102,241,.2)">
-    <span style="font-size:20px">🤖</span>
-    <div style="flex:1">
-      <div style="font-size:13px;font-weight:700;color:#a78bfa">Assistente MotoGest</div>
-      <div style="font-size:10px;color:var(--sub)">Comandos em linguagem natural</div>
     </div>
     <button onclick="verIaLog()" title="Histórico de comandos" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:14px;padding:4px">📜</button>
     <button onclick="iaPromptKey()" title="Configurar chave API" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:14px;padding:4px">🔑</button>
@@ -8012,13 +7987,15 @@ let mSortCol='';let mSortDir=1;
 function sortMts(col){if(mSortCol===col)mSortDir*=-1;else{mSortCol=col;mSortDir=1;}render();}
 function vMts(){
   let lista=mBusca?DB.motos.filter(m=>m.placa.includes(mBusca.toUpperCase())||m.nome.toUpperCase().includes(mBusca.toUpperCase())):DB.motos;
-  // Ordenação
+  // Ordenação — padrão alfabético por placa
   if(mSortCol){
     lista=[...lista].sort((a,b)=>{
       let va=a[mSortCol]||'',vb=b[mSortCol]||'';
       if(mSortCol==='odo'||mSortCol==='val'){va=Number(va);vb=Number(vb);}
       return(va>vb?1:va<vb?-1:0)*mSortDir;
     });
+  } else {
+    lista=[...lista].sort((a,b)=>a.placa.localeCompare(b.placa));
   }
   const thS=(col,label)=>`<th style="cursor:pointer;user-select:none" onclick="sortMts('${col}')">${label}${mSortCol===col?(mSortDir>0?' ▲':' ▼'):' ⇅'}</th>`;
   const rows=lista.map(m=>{
@@ -8056,7 +8033,10 @@ function vMts(){
 }
 function showAM(){
   showM(mWrap('mAM',`<div class="modal"><h2>Nova Moto</h2>
-    <div class="fr"><div class="fg"><label>Placa</label><input id="amPl" placeholder="ABC0A00" style="text-transform:uppercase"></div>
+    <div class="fr"><div class="fg"><label>Placa</label>
+      <input id="amPl" placeholder="ABC0A00" style="text-transform:uppercase" oninput="checkPlacaDup(this)">
+      <div id="amPlAlert" style="font-size:11px;margin-top:4px;display:none"></div>
+    </div>
     <div class="fg"><label>Locatário</label><input id="amNm" placeholder="Nome"></div></div>
     <div class="fr"><div class="fg"><label>Odômetro (km)</label><input type="number" id="amOd" value="0"></div>
     <div class="fg"><label>Valor Plano (R$)</label><input type="number" id="amVl" value="0"></div></div>
@@ -8074,9 +8054,29 @@ function showAM(){
     <button class="btn ba" onclick="aM()">Salvar</button></div>
   </div>`));
 }
+function checkPlacaDup(inp){
+  const pl=inp.value.toUpperCase().trim();
+  const el=document.getElementById('amPlAlert');if(!el)return;
+  if(!pl){el.style.display='none';return;}
+  const exist=DB.motos.find(m=>m.placa===pl);
+  if(exist){
+    el.style.display='block';
+    el.style.color='var(--red)';
+    el.innerHTML=`⚠️ Placa <b>${pl}</b> já cadastrada${exist.nome?' — '+exist.nome:''}${exist.on?'':' (inativa)'}`;
+  } else {
+    el.style.display='block';
+    el.style.color='var(--grn)';
+    el.innerHTML='✅ Placa disponível';
+  }
+}
 function aM(){
   const pl=document.getElementById('amPl').value.toUpperCase().trim();
-  if(!pl){alert('Informe a placa!');return}
+  if(!pl){alert('Informe a placa!');return;}
+  // Verifica duplicata
+  const exist=DB.motos.find(m=>m.placa===pl);
+  if(exist){
+    if(!confirm(`⚠️ Placa ${pl} já existe${exist.nome?' ('+exist.nome+')':''}${exist.on?'':' (inativa)'}.\n\nDeseja cadastrar mesmo assim?`))return;
+  }
   const od=Number(document.getElementById('amOd').value);
   const nome=document.getElementById('amNm').value.trim();
   const dataInicio=document.getElementById('amDataInicio')?.value||tod();
@@ -8086,7 +8086,7 @@ function aM(){
 function editM(id){
   const m=DB.motos.find(x=>x.id===id);
   showM(mWrap('mEM',`<div class="modal"><h2>Editar – ${m.placa}</h2>
-    <div class="fg"><label>Locatário</label><input id="emNm" value="${m.nome||''}"></div>
+    <div class="fg"><label>Locatário <span style="font-size:10px;color:var(--sub)">(padrão: Sobrenome_L)</span></label><input id="emNm" value="${m.nome||''}" placeholder="Ex: Ribeiro_L" oninput="checkNomeDup(this,'${id}')"><div id="emNmAlert" style="font-size:11px;margin-top:3px;display:none"></div></div>
     <div class="fr"><div class="fg"><label>Odômetro (km)</label><input type="number" id="emOd" value="${m.odo}"></div>
     <div class="fg"><label>Valor Plano (R$)</label><input type="number" id="emVl" value="${m.val||0}"></div></div>
     <div class="fg"><label>Dia de Pagamento</label><select id="emDi">
@@ -10358,7 +10358,54 @@ window.installPWA=function(){
     deferredPrompt.userChoice.then(()=>{deferredPrompt=null;});
   };
 })();
+
+
+// ── Validação de codinome ────────────────────────────────────────────────────
+function checkNomeDup(inp, mIdAtual){
+  const val=inp.value.trim();
+  const el=document.getElementById('emNmAlert')||document.getElementById('amNmAlert2');
+  if(!el)return;
+  if(!val){el.style.display='none';return;}
+  const exist=DB.motos.find(m=>m.nome&&m.nome.trim().toLowerCase()===val.toLowerCase()&&m.id!==mIdAtual&&m.on);
+  if(exist){
+    el.style.display='block';el.style.color='var(--yel)';
+    el.innerHTML='⚠️ Nome já usado em: <b>'+exist.placa+'</b>';
+  } else {
+    el.style.display='none';
+  }
+}
 </script>
 
+<!-- IA Assistente MotoGest -->
+<div id="iaBtn" onclick="toggleIaPanel()" title="Assistente IA (Ctrl+I)" style="position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#a855f7);box-shadow:0 4px 20px rgba(99,102,241,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:9998;font-size:22px;transition:transform .2s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">🤖</div>
 
-</body></html>
+<div id="iaPanel" style="display:none;position:fixed;bottom:86px;right:24px;width:420px;max-width:calc(100vw - 32px);background:var(--card);border:1px solid rgba(99,102,241,.4);border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.5);z-index:9999;overflow:hidden;font-family:inherit">
+  <div style="background:linear-gradient(135deg,rgba(99,102,241,.2),rgba(168,85,247,.2));padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(99,102,241,.2)">
+    <span style="font-size:20px">🤖</span>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700;color:#a78bfa">Assistente MotoGest</div>
+      <div style="font-size:10px;color:var(--sub)">Comandos em linguagem natural</div>
+    </div>
+    <button onclick="verIaLog()" title="Histórico de comandos" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:14px;padding:4px">📜</button>
+    <button onclick="iaPromptKey()" title="Configurar chave API" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:14px;padding:4px">🔑</button>
+    <button onclick="toggleIaPanel()" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:16px;padding:4px">✕</button>
+  </div>
+  <div id="iaMessages" style="height:280px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px">
+    <div style="background:rgba(99,102,241,.1);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--sub);border-left:3px solid #6366f1">
+      <b style="color:#a78bfa">Exemplos de comandos:</b><br>
+      • troca de óleo TGX0J77 odômetro 45800<br>
+      • atualizar odo TMM1D90 para 32500<br>
+      • registrar pagamento TGX8G60<br>
+      • multa TGX7B27 valor 180 auto infração 123<br>
+      • nova OS TGX9H81 óleo 80 mão de obra 50<br>
+      • status TGX0J77<br>
+      • motos com óleo vencido
+    </div>
+  </div>
+  <div style="padding:10px 12px;border-top:1px solid var(--bor);display:flex;gap:8px">
+    <input id="iaInput" class="inp" placeholder="Digite um comando…" style="flex:1;font-size:13px" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarComandoIA();}">
+    <button id="iaEnvBtn" onclick="enviarComandoIA()" style="background:linear-gradient(135deg,#6366f1,#a855f7);border:none;color:#fff;border-radius:8px;padding:0 14px;font-size:16px;cursor:pointer;flex-shrink:0">➤</button>
+  </div>
+
+</body>
+</html>
