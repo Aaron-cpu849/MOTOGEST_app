@@ -2210,12 +2210,34 @@ Comando: "status TGX0J77"
       })
     });
     const data=await resp.json();
-    const txt=(data.content||[]).map(x=>x.text||'').join('');
+    // Trata erros da API (chave inválida, sem crédito, modelo errado, rate limit etc.)
+    if(!resp.ok || data.type==='error'){
+      const errMsg=data?.error?.message||data?.message||`HTTP ${resp.status} ${resp.statusText}`;
+      const errType=data?.error?.type||'';
+      let hint='';
+      if(errType==='authentication_error'||resp.status===401) hint='\n💡 Verifique sua chave de API (🔑 no topo do painel).';
+      else if(errType==='permission_error'||resp.status===403) hint='\n💡 Adicione crédito em console.anthropic.com → Billing.';
+      else if(errType==='rate_limit_error'||resp.status===429) hint='\n💡 Limite de requisições atingido. Aguarde alguns segundos.';
+      else if(errType==='not_found_error') hint='\n💡 Modelo não encontrado ou indisponível para sua conta.';
+      else if(resp.status===529) hint='\n💡 API sobrecarregada. Tente novamente em instantes.';
+      throw new Error(errMsg+hint);
+    }
+    const txt=(data.content||[]).map(x=>x.text||'').join('').trim();
+    if(!txt) throw new Error('Resposta vazia da API. Tente novamente.');
     _iaHistory.push({role:'assistant',content:txt});
 
     let resultado;
     try{resultado=JSON.parse(txt);}
-    catch{const m=txt.match(/\{[\s\S]*\}/);if(m)resultado=JSON.parse(m[0]);else throw new Error('JSON inválido: '+txt.slice(0,100));}
+    catch{
+      // Tenta extrair JSON de markdown ```json ... ``` ou texto solto
+      const cleaned=txt.replace(/```json\s*|```\s*$/g,'').trim();
+      try{resultado=JSON.parse(cleaned);}
+      catch{
+        const m=cleaned.match(/\{[\s\S]*\}/);
+        if(m){try{resultado=JSON.parse(m[0]);}catch{throw new Error('JSON inválido na resposta: '+txt.slice(0,200));}}
+        else throw new Error('Resposta sem JSON: '+txt.slice(0,200));
+      }
+    }
 
     iaRemoveLoading();
     const respostas=await executarAcoesIA(resultado.actions||[]);
