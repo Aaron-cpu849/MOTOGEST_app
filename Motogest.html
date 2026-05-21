@@ -891,7 +891,8 @@ async function saveGpsSettings(){
   GPS_CFG.pass=document.getElementById('gpsCfgPass').value;
   saveGpsCfg();closeM('mGpsM');
   await syncGps(true);
-  startGpsAutoSync();
+  // Auto-sync desativado — use o botão "Sincronizar GPS" manualmente quando precisar
+  // startGpsAutoSync();
 }
 // ── GPS Auto-sync Background ─────────────────────────────────────────────────
 let _gpsAutoSyncInterval=null;
@@ -1764,7 +1765,7 @@ async function osLerViaNf(inp){
   try{
     const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f);});
     const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','x-api-key':iaGetKey()||''},body:JSON.stringify({
-      model:'claude-sonnet-4-20250514',max_tokens:800,
+      model:iaGetModel(),max_tokens:800,
       system:'Você é um assistente de lançamento de ordens de serviço para locadora de motos. Analise a imagem e extraia os dados. Responda SOMENTE em JSON válido, sem markdown, sem texto extra. Formato: {"placa":"","oficina":"","nf":"","pec":0,"mao":0,"obs":"","data":""}. Para placa use formato AAA0000 ou AAA0A00. Para valores use número sem R$. Se não encontrar um campo, use string vazia ou 0. Para obs liste os serviços separados por vírgula.',
       messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:f.type||'image/jpeg',data:b64}},{type:'text',text:'Extraia os dados desta nota fiscal ou registro de manutenção de moto.'}]}]
     })});
@@ -2106,6 +2107,8 @@ let _iaHistory=[];
 
 function iaGetKey(){return localStorage.getItem('mg_ia_key')||'';}
 function iaSetKey(k){localStorage.setItem('mg_ia_key',k.trim());}
+function iaGetModel(){return localStorage.getItem('mg_ia_model')||'claude-haiku-4-5';}
+function iaSetModel(m){localStorage.setItem('mg_ia_model',m.trim());}
 
 function toggleIaPanel(){
   const p=document.getElementById('iaPanel');
@@ -2123,6 +2126,30 @@ function iaPromptKey(){
   const key=prompt('🔑 Cole sua chave da API Anthropic (começa com sk-ant-):\n\nObtida em: console.anthropic.com → API Keys\nSalva apenas no seu navegador.');
   if(key&&key.trim().startsWith('sk-')){iaSetKey(key);iaAddMsg('✅ Chave salva! Agora pode usar os comandos.','bot');}
   else if(key) iaAddMsg('❌ Chave inválida. Deve começar com sk-ant-','bot');
+}
+
+function iaPromptModel(){
+  const atual=iaGetModel();
+  const opcoes=[
+    {id:'claude-haiku-4-5',nome:'Haiku 4.5',custo:'$1/$5 por 1M tokens — mais rápido e barato (recomendado)'},
+    {id:'claude-sonnet-4-6',nome:'Sonnet 4.6',custo:'$3/$15 por 1M tokens — mais inteligente'},
+    {id:'claude-opus-4-7',nome:'Opus 4.7',custo:'$5/$25 por 1M tokens — máxima capacidade'}
+  ];
+  let msg='🧠 Escolha o modelo da IA:\n\n';
+  opcoes.forEach((o,i)=>{msg+=`${i+1}. ${o.nome}${o.id===atual?' ✓ (atual)':''}\n   ${o.custo}\n\n`;});
+  msg+='Digite o número (1, 2 ou 3) ou cole um ID customizado:';
+  const r=prompt(msg,atual);
+  if(!r) return;
+  const num=parseInt(r.trim());
+  if(num>=1 && num<=opcoes.length){
+    iaSetModel(opcoes[num-1].id);
+    iaAddMsg(`✅ Modelo trocado para ${opcoes[num-1].nome}`,'bot');
+  } else if(r.trim().startsWith('claude-')){
+    iaSetModel(r);
+    iaAddMsg(`✅ Modelo trocado para ${r.trim()}`,'bot');
+  } else {
+    iaAddMsg('❌ Opção inválida. Use 1, 2, 3 ou um ID válido.','bot');
+  }
 }
 
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='i'){e.preventDefault();toggleIaPanel();}});
@@ -2203,7 +2230,7 @@ Comando: "status TGX0J77"
       method:'POST',
       headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','x-api-key':apiKey},
       body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
+        model:iaGetModel(),
         max_tokens:1000,
         system:systemPrompt,
         messages:_iaHistory.slice(-6)
@@ -10364,8 +10391,10 @@ window.go=function(t){
     if(oleov2>0)new Notification('🛢️ AMS Motos — Óleo Vencido',{body:oleov2+' moto(s) com troca vencida!'});
     else if(_oleoPerto>0)new Notification('⚠️ AMS Motos — Óleo Próximo',{body:_oleoPerto+' moto(s) com óleo vencendo em breve!'});
   },4000);
-  // ── Boot auto-sync GPS se já configurado ─────────────────────────────────────
-setTimeout(()=>{ if(GPS_CFG.user&&GPS_CFG.pass) startGpsAutoSync(); }, 3000);
+  // ── Auto-sync GPS no boot DESATIVADO — clique no botão "Sincronizar GPS" manualmente ──
+  // setTimeout(()=>{ if(GPS_CFG.user&&GPS_CFG.pass) startGpsAutoSync(); }, 3000);
+  // Garante que qualquer auto-sync residual seja interrompido
+  setTimeout(()=>{ try{ stopGpsAutoSync(); }catch(e){} }, 100);
 // ── Sincroniza KM de manutenção silenciosamente no boot ───────────────────────
 setTimeout(()=>{ try{ sincronizarKmManutencao(true); }catch(e){} }, 2000);
 
@@ -10409,6 +10438,7 @@ function checkNomeDup(inp, mIdAtual){
       <div style="font-size:10px;color:var(--sub)">Comandos em linguagem natural</div>
     </div>
     <button onclick="verIaLog()" title="Histórico de comandos" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:14px;padding:4px">📜</button>
+    <button onclick="iaPromptModel()" title="Modelo IA" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:14px;padding:4px">🧠</button>
     <button onclick="iaPromptKey()" title="Configurar chave API" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:14px;padding:4px">🔑</button>
     <button onclick="toggleIaPanel()" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:16px;padding:4px">✕</button>
   </div>
