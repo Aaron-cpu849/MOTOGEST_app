@@ -1755,7 +1755,7 @@ async function osLerViaNf(inp){
   if(st){st.style.display='block';st.textContent='⏳ Lendo nota fiscal…';}
   try{
     const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f);});
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','x-api-key':iaGetKey()||''},body:JSON.stringify({
       model:'claude-sonnet-4-20250514',max_tokens:800,
       system:'Você é um assistente de lançamento de ordens de serviço para locadora de motos. Analise a imagem e extraia os dados. Responda SOMENTE em JSON válido, sem markdown, sem texto extra. Formato: {"placa":"","oficina":"","nf":"","pec":0,"mao":0,"obs":"","data":""}. Para placa use formato AAA0000 ou AAA0A00. Para valores use número sem R$. Se não encontrar um campo, use string vazia ou 0. Para obs liste os serviços separados por vírgula.',
       messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:f.type||'image/jpeg',data:b64}},{type:'text',text:'Extraia os dados desta nota fiscal ou registro de manutenção de moto.'}]}]
@@ -1979,14 +1979,27 @@ function gerarPdfAvulso(){
 // ── Assistente IA MotoGest ────────────────────────────────────────────────────
 let _iaHistory=[];
 
+function iaGetKey(){return localStorage.getItem('mg_ia_key')||'';}
+function iaSetKey(k){localStorage.setItem('mg_ia_key',k.trim());}
+
 function toggleIaPanel(){
   const p=document.getElementById('iaPanel');
   if(!p)return;
   const open=p.style.display!=='none';
   p.style.display=open?'none':'flex';
   p.style.flexDirection='column';
-  if(!open) setTimeout(()=>document.getElementById('iaInput')?.focus(),80);
+  if(!open){
+    if(!iaGetKey()) setTimeout(()=>iaPromptKey(),200);
+    else setTimeout(()=>document.getElementById('iaInput')?.focus(),80);
+  }
 }
+
+function iaPromptKey(){
+  const key=prompt('🔑 Cole sua chave da API Anthropic (começa com sk-ant-):\n\nObtida em: console.anthropic.com → API Keys\nSalva apenas no seu navegador.');
+  if(key&&key.trim().startsWith('sk-')){iaSetKey(key);iaAddMsg('✅ Chave salva! Agora pode usar os comandos.','bot');}
+  else if(key) iaAddMsg('❌ Chave inválida. Deve começar com sk-ant-','bot');
+}
+
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='i'){e.preventDefault();toggleIaPanel();}});
 
 function iaAddMsg(texto,tipo){
@@ -2056,11 +2069,14 @@ Comando: "registrar pagamento lucas tgx0j77"
 Comando: "status TGX0J77"
 {"actions":[{"action":"consulta_status","params":{"mId":"ID_DA_MOTO"},"mensagem":""}]}`;
 
+  const apiKey=iaGetKey();
+  if(!apiKey){iaRemoveLoading();iaAddMsg('⚠️ Configure sua chave de API primeiro.','bot');iaPromptKey();document.getElementById('iaEnvBtn').disabled=false;return;}
+
   try{
     _iaHistory.push({role:'user',content:cmd});
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','x-api-key':apiKey},
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',
         max_tokens:1000,
@@ -3857,6 +3873,7 @@ h1{font-size:20px;font-weight:800;color:var(--acc);margin-bottom:4px}
       <div style="font-size:13px;font-weight:700;color:#a78bfa">Assistente MotoGest</div>
       <div style="font-size:10px;color:var(--sub)">Comandos em linguagem natural</div>
     </div>
+    <button onclick="iaPromptKey()" title="Configurar chave API" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:14px;padding:4px">🔑</button>
     <button onclick="toggleIaPanel()" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:16px;padding:4px">✕</button>
   </div>
   <div id="iaMessages" style="height:280px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px">
