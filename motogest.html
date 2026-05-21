@@ -198,9 +198,11 @@ const DB={
   sinistros: S.get('mg_sinistros')||[],
   wamensagens: S.get('mg_wamsg')||[],
   locPastas: S.get('mg_locpastas')||[],
+  odoHist: S.get('mg_odohist')||[],
+  iaLog: S.get('mg_ialog')||[],
 };
 function sv(k){
-  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos',chats:'chats',solics:'solics',intv:'intervencoes',histloc:'histLoc',agenda:'agenda',extras:'extras',negoc:'negociacoes',locpastas:'locPastas'};
+  const map={m:'motos',l:'leit',s:'seg',mu:'multas',e:'est',mv:'mov',os:'os',pg:'pg',mhist:'mhist',ct:'contratos',cau:'caucoes',fts:'fotos',chats:'chats',solics:'solics',intv:'intervencoes',histloc:'histLoc',agenda:'agenda',extras:'extras',negoc:'negociacoes',locpastas:'locPastas',odohist:'odoHist',ialog:'iaLog'};
   const prop=map[k]||k;
   S.set('mg_'+k,DB[prop]);
 }
@@ -1998,6 +2000,123 @@ function gerarPdfAvulso(){
   w.document.close();
 }
 
+// ── Resumo Rápido do Locatário ────────────────────────────────────────────────
+function resumoLocatario(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const pgs=DB.pg.filter(p=>p.mId===mId).sort((a,b)=>b.sem.localeCompare(a.sem));
+  const totalPago=pgs.reduce((a,p)=>a+(Number(p.valor||m.val||0)),0);
+  const saldo=calcSaldo(mId);
+  const multas=DB.multas.filter(x=>x.mId===mId);
+  const os=DB.os.filter(x=>x.mId===mId);
+  const contratos=DB.contratos.filter(x=>x.mId===mId).sort((a,b)=>(b.criado||'').localeCompare(a.criado||''));
+  const ct=contratos[0];
+  const pasta=DB.locPastas?.find(p=>p.mId===mId);
+  const odoH=(DB.odoHist||[]).filter(x=>x.mId===mId).sort((a,b)=>b.data.localeCompare(a.data)).slice(0,5);
+  const adim=calcAdimplencia(mId);
+  const saude=calcSaudeLoc(mId);
+  showM(mWrap('mResumo',`<div class="modal" style="max-width:620px">
+    <div class="mh">
+      <span class="ct">👤 ${m.nome||m.placa}</span>
+      <span style="font-size:12px;color:var(--sub);margin-left:8px">${m.placa}</span>
+      <button class="btn bx" onclick="closeM('mResumo')" style="margin-left:auto">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+      <div style="background:var(--grnbg);border-radius:8px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--sub)">TOTAL PAGO</div><div style="font-weight:800;color:var(--grn);font-size:14px">${fR(totalPago)}</div></div>
+      <div style="background:${saldo>0?'var(--redbg)':'var(--grnbg)'};border-radius:8px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--sub)">SALDO DEV.</div><div style="font-weight:800;color:${saldo>0?'var(--red)':'var(--grn)'};font-size:14px">${fR(saldo)}</div></div>
+      <div style="background:var(--sur);border-radius:8px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--sub)">ADIMPLÊNCIA</div><div style="font-weight:800;font-size:14px;color:${adim&&adim.taxa>=90?'var(--grn)':adim&&adim.taxa>=70?'var(--acc)':'var(--red)'}">${adim?adim.taxa+'%':'—'}</div></div>
+      <div style="background:var(--sur);border-radius:8px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--sub)">SAÚDE</div><div style="font-weight:800;font-size:14px;color:${saude?.cor||'var(--sub)'}">${saude?saude.emoji+' '+saude.score:'—'}</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;font-size:12px">
+      <div><b>Plano:</b> ${fR(m.val)}/sem · Dia: ${m.dia||'—'}</div>
+      <div><b>Odômetro:</b> ${fN(m.odo)} km</div>
+      <div><b>CPF:</b> ${pasta?.cpf||m.cpfLoc||'—'}</div>
+      <div><b>CNH válida:</b> ${m.cnhValidade?fD(m.cnhValidade):'—'}</div>
+      <div><b>Contrato:</b> ${ct?fD(ct.ini)+' → '+fD(ct.venc):'—'}</div>
+      <div><b>Tel:</b> ${pasta?.telefone||'—'}</div>
+    </div>
+    ${odoH.length?`<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:6px">📍 HISTÓRICO DE ODÔMETRO</div>${odoH.map(h=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid var(--bor)"><span>${fD(h.data)} · via ${h.via}</span><span>${fN(h.kmAnt)} → <b>${fN(h.kmNovo)}</b> km <span style="color:${h.diff>=0?'var(--grn)':'var(--red)'}">(${h.diff>=0?'+':''}${fN(h.diff)})</span></span></div>`).join('')}</div>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+      <div style="background:var(--sur);border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:var(--sub)">MULTAS</div><div style="font-weight:700;color:${multas.length?'var(--red)':'var(--grn)'}">${multas.length} (${fR(multas.reduce((a,x)=>a+Number(x.val||0),0))})</div></div>
+      <div style="background:var(--sur);border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:var(--sub)">OS</div><div style="font-weight:700">${os.length} (${fR(os.reduce((a,x)=>a+Number(x.pec||0)+Number(x.mao||0),0))})</div></div>
+      <div style="background:var(--sur);border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:var(--sub)">PAGAMENTOS</div><div style="font-weight:700;color:var(--grn)">${pgs.length}</div></div>
+    </div>
+    ${pgs.length?`<div><div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:6px">💰 ÚLTIMOS PAGAMENTOS</div>${pgs.slice(0,5).map(p=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid var(--bor)"><span>Sem. ${fD(p.sem)}</span><span style="color:var(--grn)">${fR(p.valor||m.val)}</span></div>`).join('')}</div>`:''}
+    <div class="mact" style="margin-top:14px">
+      <button class="btn bx" onclick="closeM('mResumo')">Fechar</button>
+      <button class="btn bx" onclick="closeM('mResumo');go('pag')">💰 Pagamentos</button>
+      <button class="btn ba" onclick="closeM('mResumo');editM('${mId}')">✏️ Editar</button>
+    </div>
+  </div>`));
+}
+
+// ── Exportar Inadimplentes ────────────────────────────────────────────────────
+function exportarInadimplentes(){
+  const ativos=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim());
+  const devedores=ativos.filter(m=>calcSaldo(m.id)>0).sort((a,b)=>calcSaldo(b.id)-calcSaldo(a.id));
+  if(!devedores.length){toast('✅ Nenhum devedor encontrado!');return;}
+  const total=devedores.reduce((a,m)=>a+calcSaldo(m.id),0);
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Inadimplentes AMS Motos</title>
+  <style>body{font-family:Arial,sans-serif;max-width:800px;margin:30px auto;padding:20px;color:#111}
+  h1{font-size:18px;margin-bottom:4px}h2{font-size:12px;color:#666;margin-bottom:20px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{background:#1e293b;color:#fff;padding:8px;text-align:left}
+  td{padding:7px 8px;border-bottom:1px solid #ddd}tr:nth-child(even){background:#f8f9fa}
+  .total{font-weight:700;font-size:15px;color:#dc2626}
+  @media print{button{display:none}}</style></head><body>
+  <h1>🏍️ AMS Motos — Inadimplentes</h1>
+  <h2>Gerado em ${new Date().toLocaleString('pt-BR')} · ${devedores.length} locatário(s) · Total: ${fR(total)}</h2>
+  <table><thead><tr><th>#</th><th>Locatário</th><th>Placa</th><th>Plano/Sem</th><th>Dia Pag.</th><th>Saldo Devedor</th></tr></thead><tbody>
+  ${devedores.map((m,i)=>`<tr><td>${i+1}</td><td>${m.nome}</td><td><b>${m.placa}</b></td><td>${fR(m.val)}</td><td>${m.dia||'—'}</td><td style="color:#dc2626;font-weight:700">${fR(calcSaldo(m.id))}</td></tr>`).join('')}
+  </tbody><tfoot><tr><td colspan="5" style="text-align:right;font-weight:700;padding:10px">TOTAL DEVEDOR:</td><td class="total">${fR(total)}</td></tr></tfoot></table>
+  <br><button onclick="window.print()" style="padding:10px 24px;background:#1e293b;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨️ Imprimir / Salvar PDF</button>
+  </body></html>`);
+  w.document.close();
+}
+
+// ── Visualizar Histórico de Odômetro ─────────────────────────────────────────
+function verOdoHist(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const hist=(DB.odoHist||[]).filter(x=>x.mId===mId).sort((a,b)=>b.data.localeCompare(a.data));
+  showM(mWrap('mOdoH',`<div class="modal" style="max-width:500px">
+    <div class="mh"><span class="ct">📍 Histórico de KM — ${m.placa}</span><button class="btn bx" onclick="closeM('mOdoH')">✕</button></div>
+    ${hist.length?`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Data</th><th>KM Anterior</th><th>KM Novo</th><th>Diferença</th><th>Via</th></tr></thead><tbody>
+    ${hist.map(h=>`<tr><td>${fD(h.data)}</td><td>${fN(h.kmAnt)} km</td><td><b>${fN(h.kmNovo)} km</b></td><td style="color:${h.diff>=0?'var(--grn)':'var(--red)'};font-weight:700">${h.diff>=0?'+':''}${fN(h.diff)} km</td><td style="font-size:11px;color:var(--sub)">${h.via||'manual'}</td></tr>`).join('')}
+    </tbody></table></div>`:'<div style="text-align:center;color:var(--sub);padding:20px">Nenhum registro de odômetro ainda</div>'}
+    <div class="mact"><button class="btn bx" onclick="closeM('mOdoH')">Fechar</button></div>
+  </div>`));
+}
+
+// ── Histórico de Comandos da IA ───────────────────────────────────────────────
+function verIaLog(){
+  const log=(DB.iaLog||[]).slice(-30).reverse();
+  showM(mWrap('mIaLog',`<div class="modal" style="max-width:500px">
+    <div class="mh"><span class="ct">🤖 Histórico de Comandos IA</span><button class="btn bx" onclick="closeM('mIaLog')">✕</button></div>
+    ${log.length?log.map(l=>`<div style="padding:8px 10px;border-radius:8px;background:var(--sur);margin-bottom:6px;font-size:12px">
+      <div style="color:var(--sub);font-size:10px">${fD(l.data)} ${l.hora||''}</div>
+      <div style="color:#a78bfa;margin:2px 0">▶ ${l.cmd}</div>
+      <div style="color:var(--txt)">${l.resp||'—'}</div>
+    </div>`).join(''):'<div style="text-align:center;color:var(--sub);padding:20px">Nenhum comando registrado ainda</div>'}
+    <div class="mact"><button class="btn bx" onclick="closeM('mIaLog')">Fechar</button>${log.length?`<button class="btn br" onclick="if(confirm('Limpar histórico?')){DB.iaLog=[];sv('ialog');closeM('mIaLog');}">Limpar</button>`:''}
+    </div>
+  </div>`));
+}
+
+// ── Atalhos de Teclado Globais ────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  // Ignora se foco está num input/textarea
+  if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) return;
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  switch(e.key){
+    case 'n': case 'N': go('os');setTimeout(()=>showAOs(),300); break;
+    case 'p': case 'P': go('pag'); break;
+    case 'm': case 'M': go('mts'); break;
+    case 'l': case 'L': go('loc'); break;
+    case 'd': case 'D': go('dash'); break;
+    case '?': toast('Atalhos: N=Nova OS | P=Pagamentos | M=Motos | L=Locatários | D=Dashboard | Ctrl+K=Busca | Ctrl+I=IA'); break;
+  }
+});
+
 // ── Assistente IA MotoGest ────────────────────────────────────────────────────
 let _iaHistory=[];
 
@@ -2117,6 +2236,11 @@ Comando: "status TGX0J77"
     iaRemoveLoading();
     const respostas=await executarAcoesIA(resultado.actions||[]);
     respostas.forEach(r=>iaAddMsg(r,r.startsWith('❌')?'erro':'bot'));
+    // Salva no histórico
+    const agora=new Date();
+    DB.iaLog.push({id:uid(),cmd,resp:respostas.join(' | ').replace(/<[^>]+>/g,'').slice(0,200),data:tod(),hora:agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})});
+    if(DB.iaLog.length>100) DB.iaLog=DB.iaLog.slice(-100);
+    sv('ialog');
 
   }catch(e){
     iaRemoveLoading();
@@ -2152,7 +2276,10 @@ async function executarAcoesIA(actions){
           const km=parseInt(p.km)||0;
           if(!km){respostas.push('❌ Informe o valor do odômetro');break;}
           if(km<m.odo&&!confirm(`Odômetro ${fN(km)} km é menor que o atual ${fN(m.odo)} km. Confirma?`)){respostas.push('⚠️ Atualização cancelada');break;}
-          m.odo=km;sv('m');render();
+          const odoAnt=m.odo;
+          m.odo=km;
+          DB.odoHist.push({id:uid(),mId:m.id,placa:m.placa,kmAnt:odoAnt,kmNovo:km,diff:km-odoAnt,data:tod(),via:'IA'});
+          sv('m');sv('odohist');render();
           respostas.push(`✅ Odômetro de <b>${m.placa}</b> atualizado para ${fN(km)} km`);
           break;}
 
@@ -3884,6 +4011,7 @@ h1{font-size:20px;font-weight:800;color:var(--acc);margin-bottom:4px}
   <div id="pHistList"><div style="font-size:12px;color:var(--sub);text-align:center;padding:16px">Carregando...</div></div>
 </div>
 <div id="toast"></div>
+<div style="position:fixed;bottom:6px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--mut);pointer-events:none;z-index:100">Atalhos: <b>N</b> Nova OS · <b>P</b> Pagamentos · <b>M</b> Motos · <b>L</b> Locatários · <b>Ctrl+K</b> Busca · <b>Ctrl+I</b> IA · <b>?</b> Ajuda</div>
 
 <!-- IA Assistente MotoGest -->
 <div id="iaBtn" onclick="toggleIaPanel()" title="Assistente IA (Ctrl+I)" style="position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#a855f7);box-shadow:0 4px 20px rgba(99,102,241,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:9998;font-size:22px;transition:transform .2s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">🤖</div>
@@ -3895,6 +4023,7 @@ h1{font-size:20px;font-weight:800;color:var(--acc);margin-bottom:4px}
       <div style="font-size:13px;font-weight:700;color:#a78bfa">Assistente MotoGest</div>
       <div style="font-size:10px;color:var(--sub)">Comandos em linguagem natural</div>
     </div>
+    <button onclick="verIaLog()" title="Histórico de comandos" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:14px;padding:4px">📜</button>
     <button onclick="iaPromptKey()" title="Configurar chave API" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:14px;padding:4px">🔑</button>
     <button onclick="toggleIaPanel()" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:16px;padding:4px">✕</button>
   </div>
@@ -7879,8 +8008,19 @@ function verFotos(mId){
 }
 function removerFoto(id){if(!confirm('Remover foto?'))return;DB.fotos=DB.fotos.filter(f=>f.id!==id);sv('fts');render();document.getElementById('mFotos')?.remove();}
 let mBusca='';
+let mSortCol='';let mSortDir=1;
+function sortMts(col){if(mSortCol===col)mSortDir*=-1;else{mSortCol=col;mSortDir=1;}render();}
 function vMts(){
-  const lista=mBusca?DB.motos.filter(m=>m.placa.includes(mBusca.toUpperCase())||m.nome.toUpperCase().includes(mBusca.toUpperCase())):DB.motos;
+  let lista=mBusca?DB.motos.filter(m=>m.placa.includes(mBusca.toUpperCase())||m.nome.toUpperCase().includes(mBusca.toUpperCase())):DB.motos;
+  // Ordenação
+  if(mSortCol){
+    lista=[...lista].sort((a,b)=>{
+      let va=a[mSortCol]||'',vb=b[mSortCol]||'';
+      if(mSortCol==='odo'||mSortCol==='val'){va=Number(va);vb=Number(vb);}
+      return(va>vb?1:va<vb?-1:0)*mSortDir;
+    });
+  }
+  const thS=(col,label)=>`<th style="cursor:pointer;user-select:none" onclick="sortMts('${col}')">${label}${mSortCol===col?(mSortDir>0?' ▲':' ▼'):' ⇅'}</th>`;
   const rows=lista.map(m=>{
     const g=GPS[m.placa];
     const gc=g?gpsC(g.e):'var(--mut)';
@@ -7895,6 +8035,7 @@ function vMts(){
     <td><span style="color:${gc};font-size:12px" title="${g?g.e+' – '+g.u+(g.end?' – '+g.end:''): 'Sem dados'}">${gi} ${g?g.e:'—'}</span>${g&&g.end?`<br><span style="font-size:10px;color:var(--mut)">${g.end.split(',').slice(0,2).join(',')}</span>`:''}</td>
     <td class="row" style="gap:4px">
       <button class="btn bx bxs" onclick="editM('${m.id}')">✏️</button>
+      <button class="btn bx bxs" onclick="verOdoHist('${m.id}')" title="Histórico de KM">📍</button>
       <button class="btn bx bxs" onclick="verHistLocatario('${m.placa}')" title="Histórico de locatários"${histLoc.length?'':' style="opacity:.4"'}>👥${histLoc.length?` <span style="background:var(--acc);color:#000;border-radius:8px;padding:0 4px;font-size:9px">${histLoc.length}</span>`:''}</button>
       <label class="btn bx bxs" title="Importar CRLV-e (PDF)" style="cursor:pointer">📄 CRLV<input type="file" accept=".pdf" style="display:none" onchange="parseCrlv(this.files[0],'${m.id}');this.value=''"></label>
       <button class="btn bx bxs" onclick="togM('${m.id}')">${m.on?'Inativar':'Ativar'}</button>
@@ -7909,7 +8050,7 @@ function vMts(){
       <button class="btn ba" onclick="showAM()">+ Nova Moto</button>
     </div></div>
     <div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>Placa</th><th>Locatário</th><th>Dia Pag.</th><th>Valor Plano</th><th>Odômetro</th><th>Status</th><th>GPS / Localização</th><th>Ações</th></tr></thead>
+      <thead><tr>${thS('placa','Placa')}${thS('nome','Locatário')}${thS('dia','Dia Pag.')}${thS('val','Valor Plano')}${thS('odo','Odômetro')}<th>Status</th><th>GPS / Localização</th><th>Ações</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div></div>`;
 }
@@ -8011,8 +8152,14 @@ function svM(id){
   if(!nomeAnterior && novoNome){
     setTimeout(()=>registrarHistLocatario(m.placa, novoNome, m.odo, 'Entrada'),100);
   }
+  const odoAnterior=m.odo;
   m.nome=novoNome;
   m.odo=Number(document.getElementById('emOd').value);
+  // Registra histórico de odômetro se mudou
+  if(m.odo!==odoAnterior){
+    DB.odoHist.push({id:uid(),mId:m.id,placa:m.placa,kmAnt:odoAnterior,kmNovo:m.odo,diff:m.odo-odoAnterior,data:tod(),via:'manual'});
+    sv('odohist');
+  }
   m.val=Number(document.getElementById('emVl').value);
   m.dia=document.getElementById('emDi').value;
   const cpf=document.getElementById('emCpf')?.value?.trim();if(cpf)m.cpfLoc=cpf;
@@ -8283,6 +8430,8 @@ function calcSaudeLoc(mId){
 // ── Locatários ────────────────────────────────────────────────────────────────
 let locBusca='';
 let locDia='';
+let locSortCol='';let locSortDir=1;
+let locCompacto=false;
 
 function verHistCompleto(nome){
   // Todas as motos que este locatário já usou
@@ -8329,6 +8478,15 @@ function vLoc(){
   let lista=ativos;
   if(locBusca) lista=lista.filter(m=>m.nome.toUpperCase().includes(locBusca.toUpperCase())||m.placa.includes(locBusca.toUpperCase()));
   if(locDia)   lista=lista.filter(m=>m.dia===locDia);
+  // Ordenação
+  if(locSortCol){
+    lista=[...lista].sort((a,b)=>{
+      if(locSortCol==='saldo'){return(calcSaldo(a.id)-calcSaldo(b.id))*locSortDir;}
+      if(locSortCol==='val'){return(Number(a.val||0)-Number(b.val||0))*locSortDir;}
+      const va=(a[locSortCol]||'').toLowerCase(),vb=(b[locSortCol]||'').toLowerCase();
+      return(va>vb?1:va<vb?-1:0)*locSortDir;
+    });
+  }
 
   const rows=lista.map(m=>{
     const pgs=DB.pg.filter(p=>p.mId===m.id);
@@ -8341,18 +8499,18 @@ function vLoc(){
     const statusBg=saldo>0?'var(--redbg)':pgHoje?'var(--grnbg)':'var(--accbg)';
     const ultPgs=[...pgs].sort((a,b)=>(b.sem||b.data||'').localeCompare(a.sem||a.data||'')).slice(0,4);
     const hist=ultPgs.map(p=>`<span title="Sem. ${fD(p.sem)}: ${fR(p.valor||m.val)}" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${Number(p.valor||m.val)>=Number(m.val)?'var(--grn)':'var(--acc)'};margin:1px"></span>`).join('');
-    return`<tr>
-      <td style="font-weight:700">${m.nome}</td>
+    return`<tr style="${locCompacto?'font-size:11px':''}">
+      <td style="font-weight:700"><button onclick="resumoLocatario('${m.id}')" style="background:none;border:none;color:var(--txt);cursor:pointer;font-weight:700;padding:0;text-align:left">${m.nome}</button></td>
       <td><b>${m.placa}</b></td>
       <td><span class="badge" style="background:var(--accbg);color:var(--acc)">${m.dia||'—'}</span></td>
       <td style="font-weight:700;color:var(--acc)">${fR(m.val)}</td>
       <td style="color:var(--grn)">${fR(totalPago)}</td>
       <td>${saldo>0?`<span style="color:var(--red);font-weight:700">${fR(saldo)}</span>`:'<span style="color:var(--grn)">—</span>'}</td>
-      <td><div style="display:flex;align-items:center;gap:4px">${hist||'<span style="color:var(--mut);font-size:11px">sem registros</span>'}</div></td>
+      ${locCompacto?'':`<td><div style="display:flex;align-items:center;gap:4px">${hist||'<span style="color:var(--mut);font-size:11px">sem registros</span>'}</div></td>`}
       <td><span class="badge" style="background:${statusBg};color:${statusColor}">${status}</span></td>
       <td style="text-align:center">${(()=>{const s=calcSaudeLoc(m.id);return s?`<span title="${s.detalhes.join(' · ')}" style="cursor:help;font-weight:700;color:${s.cor};font-size:13px">${s.emoji} ${s.score}</span>`:'<span style="color:var(--sub)">—</span>';})()}</td>
       <td style="font-size:12px;font-weight:700;color:${(()=>{const a=calcAdimplencia(m.id);return!a?'var(--sub)':a.taxa>=90?'var(--grn)':a.taxa>=70?'var(--acc)':'var(--red)';})()}">${(()=>{const a=calcAdimplencia(m.id);return a?a.taxa+'%':'—';})()}</td>
-      <td><button class="btn bx bxs" onclick="go('pag')">💰</button><button class="btn bx bxs" onclick="verHistCompleto('${m.nome.replace(/'/g,"\\'")}')">📋</button><button class="btn bx bxs" onclick="abrirCaucaoParcelamento('${m.id}')" title="Caução">💳</button></td>
+      <td><button class="btn bx bxs" onclick="resumoLocatario('${m.id}')" title="Resumo completo">👤</button><button class="btn bx bxs" onclick="go('pag')">💰</button><button class="btn bx bxs" onclick="verHistCompleto('${m.nome.replace(/'/g,"\\'")}')">📋</button><button class="btn bx bxs" onclick="abrirCaucaoParcelamento('${m.id}')" title="Caução">💳</button></td>
     </tr>`;
   }).join('');
 
@@ -8379,6 +8537,8 @@ function vLoc(){
     <span class="ct">👥 Locatários${locDia?` — ${locDia}`:''} (${lista.length})</span>
     <div class="row" style="gap:6px;flex-wrap:wrap">
       <input placeholder="🔍 Buscar" style="width:160px" value="${locBusca}" oninput="locBusca=this.value;render()">
+      <button class="btn bx bxs" style="font-size:11px" onclick="locCompacto=!locCompacto;render()" title="Modo compacto">${locCompacto?'⊞ Expandir':'⊟ Compacto'}</button>
+      <button class="btn bx bxs" style="font-size:11px" onclick="exportarInadimplentes()" title="Exportar devedores">📋 Exportar</button>
       <div class="row" style="gap:3px">
         <button class="btn bx${!locDia?' ba':' bxs'}" onclick="locDia='';render()" style="font-size:11px;padding:5px 8px">Todos</button>
         ${dias.map(d=>`<button class="btn bx${locDia===d?' ba':' bxs'}" onclick="locDia='${d}';render()" style="font-size:11px;padding:5px 8px;position:relative">
@@ -8389,7 +8549,14 @@ function vLoc(){
     </div>
   </div>
   <div style="overflow-x:auto"><table class="tbl">
-    <thead><tr><th>Locatário</th><th>Placa</th><th>Dia Pag.</th><th>Plano/Sem.</th><th>Total Pago</th><th>Saldo Dev.</th><th>Últimos 4</th><th>Status</th><th title="Termômetro de saúde (passe o mouse para detalhes)">Saúde</th><th title="Adimplência">Adim.%</th><th></th></tr></thead>
+    <thead><tr>
+      <th style="cursor:pointer" onclick="locSortCol='nome';locSortDir=locSortCol==='nome'?locSortDir*-1:1;render()">Locatário${locSortCol==='nome'?(locSortDir>0?' ▲':' ▼'):' ⇅'}</th>
+      <th>Placa</th><th>Dia Pag.</th>
+      <th style="cursor:pointer" onclick="locSortCol='val';locSortDir=locSortCol==='val'?locSortDir*-1:1;render()">Plano/Sem.${locSortCol==='val'?(locSortDir>0?' ▲':' ▼'):' ⇅'}</th>
+      <th>Total Pago</th>
+      <th style="cursor:pointer" onclick="locSortCol='saldo';locSortDir=locSortCol==='saldo'?locSortDir*-1:1;render()">Saldo Dev.${locSortCol==='saldo'?(locSortDir>0?' ▲':' ▼'):' ⇅'}</th>
+      ${locCompacto?'':'<th>Últimos 4</th>'}<th>Status</th><th title="Saúde">Saúde</th><th title="Adimplência">Adim.%</th><th></th>
+    </tr></thead>
     <tbody>${rows||'<tr><td colspan="11" class="empty">Nenhum locatário encontrado</td></tr>'}</tbody>
   </table></div></div>`;
 }
