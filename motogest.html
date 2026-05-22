@@ -1524,6 +1524,7 @@ function vMnt(){
   const totalAlerta=ativ.filter(m=>ms(m).u==='wa').length;
   const custoMes=(()=>{const mesAtual=tod().slice(0,7);return DB.mhist.filter(h=>h.data&&h.data.startsWith(mesAtual)).reduce((a,h)=>a+Number(h.custo||0),0);})();
   return`<div style="display:flex;justify-content:flex-end;margin-bottom:8px;gap:6px">
+    <button class="btn bx bs" onclick="abrirImportacaoLote()" title="Importar várias manutenções de uma vez via texto">📋 Importação em Lote</button>
     <button class="btn bx bs" onclick="sincronizarKmManutencao(false)" title="Recalcula loilKm/lrevKm de cada moto baseado no histórico de manutenção">🔄 Sincronizar KM de Manutenção</button>
     <button class="btn br bs" onclick="correcaoEmergenciaKm()" title="Corrige loilKm/lrevKm direto pelo histórico">🚨 Correção de Emergência</button>
   </div>
@@ -1641,6 +1642,127 @@ function registrarOleoLote(){
   sv('m');sv('mhist');render();
   toast('✅ '+vencidas.length+' trocas registradas!','grn');
 }
+
+// ── Importação em Lote de Manutenções ────────────────────────────────────────
+function abrirImportacaoLote(){
+  document.getElementById('mImpLote')?.remove();
+  const exemplo=`Troca de óleo TGX1A75 43617
+Revisão TMP4F88 10843
+Troca de óleo TGX7B27 43422
+Troca de óleo TGX7J29 52811 Revisão THH7A33 41023`;
+  showM(mWrap('mImpLote',`<div class="modal" style="max-width:720px">
+    <div class="mh"><span class="ct">📋 Importação em Lote de Manutenções</span><button class="btn bx" onclick="closeM('mImpLote')">✕</button></div>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:10px">
+      Cole uma lista de manutenções. Cada linha pode ter um ou mais comandos no formato:<br>
+      <code style="background:var(--bg2);padding:2px 6px;border-radius:4px">Troca de óleo PLACA KM</code> ou
+      <code style="background:var(--bg2);padding:2px 6px;border-radius:4px">Revisão PLACA KM</code><br>
+      Cada ocorrência é registrada como uma entrada separada no histórico. O odômetro da moto é atualizado para o maior KM informado.
+    </p>
+    <div class="fg">
+      <label>Lista de manutenções:</label>
+      <textarea id="impLoteTxt" class="inp" style="height:280px;font-family:monospace;font-size:12px" placeholder="${exemplo.replace(/"/g,'&quot;')}"></textarea>
+    </div>
+    <div id="impLotePreview" style="margin-top:10px;font-size:12px"></div>
+    <div class="mact">
+      <button class="btn bx" onclick="closeM('mImpLote')">Cancelar</button>
+      <button class="btn bs" onclick="processarImportacaoLote(false)">👁️ Pré-visualizar</button>
+      <button class="btn ba" onclick="processarImportacaoLote(true)">✓ Importar Tudo</button>
+    </div>
+  </div>`));
+}
+
+function parseImportacaoLote(texto){
+  // Quebra em linhas, e dentro de cada linha procura padrões "tipo PLACA KM"
+  // Tipos: troca de óleo / troca de oleo / revisão / revisao / revisao geral
+  const regex=/\b(troca\s+de\s+[óo]leo|revis[ãa]o)\s+([a-zA-Z]{3}[0-9][a-zA-Z][0-9]{2}|[a-zA-Z]{3}[0-9]{4})\s+(\d+)/gi;
+  const linhas=texto.split(/\r?\n/);
+  const itens=[];
+  const erros=[];
+  linhas.forEach((linha,idxLinha)=>{
+    if(!linha.trim()) return;
+    let achouAlgo=false;
+    let m;
+    regex.lastIndex=0;
+    while((m=regex.exec(linha))!==null){
+      achouAlgo=true;
+      const tipoRaw=m[1].toLowerCase();
+      const placa=m[2].toUpperCase();
+      const km=parseInt(m[3]);
+      const tipo=tipoRaw.includes('oleo')||tipoRaw.includes('óleo')?'oil':'rev';
+      itens.push({linha:idxLinha+1,tipo,placa,km,texto:m[0]});
+    }
+    if(!achouAlgo) erros.push({linha:idxLinha+1,texto:linha.trim()});
+  });
+  return{itens,erros};
+}
+
+function processarImportacaoLote(executar){
+  const texto=document.getElementById('impLoteTxt').value;
+  if(!texto.trim()){alert('Cole a lista de manutenções primeiro.');return;}
+  const {itens,erros}=parseImportacaoLote(texto);
+  if(!itens.length){alert('Nenhuma manutenção reconhecida.\n\nFormato esperado:\n"Troca de óleo TGX0J77 45800"\n"Revisão TGX0J77 40000"');return;}
+  // Mapa de placas → moto
+  const motosByPlaca={};
+  DB.motos.forEach(m=>{motosByPlaca[m.placa.toUpperCase()]=m;});
+  // Classifica itens
+  const validos=[],semMoto=[];
+  itens.forEach(it=>{
+    const m=motosByPlaca[it.placa];
+    if(m) validos.push({...it,mId:m.id,mObj:m});
+    else semMoto.push(it);
+  });
+  // Preview HTML
+  const contPlacas={};
+  validos.forEach(v=>{contPlacas[v.placa]=(contPlacas[v.placa]||0)+1;});
+  const placasComMultiplas=Object.keys(contPlacas).filter(p=>contPlacas[p]>1);
+  let preview=`<div style="background:var(--bg2);padding:10px;border-radius:8px;max-height:200px;overflow:auto">`;
+  preview+=`<b>📊 Resumo:</b><br>`;
+  preview+=`✅ <b>${validos.length}</b> manutenção(ões) válida(s)<br>`;
+  if(semMoto.length) preview+=`⚠️ <b>${semMoto.length}</b> com placa não cadastrada: ${semMoto.map(s=>s.placa).join(', ')}<br>`;
+  if(erros.length) preview+=`❌ <b>${erros.length}</b> linha(s) não reconhecida(s): linhas ${erros.map(e=>e.linha).join(', ')}<br>`;
+  if(placasComMultiplas.length) preview+=`🔁 <b>${placasComMultiplas.length}</b> placa(s) com múltiplas ocorrências: ${placasComMultiplas.map(p=>p+'×'+contPlacas[p]).join(', ')}<br>`;
+  const oilCount=validos.filter(v=>v.tipo==='oil').length;
+  const revCount=validos.filter(v=>v.tipo==='rev').length;
+  preview+=`<br>🛢️ ${oilCount} troca(s) de óleo · 🔧 ${revCount} revisão(ões)`;
+  preview+=`</div>`;
+  document.getElementById('impLotePreview').innerHTML=preview;
+  if(!executar) return;
+  // Executar de verdade
+  if(!confirm(`Confirmar importação de ${validos.length} manutenção(ões)?\n\n• Cada entrada será registrada no histórico\n• Odômetro de cada moto será atualizado para o maior KM\n• loilKm/lrevKm serão atualizados\n\nIsso NÃO pode ser desfeito facilmente.`)) return;
+  executarImportacaoLote(validos);
+}
+
+function executarImportacaoLote(validos){
+  // Agrupa por moto pra processar em ordem crescente de KM e atualizar o maior
+  const porMoto={};
+  validos.forEach(v=>{(porMoto[v.mId]=porMoto[v.mId]||[]).push(v);});
+  const data=tod();
+  let totalReg=0;
+  Object.keys(porMoto).forEach(mId=>{
+    const lista=porMoto[mId].sort((a,b)=>a.km-b.km); // ordem crescente
+    const m=DB.motos.find(x=>x.id===mId);
+    if(!m) return;
+    lista.forEach(it=>{
+      // Adiciona ao histórico
+      DB.mhist.push({id:uid(),mId,tipo:it.tipo,km:it.km,obs:'Importação em lote',custo:0,ofic:'',data,itens:[]});
+      totalReg++;
+    });
+    // Atualiza o odo da moto pro maior KM da lista (se for maior que o atual)
+    const maiorKm=lista[lista.length-1].km;
+    if(maiorKm>m.odo) m.odo=maiorKm;
+    // Atualiza loilKm e lrevKm pro maior KM do tipo respectivo
+    const maiorOil=Math.max(...lista.filter(x=>x.tipo==='oil').map(x=>x.km),m.loilKm||0);
+    const maiorRev=Math.max(...lista.filter(x=>x.tipo==='rev').map(x=>x.km),m.lrevKm||0);
+    if(maiorOil>(m.loilKm||0)) m.loilKm=maiorOil;
+    if(maiorRev>(m.lrevKm||0)) m.lrevKm=maiorRev;
+  });
+  sv('m');sv('mhist');
+  closeM('mImpLote');
+  render();
+  toast(`✅ ${totalReg} manutenção(ões) importada(s)! Foram processadas ${Object.keys(porMoto).length} moto(s).`,'grn');
+}
+// ── Fim Importação em Lote ───────────────────────────────────────────────────
+
 
 function editarPneu(mId, tipo){
   const m=DB.motos.find(x=>x.id===mId);if(!m)return;
@@ -2231,7 +2353,7 @@ Comando: "status TGX0J77"
       headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','x-api-key':apiKey},
       body:JSON.stringify({
         model:iaGetModel(),
-        max_tokens:1000,
+        max_tokens:4000,
         system:systemPrompt,
         messages:_iaHistory.slice(-6)
       })
@@ -2253,17 +2375,63 @@ Comando: "status TGX0J77"
     if(!txt) throw new Error('Resposta vazia da API. Tente novamente.');
     _iaHistory.push({role:'assistant',content:txt});
 
-    let resultado;
-    try{resultado=JSON.parse(txt);}
-    catch{
-      // Tenta extrair JSON de markdown ```json ... ``` ou texto solto
-      const cleaned=txt.replace(/```json\s*|```\s*$/g,'').trim();
-      try{resultado=JSON.parse(cleaned);}
-      catch{
-        const m=cleaned.match(/\{[\s\S]*\}/);
-        if(m){try{resultado=JSON.parse(m[0]);}catch{throw new Error('JSON inválido na resposta: '+txt.slice(0,200));}}
-        else throw new Error('Resposta sem JSON: '+txt.slice(0,200));
+    // Avisa se a resposta foi truncada (limite de tokens atingido)
+    const truncado = data.stop_reason === 'max_tokens';
+
+    function tentarParseJson(s){
+      // Remove markdown ```json ... ```
+      let limpo = s.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
+      const ini = limpo.indexOf('{');
+      if(ini < 0) return null;
+      limpo = limpo.slice(ini);
+      // Tenta parse direto
+      try{return JSON.parse(limpo);}catch{}
+
+      // Resposta truncada: encontra a posição do último objeto VÁLIDO dentro do array de actions.
+      // Estratégia: anda do começo registrando, em cada caractere, o "estado" da pilha de chaves/colchetes.
+      // Marca a última posição onde um objeto do array fechou completamente (profundidade subiu pra 1).
+      let prof=0, dentroStr=false, esc=false;
+      let ultimoObjFechado=-1;       // posição de '}' que fecha um item do array
+      let dentroDoArrayActions=false;
+      let profArray=-1;
+      for(let i=0;i<limpo.length;i++){
+        const c=limpo[i];
+        if(esc){esc=false;continue;}
+        if(c==='\\'){esc=true;continue;}
+        if(c==='"'){dentroStr=!dentroStr;continue;}
+        if(dentroStr) continue;
+        if(c==='{'||c==='['){
+          if(c==='[' && !dentroDoArrayActions){dentroDoArrayActions=true;profArray=prof;}
+          prof++;
+        }
+        else if(c==='}'||c===']'){
+          prof--;
+          // Item do array fechou (voltou pro nível do array+1, ou seja, dentro do array)
+          if(c==='}' && dentroDoArrayActions && prof===profArray+1){
+            ultimoObjFechado=i;
+          }
+          if(c===']' && prof===profArray){dentroDoArrayActions=false;}
+        }
       }
+      // Se achou pelo menos um objeto válido fechado dentro do array, monta JSON só com ele(s)
+      if(ultimoObjFechado>=0){
+        const truncado = limpo.slice(0, ultimoObjFechado+1);
+        // Fecha array e objeto raiz
+        const tentativa = truncado + ']}';
+        try{return JSON.parse(tentativa);}catch{}
+      }
+      return null;
+    }
+
+    const resultado = tentarParseJson(txt);
+    if(!resultado){
+      const dica = truncado
+        ? '\n💡 A resposta foi cortada por excesso de tamanho. Tente dividir o comando em partes menores.'
+        : '';
+      throw new Error('Não consegui interpretar a resposta da IA. Tente reformular o comando.'+dica);
+    }
+    if(truncado){
+      iaAddMsg('⚠️ A resposta da IA foi cortada (muitas ações). Executando o que consegui recuperar — talvez nem tudo seja processado. Tente dividir comandos longos em partes.','bot');
     }
 
     iaRemoveLoading();
