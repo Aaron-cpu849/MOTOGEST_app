@@ -396,6 +396,8 @@ const CFG_INTER = {
   MULTA_PCT: 0,  // mude para 10 p/ multa de 10%; teste 1 boleto antes
   MORA_PCT: 0
 };
+// URL do Portal do Locatário. A URL final de publicação sai na Fase B (publicação).
+const CFG_PORTAL = { URL: 'https://SEU-PORTAL-AQUI' };
 
 // ── CÁLCULO CANÔNICO DE INADIMPLÊNCIA ───────────────────────────────────────
 // Todos os lugares do sistema (Dashboard, Inadimplência, Financeiro, Relatórios)
@@ -476,13 +478,11 @@ const TABS=[
   {id:'odo',label:'📏 Odômetro'},
   {id:'mnt',label:'🔧 Manutenção'},
   {id:'agenda',label:'📅 Agenda Revisões'},
-  {id:'seg',label:'🛡️ Seguros'},
   {id:'mul',label:'🚨 Multas'},
   {id:'est',label:'📦 Estoque'},
   {id:'os',label:'🔩 OS'},
   {id:'oficina',label:'🛠️ Oficina'},
   {id:'pag',label:'💰 Pagamentos'},
-  {id:'rel',label:'📈 Relatórios'},
   {id:'mts',label:'🏍️ Motos'},
   {id:'loc',label:'👥 Locatários'},
   {id:'ind',label:'⚠️ Inadimplência'},
@@ -1203,6 +1203,10 @@ function vDash(){
   const oilQuase=ativ.filter(m=>{const ol=OIL-(m.odo-(m.loilKm||0));return ol>0&&ol<=200;});
   const mp=DB.multas.filter(m=>m.st==='p');
   const eb=DB.est.filter(e=>e.qtd<=e.min);
+  // Revisões agendadas pendentes (Onda 2) + revisões por km vencidas
+  const revsAgendPend=(DB.agenda||[]).filter(a=>(a.tipo==='rev'||a.tipo==null)&&a.st!=='feito').length;
+  const revsKmVenc=ativ.filter(m=>m.nome&&m.odo>0&&(m.odo-(m.lrevKm||0))>=REV).length;
+  const revsPendDash=Math.max(revsAgendPend,revsKmVenc);
   const sc=(n,v,c,sub)=>`<div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">${n}</div><div class="num" style="color:${c}">${v}</div>${sub?`<div style="font-size:11px;color:var(--sub);margin-top:4px">${sub}</div>`:''}</div>`;
   let al='';
   if(ma.length) al+=`<div style="background:var(--redbg);border-radius:8px;padding:10px 14px;color:var(--red);display:flex;gap:8px">⚠️ <b>${ma.length} moto(s)</b>&nbsp;com manutenção crítica</div>`;
@@ -1342,25 +1346,10 @@ function vDash(){
     ${metaSemAtual-recSemAtual>0?`<div style="font-size:11px;color:var(--sub);margin-top:6px">Faltam <b style="color:${metaCor}">${fR(metaSemAtual-recSemAtual)}</b> para atingir a meta</div>`:'<div style="font-size:11px;color:var(--grn);margin-top:6px">✅ Meta atingida!</div>'}
   </div>
   <div class="g4" style="margin-bottom:12px">
-    ${sc('KM Sincronizados',ativ.filter(m=>GPS[m.placa]&&m.odo>0).length+' / '+ativ.length,'var(--grn)')}
+    ${sc('Revisões Pendentes',revsPendDash,revsPendDash?'var(--red)':'var(--grn)',revsPendDash?'agendadas/vencidas':'')}
     ${sc('Multas Pendentes',mp.length,mp.length?'var(--red)':'var(--grn)',mp.length?fR(mp.reduce((a,m)=>a+Number(m.val||0),0)):'')}
     ${sc('Seguros Vencendo',sa.length,sa.length?'var(--yel)':'var(--grn)',sa.length?'próx. 10 dias':'')}
     ${sc('Estoque Baixo',eb.length,eb.length?'var(--yel)':'var(--grn)')}
-  </div>
-  <div class="card" style="margin-bottom:12px">
-    <div class="ch"><span class="ct">📡 GPS / Rastreadores</span>
-      <div class="row" style="gap:6px;flex-wrap:wrap">
-        <button class="btn bx bs" onclick="diagGps()" title="Mostra o que o GPS tem vs o que o sistema tem para cada moto">🔍 Diagnóstico</button>
-        <button class="btn bg bs" onclick="syncGps(true)" title="Sincronizar diretamente via API">🔄 Sync Direto</button>
-        <button class="btn bx bs" onclick="openGpsSettings()">⚙️ Config</button>
-      </div>
-    </div>
-    ${S.get('mg_gps')?`<div style="font-size:11px;color:var(--sub);padding:4px 0 8px">📡 Última sincronização GPS: <b style="color:var(--grn)">${(()=>{try{const ts=localStorage.getItem('mg_gps_ts');return ts?new Date(parseInt(ts)).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';}catch{return'—'}})()}</b></div>`:''}
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-      <div style="background:var(--grnbg);border-radius:8px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800;color:var(--grn)">${gCon}</div><div style="font-size:11px;color:var(--sub);margin-top:3px">🟢 Conectados</div></div>
-      <div style="background:var(--yelbg);border-radius:8px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800;color:var(--yel)">${gDsc}</div><div style="font-size:11px;color:var(--sub);margin-top:3px">🟡 Desconhecidos</div></div>
-      <div style="background:var(--redbg);border-radius:8px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:800;color:var(--red)">${gDes.length}</div><div style="font-size:11px;color:var(--sub);margin-top:3px">🔴 Desconectados</div></div>
-    </div>
   </div>
   <div class="card"><div class="ch"><span class="ct">Alertas do Dia</span></div><div style="display:flex;flex-direction:column;gap:8px">${al}</div></div>
   ${indAll.length?`<div class="card" style="margin-bottom:0">
@@ -1535,7 +1524,41 @@ function vMnt(){
   const totalCrit=ativ.filter(m=>ms(m).u==='cr').length;
   const totalAlerta=ativ.filter(m=>ms(m).u==='wa').length;
   const custoMes=(()=>{const mesAtual=tod().slice(0,7);return DB.mhist.filter(h=>h.data&&h.data.startsWith(mesAtual)).reduce((a,h)=>a+Number(h.custo||0),0);})();
-  return`<div style="display:flex;justify-content:flex-end;margin-bottom:8px;gap:6px">
+  // Revisões agendadas (reutiliza DB.agenda, tipo 'rev') — Onda 2
+  const revsAgendadas=(DB.agenda||[]).filter(a=>(a.tipo==='rev'||a.tipo==null)&&a.st!=='feito').sort((a,b)=>a.data.localeCompare(b.data));
+  const blocoRevs=revsAgendadas.length?`<div class="card" style="margin-bottom:12px;border-color:rgba(59,130,246,.4)">
+    <div class="ch" style="margin-bottom:10px">
+      <span class="ct" style="color:var(--blu)">📅 Revisões Agendadas (${revsAgendadas.length})</span>
+      <button class="btn ba bs" onclick="novaAgenda()">➕ Agendar revisão</button>
+    </div>
+    <div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Data</th><th>Moto</th><th>Odo atual</th><th>Obs</th><th>Status</th><th>Ação</th></tr></thead>
+      <tbody>${revsAgendadas.map(a=>{
+        const mo=DB.motos.find(x=>x.id===a.mId)||{placa:'?',nome:'',odo:0};
+        const venc=a.data<tod();const ehHoje=a.data===tod();
+        const stBg=venc?'var(--redbg)':ehHoje?'var(--blubg)':'var(--sur)';
+        const stCor=venc?'var(--red)':ehHoje?'var(--blu)':'var(--sub)';
+        const stLab=venc?'⚠️ Vencida':ehHoje?'📍 Hoje':'⏰ Agendada';
+        return`<tr>
+          <td style="white-space:nowrap">${fD(a.data)} <b style="color:var(--acc);font-size:11px">${a.horario||''}</b></td>
+          <td><b>${mo.placa}</b><br><span style="font-size:10px;color:var(--sub)">${mo.nome?mo.nome.split(' ').slice(0,2).join(' '):'—'}</span></td>
+          <td style="text-align:center;font-size:12px">${fN(mo.odo)} km</td>
+          <td style="font-size:11px;color:var(--sub);max-width:140px">${a.obs||'—'}</td>
+          <td><span class="badge" style="background:${stBg};color:${stCor}">${stLab}</span></td>
+          <td class="row" style="gap:3px;flex-wrap:wrap">
+            <button class="btn bg bxs" onclick="marcarAgendaFeita('${a.id}')" title="Confirmar realização (odômetro editável)">✅ Confirmar</button>
+            <button class="btn bx bxs" onclick="editarAgenda('${a.id}')" title="Editar">✏️</button>
+            <button class="btn br bxs" onclick="deletarAgenda('${a.id}')" title="Remover">✕</button>
+          </td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>
+  </div>`:`<div class="card" style="margin-bottom:12px;border-color:rgba(59,130,246,.3)">
+    <div class="ch" style="margin-bottom:0"><span class="ct" style="color:var(--blu)">📅 Revisões Agendadas</span>
+    <button class="btn ba bs" onclick="novaAgenda()">➕ Agendar revisão</button></div>
+    <div style="font-size:11px;color:var(--sub);margin-top:8px">Nenhuma revisão agendada. Use "Agendar revisão" para marcar data/observação.</div>
+  </div>`;
+  return blocoRevs+`<div style="display:flex;justify-content:flex-end;margin-bottom:8px;gap:6px">
     <button class="btn bx bs" onclick="abrirImportacaoLote()" title="Importar várias manutenções de uma vez via texto">📋 Importação em Lote</button>
     <button class="btn bx bs" onclick="sincronizarKmManutencao(false)" title="Recalcula loilKm/lrevKm de cada moto baseado no histórico de manutenção">🔄 Sincronizar KM de Manutenção</button>
     <button class="btn br bs" onclick="correcaoEmergenciaKm()" title="Corrige loilKm/lrevKm direto pelo histórico">🚨 Correção de Emergência</button>
@@ -2152,7 +2175,31 @@ function resumoLocatario(mId){
       <div><b>CNH válida:</b> ${m.cnhValidade?fD(m.cnhValidade):'—'}</div>
       <div><b>Contrato:</b> ${ct?fD(ct.ini)+' → '+fD(ct.venc):'—'}</div>
       <div><b>Tel:</b> ${pasta?.telefone||'—'}</div>
+      <div><b>Início:</b> ${m.dataInicio?fD(m.dataInicio):'—'}</div>
     </div>
+    ${m.opcaoCompra?(()=>{
+      const totais=(m.semanasTotais!=null&&m.semanasTotais>0)?m.semanasTotais:null;
+      const pagasManual=(m.semanasPagas!=null)?m.semanasPagas:null;
+      const pagasSugerida=pgs.length;
+      const pagas=(pagasManual!=null)?pagasManual:pagasSugerida;
+      const pct=totais?Math.min(100,Math.round(pagas/totais*100)):null;
+      const faltam=totais!=null?Math.max(0,totais-pagas):null;
+      const barCor=pct==null?'var(--blu)':pct>=100?'var(--grn)':pct>=66?'var(--blu)':'var(--acc)';
+      return `<div class="card" style="margin-bottom:12px;border-color:rgba(59,130,246,.4)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:12px;font-weight:700;color:var(--blu)">🏍️ Opção de Compra</span>
+          <span style="font-size:13px;font-weight:800;color:${barCor}">${totais?pct+'%':'—'}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--sub);margin-bottom:6px">
+          <span><b style="color:var(--txt)">${pagas}</b> de <b style="color:var(--txt)">${totais!=null?totais:'?'}</b> semanas pagas</span>
+          <span>${faltam!=null?'Faltam <b style=\'color:'+barCor+'\'>'+faltam+'</b>':''}</span>
+        </div>
+        <div style="background:var(--bor);border-radius:6px;height:12px;overflow:hidden">
+          <div style="width:${pct!=null?pct:0}%;height:100%;background:${barCor};border-radius:6px;transition:width .5s"></div>
+        </div>
+        ${totais==null?'<div style="font-size:10px;color:var(--sub);margin-top:6px">⚠️ Defina as <b>semanas totais</b> em Editar para calcular o progresso.</div>':(pagasManual==null?'<div style="font-size:10px;color:var(--sub);margin-top:6px">ℹ️ Estimativa por pagamentos registrados. Ajuste manualmente em Editar.</div>':'')}
+      </div>`;
+    })():''}
     ${odoH.length?`<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:6px">📍 HISTÓRICO DE ODÔMETRO</div>${odoH.map(h=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid var(--bor)"><span>${fD(h.data)} · via ${h.via}</span><span>${fN(h.kmAnt)} → <b>${fN(h.kmNovo)}</b> km <span style="color:${h.diff>=0?'var(--grn)':'var(--red)'}">(${h.diff>=0?'+':''}${fN(h.diff)})</span></span></div>`).join('')}</div>`:''}
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
       <div style="background:var(--sur);border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:var(--sub)">MULTAS</div><div style="font-weight:700;color:${multas.length?'var(--red)':'var(--grn)'}">${multas.length} (${fR(multas.reduce((a,x)=>a+Number(x.val||0),0))})</div></div>
@@ -2160,10 +2207,26 @@ function resumoLocatario(mId){
       <div style="background:var(--sur);border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:var(--sub)">PAGAMENTOS</div><div style="font-weight:700;color:var(--grn)">${pgs.length}</div></div>
     </div>
     ${pgs.length?`<div><div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:6px">💰 ÚLTIMOS PAGAMENTOS</div>${pgs.slice(0,5).map(p=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid var(--bor)"><span>Sem. ${fD(p.sem)}</span><span style="color:var(--grn)">${fR(p.valor||m.val)}</span></div>`).join('')}</div>`:''}
+    ${(m.cpfLoc&&(m.cpfLoc||'').replace(/\D/g,'').length>=11)?(()=>{
+      const _pl=(m.portalLogin||(m.cpfLoc||'').replace(/\D/g,''));
+      const _ps=(m.portalSenha||(m.cpfLoc||'').replace(/\D/g,''));
+      const _link=CFG_PORTAL.URL+'/?cpf='+_pl;
+      const _wa='Acesse seu portal AMS: '+_link+' | Login e senha: seu CPF';
+      return `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:10px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:6px">📱 ACESSO AO PORTAL</div>
+        <div style="font-size:12px;margin-bottom:4px"><b>Login:</b> ${_pl} &nbsp;·&nbsp; <b>Senha:</b> ${_ps} <span style="color:var(--sub)">(CPF)</span></div>
+        <input class="inp" readonly value="${_link}" onclick="this.select()" style="font-size:11px;margin-bottom:6px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn bx" onclick="navigator.clipboard.writeText(${JSON.stringify(_link)});toast('Link copiado!')">📋 Copiar link</button>
+          <button class="btn bx" style="background:#25d366;color:#fff;border:none" onclick="window.open(waLink(${JSON.stringify(m.tel||'')},${JSON.stringify(_wa)}),'_blank')">📲 Enviar no WhatsApp</button>
+        </div>
+      </div>`;
+    })():''}
     <div class="mact" style="margin-top:14px">
       <button class="btn bx" onclick="closeM('mResumo')">Fechar</button>
       <button class="btn bx" onclick="closeM('mResumo');go('pag')">💰 Pagamentos</button>
       <button class="btn bx" onclick="closeM('mResumo');abrirCobrancaInter('${m.id}')">💸 Gerar boleto/Pix</button>
+      <button class="btn bx" onclick="closeM('mResumo');gerarPixInter('${m.id}')">📲 Pix</button>
       <button class="btn ba" onclick="closeM('mResumo');editM('${mId}')">✏️ Editar</button>
     </div>
   </div>`));
@@ -2968,15 +3031,24 @@ function aSeg(){DB.seg.push({id:uid(),mId:document.getElementById('sgM').value,s
 function dSeg(id){if(confirm('Remover?')){DB.seg=DB.seg.filter(s=>s.id!==id);sv('seg');render()}}
 
 // ── Multas ───────────────────────────────────────────────────────────────────
+let _mulFiltro='todas';
+function setMulFiltro(f){_mulFiltro=f;render();}
 function vMul(){
   const pendVal=DB.multas.filter(m=>m.st==='p').reduce((a,m)=>a+Number(m.val||0),0);
+  const pagasVal=DB.multas.filter(m=>m.st==='pg').reduce((a,m)=>a+Number(m.val||0),0);
   const repassado=DB.multas.filter(m=>m.repasse==='repassado').length;
-  const rows=DB.multas.map(m=>{
+  // Filtro/ordenação por status (Onda 2)
+  let _lista=DB.multas.slice();
+  if(_mulFiltro==='pend')_lista=_lista.filter(m=>m.st==='p');
+  else if(_mulFiltro==='pagas')_lista=_lista.filter(m=>m.st==='pg');
+  _lista.sort((a,b)=>{ if((a.st==='p')!==(b.st==='p'))return a.st==='p'?-1:1; return (b.data||'').localeCompare(a.data||''); });
+  const rows=_lista.map(m=>{
     const mo=DB.motos.find(x=>x.id===m.mId);
+    const nomeLoc=mo&&mo.nome?mo.nome:(m.loc||'—');
     const d=dTo(m.prazo);
     const repBadge=m.repasse==='repassado'?'<span style="font-size:10px;color:var(--grn);font-weight:700">↩ Rep.</span>':m.repasse==='absorvido'?'<span style="font-size:10px;color:var(--sub)">AMS</span>':m.repasse==='pendente_loc'?'<span style="font-size:10px;color:var(--yel)">Loc⏳</span>':'<span style="font-size:10px;color:var(--mut)">—</span>';
     return`<tr>
-      <td>${fD(m.data)}</td><td><b>${mo?mo.placa:'?'}</b></td>
+      <td>${fD(m.data)}</td><td><b>${mo?mo.placa:'?'}</b><br><span style="font-size:10px;color:var(--sub)">${nomeLoc}</span></td>
       <td style="font-size:11px;max-width:150px">${m.loc||'—'}</td>
       <td style="font-size:11px;color:var(--sub)">${m.auto||'—'}</td>
       <td>${fR(m.val)}</td>
@@ -2991,13 +3063,20 @@ function vMul(){
       </td>
     </tr>`;
   }).join('');
-  return`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
-    <div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">PENDENTES</div><div style="font-size:22px;font-weight:800;color:var(--red)">${fR(pendVal)}</div></div>
-    <div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">REPASSADAS AO LOC.</div><div style="font-size:22px;font-weight:800;color:var(--grn)">${repassado}</div></div>
+  const nPend=DB.multas.filter(m=>m.st==='p').length;
+  return`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">
+    <div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">PENDENTES (R$)</div><div style="font-size:22px;font-weight:800;color:var(--red)">${fR(pendVal)}</div><div style="font-size:10px;color:var(--sub)">${nPend} multa(s)</div></div>
+    <div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">PAGAS (R$)</div><div style="font-size:22px;font-weight:800;color:var(--grn)">${fR(pagasVal)}</div></div>
+    <div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">REPASSADAS AO LOC.</div><div style="font-size:22px;font-weight:800;color:var(--blu)">${repassado}</div></div>
     <div class="card" style="padding:14px;text-align:center"><div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:4px">TOTAL</div><div style="font-size:22px;font-weight:800;color:var(--acc)">${DB.multas.length}</div></div>
   </div>
   <div class="card"><div class="ch"><span class="ct">Multas</span>
-    <button class="btn ba" onclick="showAMul()">+ Nova Multa</button></div>
+    <div class="row" style="gap:6px;flex-wrap:wrap">
+      <button class="btn ${_mulFiltro==='todas'?'ba':'bx'} bs" onclick="setMulFiltro('todas')">Todas</button>
+      <button class="btn ${_mulFiltro==='pend'?'ba':'bx'} bs" onclick="setMulFiltro('pend')">Pendentes</button>
+      <button class="btn ${_mulFiltro==='pagas'?'ba':'bx'} bs" onclick="setMulFiltro('pagas')">Pagas</button>
+      <button class="btn ba" onclick="showAMul()">+ Nova Multa</button>
+    </div></div>
     <div style="overflow-x:auto"><table class="tbl">
       <thead><tr><th>Data</th><th>Placa</th><th>Descrição</th><th>Auto</th><th>Valor</th><th>Prazo</th><th>Status</th><th>Repasse</th><th>Ação</th></tr></thead>
       <tbody>${rows||'<tr><td colspan="9" class="empty">Nenhuma multa registrada</td></tr>'}</tbody>
@@ -7610,6 +7689,7 @@ function vPortal(){
       <button class="btn bg" style="width:100%;padding:12px" onclick="portalLogin()">Entrar</button>
       <div id="portalErr" style="color:var(--red);font-size:12px;margin-top:10px"></div>
       <p style="font-size:11px;color:var(--sub);margin-top:16px">Não tem acesso? Fale com a AMS Motos</p>
+      <button class="btn bx bs" style="margin-top:12px;font-size:11px" onclick="gerarAcessosPortalTodos()" title="Admin: gera login/senha (=CPF) para todos os locatários com CPF">🔑 Gerar acessos de todos</button>
     </div>
   </div>`;
 }
@@ -7906,6 +7986,13 @@ function vDocs(){
         <button class="btn bxs" style="font-size:10px;padding:2px 6px;margin-left:4px" onclick="verFotos('${m.id}')">📷</button>
         <button class="btn bg bxs" style="font-size:10px;padding:2px 6px" onclick="addFoto('${m.id}')">+ Foto</button>
       </td>
+      <td style="font-size:11px;line-height:1.5;max-width:240px">
+        ${m.cnhValidade?`<div title="Validade da CNH">🪪 CNH: ${fD(m.cnhValidade)}</div>`:''}
+        ${(m.endereco||m.numero||m.bairro||m.cidade||m.uf||m.cep)?`<div title="Endereço">📍 ${[m.endereco,m.numero?('nº '+m.numero):'',m.bairro,(m.cidade||m.uf)?((m.cidade||'')+(m.uf?('/'+m.uf):'')):'',m.cep?('CEP '+m.cep):''].filter(Boolean).join(' · ')}</div>`:''}
+        ${m.tel?`<div>📞 <a href="${waLink(m.tel,'Olá '+((m.nome||'').split(' ')[0])+'!')}" target="_blank" style="color:var(--grn);text-decoration:none">${m.tel}</a></div>`:''}
+        ${(m.cpfLoc||'')?`<div title="CPF do locatário">🆔 CPF: ${m.cpfLoc}</div>`:''}
+        ${!(m.cnhValidade||m.endereco||m.numero||m.bairro||m.cidade||m.uf||m.cep||m.tel||m.cpfLoc)?`<span style="color:var(--mut)">—</span>`:''}
+      </td>
       <td style="display:flex;gap:4px;flex-wrap:wrap">
         <button class="btn bxs" style="font-size:10px;padding:2px 6px" onclick="novoContrato('${m.id}')">📝</button>
         <button class="btn bxs" style="font-size:10px;padding:2px 6px" onclick="abrirPastaLoc('${m.id}')" title="Pasta do locatário">📁</button>
@@ -7925,8 +8012,8 @@ function vDocs(){
     </div>
   </div>
   <div style="overflow-x:auto"><table class="tbl">
-    <thead><tr><th>Placa</th><th>Locatário</th><th>CNH</th><th>Contrato</th><th>Caução</th><th>Fotos</th><th>Ações</th></tr></thead>
-    <tbody>${rows||'<tr><td colspan="7" class="empty">Nenhum locatário ativo</td></tr>'}</tbody>
+    <thead><tr><th>Placa</th><th>Locatário</th><th>CNH</th><th>Contrato</th><th>Caução</th><th>Fotos</th><th>Dados</th><th>Ações</th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="8" class="empty">Nenhum locatário ativo</td></tr>'}</tbody>
   </table></div></div>`;
 }
 
@@ -8336,6 +8423,14 @@ function editM(id){
       <input type="date" id="emDataInicio" value="${m.dataInicio||''}">
       <div style="font-size:11px;color:var(--sub);margin-top:3px">⚡ A cobrança só começa na semana desta data</div>
     </div>
+    <div class="fg" style="background:var(--sur);border-radius:8px;padding:10px">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="emOpcaoCompra" ${m.opcaoCompra?'checked':''} style="width:auto"> 🏍️ Opção de compra (plano com compra)</label>
+      <div class="fr" style="margin-top:8px">
+        <div class="fg" style="margin:0"><label>Semanas pagas</label><input type="number" id="emSemanasPagas" min="0" value="${m.semanasPagas!=null?m.semanasPagas:''}" placeholder="Ex: 12"></div>
+        <div class="fg" style="margin:0"><label>Semanas totais do plano</label><input type="number" id="emSemanasTotais" min="0" value="${m.semanasTotais!=null?m.semanasTotais:''}" placeholder="Ex: 139"></div>
+      </div>
+      <div style="font-size:11px;color:var(--sub);margin-top:3px">⚡ Usado na barra de progresso da opção de compra (ficha do locatário)</div>
+    </div>
     <div class="fg"><label>Disponibilidade</label>
       <select id="emSt">
         <option value="alugada">🟢 Alugada</option>
@@ -8408,6 +8503,12 @@ function svM(id){
   const _cidade=document.getElementById('emCidade');if(_cidade)m.cidade=_cidade.value.trim();
   const _uf=document.getElementById('emUf');if(_uf)m.uf=_uf.value.trim().toUpperCase();
   const _cep=document.getElementById('emCep');if(_cep)m.cep=_cep.value.trim();
+  // Opção de compra / semanas (Onda 2)
+  m.opcaoCompra=!!document.getElementById('emOpcaoCompra')?.checked;
+  const _semPagas=document.getElementById('emSemanasPagas')?.value;
+  if(_semPagas!==undefined&&_semPagas!=='') m.semanasPagas=Math.max(0,parseInt(_semPagas)||0); else if(_semPagas==='') delete m.semanasPagas;
+  const _semTot=document.getElementById('emSemanasTotais')?.value;
+  if(_semTot!==undefined&&_semTot!=='') m.semanasTotais=Math.max(0,parseInt(_semTot)||0); else if(_semTot==='') delete m.semanasTotais;
   const dataInicio=document.getElementById('emDataInicio')?.value?.trim();
   // Salva data de início: se está sendo atribuído novo locatário e não tinha, usa hoje
   if(novoNome && !nomeAnterior && !dataInicio){
@@ -8425,6 +8526,14 @@ function svM(id){
   // Registra quando entrou no status atual (pra aging de motos paradas)
   if(statusAntigo!==m.status){
     m.dataStatusAlt=tod();
+  }
+  // Acesso automático ao Portal: login e senha = CPF (só se houver CPF)
+  const _cpfDig=(m.cpfLoc||'').replace(/\D/g,'');
+  if(_cpfDig){
+    if(!m.portalLogin)m.portalLogin=_cpfDig;
+    if(!m.portalSenha)m.portalSenha=_cpfDig;
+    // Espelha na senha do portal existente para o login do locatário funcionar
+    if(!m.senhaLoc)m.senhaLoc=m.portalSenha;
   }
   sv('m');sv('histloc');closeM('mEM');render();
 }
@@ -9658,8 +9767,51 @@ function marcarNotifEnviada(id){
 
 function marcarAgendaFeita(id){
   const a=DB.agenda.find(x=>x.id===id);if(!a)return;
+  const m=DB.motos.find(x=>x.id===a.mId);
+  const ehRev=(a.tipo==='rev'||a.tipo==null);
+  // Para revisões: confirma com odômetro editável (pré-preenchido com m.odo) e atualiza m.lrevKm
+  if(ehRev&&m){
+    showM(mWrap('mAgFeita',`<div class="modal" style="max-width:420px">
+      <div class="mh"><span class="ct">✅ Confirmar Revisão — ${m.placa}</span><button class="btn bx" onclick="closeM('mAgFeita')">✕</button></div>
+      <div style="font-size:12px;color:var(--sub);margin-bottom:12px">${m.nome||'—'} · Agendada para ${fD(a.data)} ${a.horario||''}</div>
+      <div class="fr">
+        <div class="fg" style="flex:2"><label>Odômetro na realização (km)</label>
+          <input id="agFeitaOdo" class="inp" type="number" value="${m.odo||''}" placeholder="${m.odo||0}" style="font-size:16px;font-weight:700;text-align:center">
+          <div style="font-size:10px;color:var(--sub);margin-top:3px">Pré-preenchido com o odômetro atual — edite se houver divergência</div>
+        </div>
+        <div class="fg"><label>Data</label><input id="agFeitaData" class="inp" type="date" value="${tod()}"></div>
+      </div>
+      <div class="fg"><label>Observação (opcional)</label><input id="agFeitaObs" class="inp" type="text" placeholder="Ex: trocado filtro de ar e vela" value="${(a.obs||'').replace(/"/g,'&quot;')}"></div>
+      <div class="mact">
+        <button class="btn bx" onclick="closeM('mAgFeita')">Cancelar</button>
+        <button class="btn bg" onclick="confirmarRevisaoFeita('${id}')">✓ Confirmar realização</button>
+      </div>
+    </div>`));
+    setTimeout(()=>{const el=document.getElementById('agFeitaOdo');if(el){el.focus();el.select();}},50);
+    return;
+  }
   a.st='feito';a.feitoEm=tod();
   sv('agenda');publicarAgendaFirebase();render();
+}
+function confirmarRevisaoFeita(id){
+  const a=DB.agenda.find(x=>x.id===id);if(!a)return;
+  const m=DB.motos.find(x=>x.id===a.mId);if(!m){closeM('mAgFeita');return;}
+  const odoFeita=parseInt(document.getElementById('agFeitaOdo')?.value)||m.odo||0;
+  const dataFeita=document.getElementById('agFeitaData')?.value||tod();
+  const obs=document.getElementById('agFeitaObs')?.value?.trim()||'';
+  a.st='feito';a.feitoEm=tod();a.dataFeita=dataFeita;a.odoFeita=odoFeita;if(obs)a.obs=obs;
+  // Atualiza controle de revisão por km da moto
+  const odoAnt=m.odo;
+  if(odoFeita>m.odo)m.odo=odoFeita;
+  m.lrevKm=odoFeita;
+  if(m.odo!==odoAnt){
+    DB.odoHist.push({id:uid(),mId:m.id,placa:m.placa,kmAnt:odoAnt,kmNovo:m.odo,diff:m.odo-odoAnt,data:tod(),via:'revisao'});
+    sv('odohist');
+  }
+  // Registra no histórico de manutenção
+  DB.mhist.push({id:uid(),mId:m.id,tipo:'rev',km:odoFeita,obs:obs||'Revisão agendada confirmada',custo:0,ofic:'',data:dataFeita,itens:[]});
+  sv('m');sv('mhist');sv('agenda');publicarAgendaFirebase();closeM('mAgFeita');render();
+  toast('✅ Revisão confirmada! Próxima em '+fN(odoFeita+REV)+' km','grn');
 }
 function deletarAgenda(id){
   if(!confirm('Remover agendamento?'))return;
@@ -10731,6 +10883,96 @@ async function gerarCobrancaInter(mId){
     if(btn){btn.disabled=false;btn.textContent='Gerar';}
   }
 }
+
+// ── (B) Pix individual na ficha — reusa o mesmo POST /cobrancas do Inter ─────
+async function gerarPixInter(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m){toast('Locatário não encontrado');return;}
+  // Reusa os dados ja cadastrados na moto (mesma validacao da gerarCobrancaInter)
+  const cpfNum=(m.cpfLoc||'').replace(/\D/g,'');
+  if(cpfNum.length!==11){toast('Cadastre um CPF válido (11 dígitos) antes de gerar o Pix');return;}
+  const valor=Number(m.val||0);
+  if(!(valor>0)){toast('Informe um valor de plano maior que zero');return;}
+  const endereco=(m.endereco||'').trim();
+  const numero=(m.numero||'').trim();
+  const bairro=(m.bairro||'').trim();
+  const cidade=(m.cidade||'').trim();
+  const uf=(m.uf||'').trim().toUpperCase();
+  const cep=(m.cep||'').trim();
+  if(!endereco||!numero||!bairro||!cidade||!uf||cep.replace(/\D/g,'').length!==8){
+    toast('Preencha o endereço completo do locatário (rua, número, bairro, cidade, UF e CEP) na edição');return;
+  }
+  // Vencimento = hoje (Pix imediato); usa data atual ISO
+  const vencimento=tod();
+  toast('Gerando Pix...');
+  const body={
+    seuNumero:('MG-'+mId).slice(0,15),
+    valor:valor,
+    vencimento:vencimento,
+    diasParaBaixa:CFG_INTER.DIAS_PARA_BAIXA,
+    pagador:{cpfCnpj:cpfNum,tipoPessoa:'FISICA',nome:(m.nome||''),endereco,numero,bairro,cidade,uf,cep:cep.replace(/\D/g,'')}
+  };
+  if(CFG_INTER.MULTA_PCT>0)body.multa={codigo:'PERCENTUAL',taxa:CFG_INTER.MULTA_PCT};
+  if(CFG_INTER.MORA_PCT>0)body.mora={codigo:'TAXAMENSAL',taxa:CFG_INTER.MORA_PCT};
+  try{
+    const r=await fetch(CFG_INTER.BACKEND_URL+'/cobrancas',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':CFG_INTER.API_KEY},
+      body:JSON.stringify(body)
+    });
+    let data={};
+    try{data=await r.json();}catch(e){data={};}
+    if(!r.ok||(data&&data.erro)){
+      const msg=(data&&(data.erro||data.message))||('HTTP '+r.status);
+      toast('Erro ao gerar Pix: '+msg+' — verifique se o iniciar.bat está aberto');
+      return;
+    }
+    const cod=data.codigoSolicitacao||'';
+    const pix=(data.cobranca&&data.cobranca.pix&&data.cobranca.pix.pixCopiaECola)||'';
+    let html='<div class="modal" style="max-width:520px">';
+    html+='<div class="mh"><span class="ct">📲 Pix — '+(m.nome||m.placa)+'</span><button class="btn bx" onclick="closeM(\'mPixInter\')" style="margin-left:auto">✕</button></div>';
+    html+='<div style="font-size:12px;color:var(--sub);margin-bottom:10px">Valor: <b>'+fR(valor)+'</b></div>';
+    if(pix){
+      html+='<div style="background:var(--grnbg);border-radius:8px;padding:12px;margin-bottom:12px">';
+      html+='<div style="font-weight:800;color:var(--grn);margin-bottom:6px;font-size:13px">✅ Pix copia-e-cola</div>';
+      html+='<div style="word-break:break-all;font-size:12px;background:var(--card);border:1px solid var(--bor);border-radius:6px;padding:8px;font-family:monospace">'+pix+'</div>';
+      html+='</div>';
+      html+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
+      html+='<button class="btn ba" onclick="navigator.clipboard.writeText('+JSON.stringify(pix)+');toast(\'Pix copiado!\')">📋 Copiar Pix</button>';
+      const waMsg='🏍️ *AMS Motos* — Pix da semana\nValor: '+fR(valor)+'\n\nPix copia-e-cola:\n'+pix;
+      html+='<button class="btn bx" style="background:#25d366;color:#fff;border:none" onclick="window.open(waLink('+JSON.stringify(m.tel||'')+','+JSON.stringify(waMsg)+'),\'_blank\')">📲 Enviar no WhatsApp</button>';
+      html+='</div>';
+    } else {
+      html+='<div style="background:var(--yelbg);border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;color:var(--yel)">';
+      html+='⏳ O Pix ainda não voltou do banco.';
+      if(cod)html+=' Código da solicitação: <b>'+cod+'</b>.';
+      html+=' Tente novamente em alguns segundos.</div>';
+      html+='<button class="btn ba" onclick="closeM(\'mPixInter\');gerarPixInter('+JSON.stringify(mId)+')">🔄 Tentar de novo</button>';
+    }
+    html+='</div>';
+    showM(mWrap('mPixInter',html));
+    toast(pix?'Pix gerado!':'Aguardando Pix do banco...');
+  }catch(err){
+    toast('Falha de conexão: '+((err&&err.message)||err)+' — verifique se o iniciar.bat está aberto');
+  }
+}
+
+// ── Portal: gera login/senha (=CPF) para todos os locatários com CPF ────────
+function gerarAcessosPortalTodos(){
+  let n=0;
+  (DB.motos||[]).forEach(m=>{
+    const cpf=(m.cpfLoc||'').replace(/\D/g,'');
+    if(!cpf)return;
+    let mudou=false;
+    if(!m.portalLogin){m.portalLogin=cpf;mudou=true;}
+    if(!m.portalSenha){m.portalSenha=cpf;mudou=true;}
+    if(!m.senhaLoc){m.senhaLoc=m.portalSenha;mudou=true;}
+    if(mudou)n++;
+  });
+  sv('m');
+  toast(n>0?('✅ Acessos gerados: '+n+' locatário(s)'):'Nenhum acesso novo a gerar');
+  if(typeof render==='function')render();
+}
+window.gerarAcessosPortalTodos=gerarAcessosPortalTodos;
 
 // ── (B) WhatsApp: monta link wa.me com DDI 55 e texto codificado ─────────────
 function waLink(tel, texto){ const n=String(tel||'').replace(/\D/g,''); const full=n.length<=11?('55'+n):n; return 'https://wa.me/'+full+'?text='+encodeURIComponent(texto); }
