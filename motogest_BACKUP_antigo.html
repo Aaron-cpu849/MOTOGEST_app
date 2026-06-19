@@ -385,18 +385,6 @@ const CFG_COBRANCA = {
   VALOR_COB_OLEO: 30      // valor padrão de cobrança avulsa de óleo
 };
 
-// CONFIG INTEGRACAO BANCO INTER (boleto + Pix)
-// IMPORTANTE: ajuste API_KEY para EXATAMENTE o mesmo valor do API_KEY no arquivo
-// .env do backend local (o que o iniciar.bat roda). Se nao bater, o backend
-// rejeita as requisicoes e a geracao de cobranca falha por autenticacao.
-const CFG_INTER = {
-  BACKEND_URL: 'http://localhost:3001',          // onde o iniciar.bat roda
-  API_KEY: 'motogest-chave-interna-troque-isto',  // DEVE bater com API_KEY do arquivo .env do backend
-  DIAS_PARA_BAIXA: 30,
-  MULTA_PCT: 0,  // mude para 10 p/ multa de 10%; teste 1 boleto antes
-  MORA_PCT: 0
-};
-
 // ── CÁLCULO CANÔNICO DE INADIMPLÊNCIA ───────────────────────────────────────
 // Todos os lugares do sistema (Dashboard, Inadimplência, Financeiro, Relatórios)
 // usam ESTA função. Considera pagamentos parciais e tolerância de 2 dias.
@@ -2163,7 +2151,6 @@ function resumoLocatario(mId){
     <div class="mact" style="margin-top:14px">
       <button class="btn bx" onclick="closeM('mResumo')">Fechar</button>
       <button class="btn bx" onclick="closeM('mResumo');go('pag')">💰 Pagamentos</button>
-      <button class="btn bx" onclick="closeM('mResumo');abrirCobrancaInter('${m.id}')">💸 Gerar boleto/Pix</button>
       <button class="btn ba" onclick="closeM('mResumo');editM('${mId}')">✏️ Editar</button>
     </div>
   </div>`));
@@ -4889,7 +4876,6 @@ function vPag(){
     <span class="ct">💰 Pagamentos${!isCurrentWeek?` <span style="font-size:11px;color:var(--acc);font-weight:400">(semana anterior)</span>`:''}</span>
     <div class="row" style="gap:6px;flex-wrap:wrap">
       <button class="btn bg bs" onclick="openImport()">📥 Importar Extrato</button>
-      <button class="btn ba bs" onclick="abrirLoteCobranca()" title="Gera boletos/Pix REAIS no Banco Inter para todos os locatários ativos com dados completos">🧾 Gerar cobranças da semana (Inter)</button>
       <button class="btn bx bs" onclick="openCorteModal()" title="Define a partir de qual semana o sistema conta pendências — semanas anteriores ficam arquivadas">📅 Corte${getPgCorte()?'<span style="font-size:9px;color:var(--acc);margin-left:3px">✓</span>':''}</button>
       <button class="btn bx bs" onclick="exportSemanaCSV('${ws}','${we}','${lbl}')">📄 CSV</button>
       <button class="btn bx bs" onclick="exportSemanaPDF('${ws}','${we}','${lbl}')">🖨️ PDF</button>
@@ -8326,12 +8312,6 @@ function editM(id){
     </select></div>
     <div class="fr"><div class="fg"><label>CPF do Locatário</label><input id="emCpf" value="${m.cpfLoc||''}" placeholder="000.000.000-00"></div>
     <div class="fg"><label>Validade CNH</label><input type="date" id="emCnh" value="${m.cnhValidade||''}"></div></div>
-    <div class="fr"><div class="fg"><label>Endereço (rua)</label><input id="emEndereco" value="${m.endereco||''}" placeholder="Ex: Rua das Flores"></div>
-    <div class="fg"><label>Número</label><input id="emNumero" value="${m.numero||''}" placeholder="Ex: 123"></div></div>
-    <div class="fr"><div class="fg"><label>Bairro</label><input id="emBairro" value="${m.bairro||''}" placeholder="Ex: Centro"></div>
-    <div class="fg"><label>Cidade</label><input id="emCidade" value="${m.cidade||''}" placeholder="Ex: Lauro de Freitas"></div></div>
-    <div class="fr"><div class="fg"><label>UF</label><input id="emUf" value="${m.uf||''}" placeholder="Ex: BA" maxlength="2"></div>
-    <div class="fg"><label>CEP</label><input id="emCep" value="${m.cep||''}" placeholder="00000-000"></div></div>
     <div class="fg"><label>📅 Data de Retirada (início da cobrança)</label>
       <input type="date" id="emDataInicio" value="${m.dataInicio||''}">
       <div style="font-size:11px;color:var(--sub);margin-top:3px">⚡ A cobrança só começa na semana desta data</div>
@@ -8401,13 +8381,6 @@ function svM(id){
   m.dia=document.getElementById('emDi').value;
   const cpf=document.getElementById('emCpf')?.value?.trim();if(cpf)m.cpfLoc=cpf;
   const cnh=document.getElementById('emCnh')?.value?.trim();if(cnh)m.cnhValidade=cnh;
-  // Campos de endereco do locatario (usados na emissao de boleto/Pix Banco Inter)
-  const _ender=document.getElementById('emEndereco');if(_ender)m.endereco=_ender.value.trim();
-  const _num=document.getElementById('emNumero');if(_num)m.numero=_num.value.trim();
-  const _bairro=document.getElementById('emBairro');if(_bairro)m.bairro=_bairro.value.trim();
-  const _cidade=document.getElementById('emCidade');if(_cidade)m.cidade=_cidade.value.trim();
-  const _uf=document.getElementById('emUf');if(_uf)m.uf=_uf.value.trim().toUpperCase();
-  const _cep=document.getElementById('emCep');if(_cep)m.cep=_cep.value.trim();
   const dataInicio=document.getElementById('emDataInicio')?.value?.trim();
   // Salva data de início: se está sendo atribuído novo locatário e não tinha, usa hoje
   if(novoNome && !nomeAnterior && !dataInicio){
@@ -10620,314 +10593,6 @@ function checkNomeDup(inp, mIdAtual){
     el.style.display='none';
   }
 }
-
-// ── INTEGRACAO BANCO INTER: Emissao de cobranca (boleto + Pix) ────────────────
-// Abre modal para conferir/editar dados do pagador e gera a cobranca via backend
-// local (iniciar.bat). Os campos de endereco vem do cadastro do locatario (m.*).
-function abrirCobrancaInter(mId){
-  const m=DB.motos.find(x=>x.id===mId);if(!m){toast('Locatário não encontrado');return;}
-  // Vencimento padrao: hoje + 7 dias (YYYY-MM-DD)
-  const d=new Date();d.setDate(d.getDate()+7);
-  const venc=d.toISOString().slice(0,10);
-  showM(mWrap('mCobInter',`<div class="modal" style="max-width:560px">
-    <div class="mh">
-      <span class="ct">💸 Gerar boleto/Pix — Banco Inter</span>
-      <button class="btn bx" onclick="closeM('mCobInter')" style="margin-left:auto">✕</button>
-    </div>
-    <div class="fg"><label>Nome do pagador</label><input id="ciNome" value="${(m.nome||'').replace(/"/g,'&quot;')}" readonly></div>
-    <div class="fr"><div class="fg"><label>CPF</label><input id="ciCpf" value="${m.cpfLoc||''}" placeholder="000.000.000-00"></div>
-    <div class="fg"><label>Valor (R$)</label><input type="number" step="0.01" id="ciValor" value="${m.val||0}"></div></div>
-    <div class="fg"><label>Vencimento</label><input type="date" id="ciVenc" value="${venc}"></div>
-    <div class="fr"><div class="fg"><label>Endereço (rua)</label><input id="ciEndereco" value="${(m.endereco||'').replace(/"/g,'&quot;')}" placeholder="Ex: Rua das Flores"></div>
-    <div class="fg"><label>Número</label><input id="ciNumero" value="${(m.numero||'').replace(/"/g,'&quot;')}" placeholder="Ex: 123"></div></div>
-    <div class="fr"><div class="fg"><label>Bairro</label><input id="ciBairro" value="${(m.bairro||'').replace(/"/g,'&quot;')}" placeholder="Ex: Centro"></div>
-    <div class="fg"><label>Cidade</label><input id="ciCidade" value="${(m.cidade||'').replace(/"/g,'&quot;')}" placeholder="Ex: Lauro de Freitas"></div></div>
-    <div class="fr"><div class="fg"><label>UF</label><input id="ciUf" value="${(m.uf||'').replace(/"/g,'&quot;')}" placeholder="BA" maxlength="2"></div>
-    <div class="fg"><label>CEP</label><input id="ciCep" value="${(m.cep||'').replace(/"/g,'&quot;')}" placeholder="00000-000"></div></div>
-    <div id="ciResultado" style="margin-top:10px"></div>
-    <div class="mact" style="margin-top:14px">
-      <button class="btn bx" onclick="closeM('mCobInter')">Cancelar</button>
-      <button class="btn ba" id="ciBtnGerar" onclick="gerarCobrancaInter('${m.id}')">Gerar</button>
-    </div>
-  </div>`));
-}
-
-async function gerarCobrancaInter(mId){
-  const m=DB.motos.find(x=>x.id===mId);if(!m){toast('Locatário não encontrado');return;}
-  const g=id=>document.getElementById(id);
-  const nome=(g('ciNome')?.value||'').trim();
-  const cpf=(g('ciCpf')?.value||'').trim();
-  const valor=g('ciValor')?.value;
-  const vencimento=(g('ciVenc')?.value||'').trim();
-  const endereco=(g('ciEndereco')?.value||'').trim();
-  const numero=(g('ciNumero')?.value||'').trim();
-  const bairro=(g('ciBairro')?.value||'').trim();
-  const cidade=(g('ciCidade')?.value||'').trim();
-  const uf=(g('ciUf')?.value||'').trim().toUpperCase();
-  const cep=(g('ciCep')?.value||'').trim();
-  // Validacoes
-  const cpfNum=cpf.replace(/\D/g,'');
-  if(cpfNum.length!==11){toast('Informe um CPF válido (11 dígitos)');return;}
-  if(!(Number(valor)>0)){toast('Informe um valor maior que zero');return;}
-  if(!vencimento){toast('Informe a data de vencimento');return;}
-  if(!endereco||!numero||!bairro||!cidade||!uf||cep.replace(/\D/g,'').length!==8){
-    toast('Preencha o endereço completo (rua, número, bairro, cidade, UF e CEP)');return;
-  }
-  const btn=g('ciBtnGerar');if(btn){btn.disabled=true;btn.textContent='Gerando...';}
-  const body={
-    seuNumero:('MG-'+mId).slice(0,15),
-    valor:Number(valor),
-    vencimento:vencimento,
-    diasParaBaixa:CFG_INTER.DIAS_PARA_BAIXA,
-    pagador:{cpfCnpj:cpfNum,tipoPessoa:'FISICA',nome,endereco,numero,bairro,cidade,uf,cep:cep.replace(/\D/g,'')}
-  };
-  if(CFG_INTER.MULTA_PCT>0)body.multa={codigo:'PERCENTUAL',taxa:CFG_INTER.MULTA_PCT};
-  if(CFG_INTER.MORA_PCT>0)body.mora={codigo:'TAXAMENSAL',taxa:CFG_INTER.MORA_PCT};
-  try{
-    const r=await fetch(CFG_INTER.BACKEND_URL+'/cobrancas',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':CFG_INTER.API_KEY},
-      body:JSON.stringify(body)
-    });
-    let data={};
-    try{data=await r.json();}catch(e){data={};}
-    if(!r.ok||(data&&data.erro)){
-      const msg=(data&&(data.erro||data.message))||('HTTP '+r.status);
-      toast('Erro ao gerar: '+msg+' — verifique se o iniciar.bat está aberto');
-      if(btn){btn.disabled=false;btn.textContent='Gerar';}
-      return;
-    }
-    // Sucesso: salva endereco editado de volta na moto
-    m.endereco=endereco;m.numero=numero;m.bairro=bairro;m.cidade=cidade;m.uf=uf;m.cep=cep;
-    if(cpf)m.cpfLoc=cpf;
-    sv('moto');
-    // Exibe resultado defensivamente (formato pode variar)
-    const cod=data.codigoSolicitacao||'';
-    const linha=(data.cobranca&&data.cobranca.boleto&&data.cobranca.boleto.linhaDigitavel)||'';
-    const pix=(data.cobranca&&data.cobranca.pix&&data.cobranca.pix.pixCopiaECola)||'';
-    const res=g('ciResultado');
-    if(res){
-      let html='<div style="background:var(--grnbg);border-radius:8px;padding:12px;font-size:12px">';
-      html+='<div style="font-weight:800;color:var(--grn);margin-bottom:6px">✅ Cobrança gerada!</div>';
-      if(cod)html+='<div style="margin-bottom:6px"><b>Código:</b> '+cod+'</div>';
-      if(linha)html+='<div style="margin-bottom:6px;word-break:break-all"><b>Linha digitável:</b> '+linha+'</div>';
-      if(pix)html+='<div style="margin-bottom:6px;word-break:break-all"><b>Pix copia-e-cola:</b> '+pix+'</div>';
-      html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">';
-      if(pix)html+='<button class="btn bx" onclick="navigator.clipboard.writeText('+JSON.stringify(pix)+');toast(\'Pix copiado!\')">📋 Copiar Pix</button>';
-      if(cod)html+='<button class="btn ba" onclick="window.open(CFG_INTER.BACKEND_URL+\'/cobrancas/\'+'+JSON.stringify(cod)+'+\'/pdf\',\'_blank\')">📄 Abrir PDF do boleto</button>';
-      // Mensagem de cobrança p/ WhatsApp (inclui Pix só se existir; sempre o link do PDF)
-      const pdfUrl=cod?(CFG_INTER.BACKEND_URL+'/cobrancas/'+cod+'/pdf'):'';
-      let waMsg='🏍️ *AMS Motos* — cobrança da semana\nValor: '+fR(Number(valor))+'\nVencimento: '+fD(vencimento);
-      if(pix)waMsg+='\n\nPix copia-e-cola:\n'+pix;
-      if(pdfUrl)waMsg+='\n\nBoleto (PDF): '+pdfUrl;
-      html+='<button class="btn bx" style="background:#25d366;color:#fff;border:none" onclick="window.open(waLink('+JSON.stringify(m.tel||'')+','+JSON.stringify(waMsg)+'),\'_blank\')">📲 Enviar no WhatsApp</button>';
-      html+='</div></div>';
-      res.innerHTML=html;
-    }
-    toast('Cobrança gerada com sucesso!');
-    if(btn){btn.disabled=false;btn.textContent='Gerar novamente';}
-  }catch(err){
-    toast('Falha de conexão: '+(err&&err.message||err)+' — verifique se o iniciar.bat está aberto');
-    if(btn){btn.disabled=false;btn.textContent='Gerar';}
-  }
-}
-
-// ── (B) WhatsApp: monta link wa.me com DDI 55 e texto codificado ─────────────
-function waLink(tel, texto){ const n=String(tel||'').replace(/\D/g,''); const full=n.length<=11?('55'+n):n; return 'https://wa.me/'+full+'?text='+encodeURIComponent(texto); }
-
-// ── Semana canônica (wS) ajustada ao dia de pagamento da moto ────────────────
-// REPLICA EXATA do cálculo de 'sem' usado no handler registrar_pagamento.
-function _semCobInter(m){
-  const hoje2=new Date();hoje2.setHours(12,0,0,0);
-  const diaJS={'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'DOM':0};
-  const jsDay=m&&m.dia?diaJS[m.dia]:1;
-  let ref=new Date(hoje2);
-  const diff=(ref.getDay()-jsDay+7)%7;ref.setDate(ref.getDate()-diff);
-  return wS(ref.toISOString().split('T')[0]);
-}
-
-// ── Verifica se um locatário tem dados completos p/ gerar cobrança Inter ─────
-// Retorna {ok:bool, faltam:[...]}
-function _dadosCobIncompletos(m){
-  const faltam=[];
-  if(String(m.cpfLoc||'').replace(/\D/g,'').length!==11)faltam.push('CPF');
-  if(!String(m.endereco||'').trim())faltam.push('rua');
-  if(!String(m.numero||'').trim())faltam.push('número');
-  if(!String(m.bairro||'').trim())faltam.push('bairro');
-  if(!String(m.cidade||'').trim())faltam.push('cidade');
-  if(!String(m.uf||'').trim())faltam.push('UF');
-  if(String(m.cep||'').replace(/\D/g,'').length!==8)faltam.push('CEP');
-  if(!(Number(m.val)>0))faltam.push('valor');
-  return {ok:faltam.length===0, faltam};
-}
-
-// ── (C) COBRANÇA EM LOTE SEMANAL ─────────────────────────────────────────────
-function abrirLoteCobranca(){
-  const ativos=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim());
-  const completos=[], incompletos=[];
-  ativos.forEach(m=>{const c=_dadosCobIncompletos(m);(c.ok?completos:incompletos).push({m,c});});
-  // Vencimento default = hoje + 7
-  const d=new Date();d.setDate(d.getDate()+7);const vencDefault=d.toISOString().split('T')[0];
-  let linhasC=completos.map(x=>`<tr><td style="font-weight:700;font-size:12px">${x.m.placa}</td><td style="font-size:12px">${x.m.nome||'—'}</td><td style="font-size:12px">${fR(x.m.val)}</td><td><span style="color:var(--grn);font-size:11px;font-weight:700">✓ completo</span></td></tr>`).join('');
-  let linhasI=incompletos.map(x=>`<tr style="opacity:.75"><td style="font-weight:700;font-size:12px;color:var(--sub)">${x.m.placa}</td><td style="font-size:12px;color:var(--sub)">${x.m.nome||'—'}</td><td style="font-size:12px;color:var(--sub)">${fR(x.m.val||0)}</td><td><span style="color:var(--red);font-size:11px">falta: ${x.c.faltam.join(', ')}</span></td></tr>`).join('');
-  showM(mWrap('mLoteCob',`<div class="modal" style="max-width:640px">
-    <div class="mh"><span class="ct">🧾 Gerar cobranças da semana (Inter)</span><button class="btn bx" onclick="closeM('mLoteCob')">✕</button></div>
-    <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--txt);line-height:1.5">
-      ⚠️ <b>Atenção:</b> isto gera <b>boletos/Pix REAIS</b> no Banco Inter para cada locatário com dados completos. Confira a lista antes de continuar.
-    </div>
-    <div class="fg" style="margin-bottom:12px">
-      <label>Vencimento (todos os boletos)</label>
-      <input type="date" id="loteVenc" class="inp" value="${vencDefault}" style="font-size:15px;font-weight:700">
-    </div>
-    <div style="font-size:12px;font-weight:700;color:var(--grn);margin-bottom:6px">✓ Serão gerados (${completos.length})</div>
-    <div style="overflow-x:auto;max-height:200px;overflow-y:auto;margin-bottom:14px"><table class="tbl" style="font-size:12px">
-      <thead><tr><th>Placa</th><th>Locatário</th><th>Valor</th><th>Status</th></tr></thead>
-      <tbody>${linhasC||'<tr><td colspan="4" style="text-align:center;color:var(--sub);padding:10px">Nenhum locatário com dados completos.</td></tr>'}</tbody>
-    </table></div>
-    ${incompletos.length?`<div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:6px">⤫ Pulados por dados incompletos (${incompletos.length})</div>
-    <div style="overflow-x:auto;max-height:160px;overflow-y:auto;margin-bottom:14px"><table class="tbl" style="font-size:12px">
-      <thead><tr><th>Placa</th><th>Locatário</th><th>Valor</th><th>O que falta</th></tr></thead>
-      <tbody>${linhasI}</tbody>
-    </table></div>`:''}
-    <div id="loteResultado" style="margin-top:6px"></div>
-    <div class="mact" style="margin-top:14px">
-      <button class="btn bx" onclick="closeM('mLoteCob')">Cancelar</button>
-      <button class="btn ba" id="loteBtnGerar" onclick="gerarLoteCobranca()"${completos.length?'':' disabled'}>🧾 Gerar todos (${completos.length})</button>
-    </div>
-  </div>`));
-}
-
-async function gerarLoteCobranca(){
-  const venc=(document.getElementById('loteVenc')?.value||'').trim();
-  if(!venc){toast('Informe a data de vencimento');return;}
-  const ativos=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim());
-  const completos=ativos.filter(m=>_dadosCobIncompletos(m).ok);
-  const pulados=ativos.filter(m=>!_dadosCobIncompletos(m).ok);
-  if(!completos.length){toast('Nenhum locatário com dados completos');return;}
-  if(!confirm('Gerar '+completos.length+' boleto(s)/Pix REAIS no Banco Inter com vencimento em '+fD(venc)+'?\n\nIsto NÃO pode ser desfeito automaticamente.'))return;
-  const btn=document.getElementById('loteBtnGerar');if(btn){btn.disabled=true;btn.textContent='Gerando...';}
-  const sucessos=[], falhas=[];
-  // POST sequencial (await em loop) p/ não estourar rate limit
-  for(const m of completos){
-    const cpfNum=String(m.cpfLoc||'').replace(/\D/g,'');
-    const body={
-      seuNumero:('MG-'+m.id).slice(0,15),
-      valor:Number(m.val),
-      vencimento:venc,
-      diasParaBaixa:CFG_INTER.DIAS_PARA_BAIXA,
-      pagador:{cpfCnpj:cpfNum,tipoPessoa:'FISICA',nome:m.nome||'',endereco:String(m.endereco||'').trim(),numero:String(m.numero||'').trim(),bairro:String(m.bairro||'').trim(),cidade:String(m.cidade||'').trim(),uf:String(m.uf||'').trim().toUpperCase(),cep:String(m.cep||'').replace(/\D/g,'')}
-    };
-    if(CFG_INTER.MULTA_PCT>0)body.multa={codigo:'PERCENTUAL',taxa:CFG_INTER.MULTA_PCT};
-    if(CFG_INTER.MORA_PCT>0)body.mora={codigo:'TAXAMENSAL',taxa:CFG_INTER.MORA_PCT};
-    try{
-      const r=await fetch(CFG_INTER.BACKEND_URL+'/cobrancas',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':CFG_INTER.API_KEY},body:JSON.stringify(body)});
-      let data={};try{data=await r.json();}catch(e){data={};}
-      if(!r.ok||(data&&data.erro)){
-        falhas.push({m,motivo:(data&&(data.erro||data.message))||('HTTP '+r.status)});
-      }else{
-        const cod=data.codigoSolicitacao||'';
-        const pix=(data.cobranca&&data.cobranca.pix&&data.cobranca.pix.pixCopiaECola)||'';
-        m.ultimaCobranca={cod,data:tod()};
-        sucessos.push({m,cod,pix});
-      }
-    }catch(err){
-      falhas.push({m,motivo:'conexão: '+(err&&err.message||err)});
-    }
-  }
-  sv('moto');
-  // Resumo
-  const res=document.getElementById('loteResultado');
-  if(res){
-    let html='<div style="background:var(--sur);border-radius:8px;padding:12px;font-size:12px">';
-    html+='<div style="font-weight:800;margin-bottom:8px">Resumo: <span style="color:var(--grn)">'+sucessos.length+' gerado(s)</span>, <span style="color:var(--red)">'+falhas.length+' falha(s)</span>, <span style="color:var(--sub)">'+pulados.length+' pulado(s) por dados incompletos</span></div>';
-    if(sucessos.length){
-      html+='<div style="font-weight:700;color:var(--grn);margin:8px 0 4px">✅ Gerados</div>';
-      sucessos.forEach(s=>{
-        const cod=s.cod;const pdfUrl=cod?(CFG_INTER.BACKEND_URL+'/cobrancas/'+cod+'/pdf'):'';
-        let waMsg='🏍️ *AMS Motos* — cobrança da semana\nValor: '+fR(Number(s.m.val))+'\nVencimento: '+fD(venc);
-        if(s.pix)waMsg+='\n\nPix copia-e-cola:\n'+s.pix;
-        if(pdfUrl)waMsg+='\n\nBoleto (PDF): '+pdfUrl;
-        html+='<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--bor)"><span style="flex:1;font-weight:700">'+s.m.placa+'</span><span style="color:var(--sub);flex:1">'+(s.m.nome||'—')+'</span>';
-        html+='<button class="btn bxs" style="background:#25d366;color:#fff;border:none;font-size:11px" onclick="window.open(waLink('+JSON.stringify(s.m.tel||'')+','+JSON.stringify(waMsg)+'),\'_blank\')">📲 WhatsApp</button>';
-        if(pdfUrl)html+='<button class="btn ba bxs" style="font-size:11px" onclick="window.open('+JSON.stringify(pdfUrl)+',\'_blank\')">📄 PDF</button>';
-        html+='</div>';
-      });
-    }
-    if(falhas.length){
-      html+='<div style="font-weight:700;color:var(--red);margin:8px 0 4px">⚠️ Falharam</div>';
-      falhas.forEach(f=>{html+='<div style="padding:2px 0;color:var(--sub)"><b style="color:var(--txt)">'+f.m.placa+'</b> — '+f.motivo+'</div>';});
-    }
-    html+='</div>';
-    res.innerHTML=html;
-  }
-  toast('Lote concluído: '+sucessos.length+' gerado(s), '+falhas.length+' falha(s)');
-  if(btn){btn.disabled=false;btn.textContent='🧾 Gerar novamente';}
-}
-
-// ── (D) BAIXA AUTOMÁTICA: puxa pagamentos pagos do backend e registra ────────
-async function puxarPagamentosInter(){
-  try{
-    const r=await fetch(CFG_INTER.BACKEND_URL+'/pagos',{headers:{'x-api-key':CFG_INTER.API_KEY}});
-    if(!r.ok)return;
-    const pagos=await r.json();
-    if(!pagos.length)return;
-    const baixados=[];
-    for(const p of pagos){
-      const mId=String(p.seuNumero||'').replace(/^MG-/,'');
-      const m=DB.motos.find(x=>x.id===mId);
-      if(!m){baixados.push(p.seuNumero);continue;}
-      // 'sem' calculado EXATAMENTE como no handler registrar_pagamento
-      const sem=_semCobInter(m);
-      const jaPago=DB.pg.some(x=>x.mId===mId && x.sem===sem);
-      if(!jaPago){ DB.pg.push({id:uid(),mId,sem,valor:p.valor||m.val,data:tod()}); }
-      baixados.push(p.seuNumero);
-    }
-    if(baixados.length){
-      sv('pg'); render();
-      toast('✅ '+baixados.length+' pagamento(s) baixado(s) automaticamente');
-      await fetch(CFG_INTER.BACKEND_URL+'/pagos/baixados',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':CFG_INTER.API_KEY},body:JSON.stringify({seuNumeros:baixados})});
-    }
-  }catch(_){}
-}
-// Polling da baixa automática (uma vez só): a cada 60s + um disparo inicial em 4s
-if(!window._mgInterPolling){ window._mgInterPolling=true; setInterval(puxarPagamentosInter, 60000); setTimeout(puxarPagamentosInter, 4000); }
-
-// ===== Importacao automatica de cadastro AMS (enderecos/CPF/telefone) =====
-const DADOS_AMS_IMPORT = [{"placa": "TGX0J77", "nome": "FILIPE SILVESTRE COSTA", "cpf": "083.336.875-39", "endereco": "Rua José R. de Oliveira", "numero": "102E", "bairro": "Nordeste Amaralina", "cidade": "Salvador", "uf": "BA", "cep": "41905-865", "tel": "71 99124-7472"}, {"placa": "TGX1A75", "nome": "DOUGLAS BORGES DA COSTA", "cpf": "053.107.875-26", "endereco": "", "numero": "S/N", "bairro": "", "cidade": "", "uf": "", "cep": "", "tel": ""}, {"placa": "TGX1J34", "nome": "LUIS EUGENIO SANTOS DE SOUZA", "cpf": "857.842.665-78", "endereco": "Rua Colina Azul", "numero": "36", "bairro": "Pau da Lima", "cidade": "Salvador", "uf": "BA", "cep": "41245-000", "tel": "71 99225-0056"}, {"placa": "TGX2B17", "nome": "JADSON MATHEUS FREITAS DE OLIVEIRA", "cpf": "860.626.045-25", "endereco": "Rua da Ilha, Ed Mar de Itapuã BL B", "numero": "488 Apt 114", "bairro": "Itapuã", "cidade": "Salvador", "uf": "BA", "cep": "41620-620", "tel": ""}, {"placa": "TGX2G39", "nome": "EWERTON OLIVEIRA DE JESUS", "cpf": "074.916.535-96", "endereco": "Rua Venezuela", "numero": "284", "bairro": "Paripe", "cidade": "Salvador", "uf": "BA", "cep": "40820-070", "tel": "(71) 99160-4219"}, {"placa": "TGX2H49", "nome": "ALAN VINICIUS OLIVEIRA DOS SANTOS", "cpf": "861.832.625-95", "endereco": "Avenida Floresta", "numero": "116", "bairro": "IAPI", "cidade": "Salvador", "uf": "BA", "cep": "40330-160", "tel": ""}, {"placa": "TGX2I54", "nome": "ANTERSON SANTOS PEREIRA", "cpf": "030.808.285-00", "endereco": "Rua General Liberato De Matos", "numero": "7", "bairro": "Dom Avelar", "cidade": "Salvador", "uf": "BA", "cep": "41315-220", "tel": ""}, {"placa": "TGX3B41", "nome": "VINICIUS BORGES SANTOS", "cpf": "862.319.375-00", "endereco": "Rua Deputado Newton Moura Costa, Fundo", "numero": "35", "bairro": "Engenho Velho da Federacao", "cidade": "Salvador", "uf": "BA", "cep": "40220-870", "tel": ""}, {"placa": "TGX3D66", "nome": "SINVAL JOSE SILVA SANTOS", "cpf": "787.874.085-20", "endereco": "", "numero": "S/N", "bairro": "", "cidade": "Salvador", "uf": "BA", "cep": "40393-230", "tel": ""}, {"placa": "TGX3F33", "nome": "JEFFERSON NASCIMENTO MIRANDA", "cpf": "035.271.345-30", "endereco": "2ª Travessa Tenente Mário Alves", "numero": "186", "bairro": "Curuzu", "cidade": "Salvador", "uf": "BA", "cep": "40366-060", "tel": ""}, {"placa": "TGX4D63", "nome": "JOSSUA LOPES SANTOS", "cpf": "038.798.695-29", "endereco": "Rua da Alegria da Sussuarana", "numero": "10E", "bairro": "Sussuarana Nova", "cidade": "Salvador", "uf": "BA", "cep": "41215-650", "tel": ""}, {"placa": "TGX5A82", "nome": "MAIRA LOPES GOMES", "cpf": "854.457.035-68", "endereco": "Rua Onze de Novembro", "numero": "759", "bairro": "Santa Cruz", "cidade": "Salvador", "uf": "BA", "cep": "41925-010", "tel": ""}, {"placa": "TGX5H31", "nome": "ERIC LIMA SANTOS", "cpf": "861.199.435-36", "endereco": "", "numero": "S/N", "bairro": "", "cidade": "", "uf": "", "cep": "", "tel": ""}, {"placa": "TGX6A02", "nome": "EDVALDO DE ASSIS NABUCO NETO", "cpf": "862.075.375-48", "endereco": "Rua do Uruguay", "numero": "302", "bairro": "Uruguai", "cidade": "Salvador", "uf": "BA", "cep": "40450-210", "tel": ""}, {"placa": "TGX6B84", "nome": "JORGE LUIZ SILVEIRA SANTANA", "cpf": "805.553.305-91", "endereco": "Rua Joao de Souza Goes", "numero": "74", "bairro": "Fazenda Grande I", "cidade": "Salvador", "uf": "BA", "cep": "41339-230", "tel": "71 98401-1331"}, {"placa": "TGX6E61", "nome": "ROMULO MENEZES DE OLIVEIRA", "cpf": "682.739.405-00", "endereco": "Rua 18 de Outubro", "numero": "187", "bairro": "Cosme de Farias", "cidade": "Salvador", "uf": "BA", "cep": "40250-100", "tel": ""}, {"placa": "TGX6H83", "nome": "RAMON DO NASCIMENTO MOTA", "cpf": "053.677.055-70", "endereco": "", "numero": "S/N", "bairro": "", "cidade": "", "uf": "", "cep": "", "tel": ""}, {"placa": "TGX6I09", "nome": "RENILSON SILVA SA BARRETO PEREIRA", "cpf": "060.276.625-73", "endereco": "Baixa da Vila Paulista", "numero": "65", "bairro": "Pero Vaz", "cidade": "Salvador", "uf": "BA", "cep": "40335-080", "tel": ""}, {"placa": "TGX6I43", "nome": "RICARDO ARAGAO DO LAGO", "cpf": "859.842.465-03", "endereco": "Rua do Coqueiral, 1 andar", "numero": "84", "bairro": "Alto da Terezinha", "cidade": "Salvador", "uf": "BA", "cep": "40711-300", "tel": "71 98214-7940"}, {"placa": "TGX7A44", "nome": "ALISSON VINICIO ESTRELA MARQUES", "cpf": "072.290.305-79", "endereco": "Av. José Joaquim Seabra", "numero": "55", "bairro": "Barroquinha", "cidade": "Salvador", "uf": "BA", "cep": "40024-082", "tel": "(71) 98777-7587"}, {"placa": "TGX7B27", "nome": "MATHEUS OLIVEIRA GOMES", "cpf": "108.501.515-70", "endereco": "Rua Helio dos Santos", "numero": "12", "bairro": "Pirajá", "cidade": "Salvador", "uf": "BA", "cep": "41297-455", "tel": "71 99167-8104"}, {"placa": "TGX7C64", "nome": "LEANDRO CARVALHO DE JESUS", "cpf": "038.612.095-19", "endereco": "Rua Cardeal da Silva", "numero": "84", "bairro": "Paripe", "cidade": "Salvador", "uf": "BA", "cep": "40800-700", "tel": ""}, {"placa": "TGX7D93", "nome": "ANTONIO DOS SANTOS JUNIOR", "cpf": "036.582.195-05", "endereco": "Rua Promotor Rapold Filho, CS", "numero": "102", "bairro": "Boa Vista de Sao Caetano", "cidade": "Salvador", "uf": "BA", "cep": "40385-360", "tel": "(71) 99316-1364"}, {"placa": "TGX7I01", "nome": "MARCOS ADRIANO PEREIRA LIMA", "cpf": "054.891.955-09", "endereco": "Cond. Nossa Senhora da Vitoria", "numero": "3", "bairro": "", "cidade": "Salvador", "uf": "BA", "cep": "41370-045", "tel": ""}, {"placa": "TGX7I03", "nome": "EVERTON SOUZA COSTA", "cpf": "066.013.345-88", "endereco": "4ª Travessa do Mangueiral", "numero": "5", "bairro": "Mussurunga II", "cidade": "Salvador", "uf": "BA", "cep": "41480-380", "tel": ""}, {"placa": "TGX7I76", "nome": "MARCELO DA ANUNCIACAO SANTOS", "cpf": "024.321.275-52", "endereco": "", "numero": "S/N", "bairro": "", "cidade": "Lauro de Freitas", "uf": "BA", "cep": "", "tel": ""}, {"placa": "TGX7J09", "nome": "JEOVANIO FERREIRA SAMPAIO", "cpf": "053.933.335-28", "endereco": "1ª Travessa Buris", "numero": "38", "bairro": "Vila de Abrantes", "cidade": "Camaçari", "uf": "BA", "cep": "42827-770", "tel": ""}, {"placa": "TGX7J29", "nome": "MATEUS FERREIRA DOS SANTOS", "cpf": "859.877.145-75", "endereco": "", "numero": "S/N", "bairro": "", "cidade": "", "uf": "", "cep": "", "tel": ""}, {"placa": "TGX8A08", "nome": "KAUAN DE JESUS PORTUGAL", "cpf": "110.670.075-98", "endereco": "Rua São Marcos, Q 9 L 331", "numero": "s/n", "bairro": "Itinga", "cidade": "Lauro de Freitas", "uf": "BA", "cep": "42700-000", "tel": "(71) 98183-4895"}, {"placa": "TGX8A63", "nome": "JOAO VICTOR RAMOS BRAZ", "cpf": "862.048.425-79", "endereco": "Rua Vandick Reidner", "numero": "3", "bairro": "Castelo Branco", "cidade": "Salvador", "uf": "BA", "cep": "41322-095", "tel": ""}, {"placa": "TGX8F89", "nome": "RAFAEL ROSEO MATOS SOUSA", "cpf": "047.796.385-42", "endereco": "Rua Aliomar Hermes de Souza, Apto 01", "numero": "13", "bairro": "Portão", "cidade": "Lauro de Freitas", "uf": "BA", "cep": "42713-650", "tel": ""}, {"placa": "TGX8G60", "nome": "JOAO GUSTAVO FARANHAS SILVA BALTAZAR VEIGA", "cpf": "865.166.895-39", "endereco": "", "numero": "S/N", "bairro": "", "cidade": "", "uf": "", "cep": "", "tel": ""}, {"placa": "TGX9H81", "nome": "LUIS CLEBER DE OLIVEIRA ALVES", "cpf": "016.017.225-08", "endereco": "Rua Amargosa", "numero": "525", "bairro": "Pernambués", "cidade": "Salvador", "uf": "BA", "cep": "41100-180", "tel": "71 99321-9796"}, {"placa": "TGX9J12", "nome": "CLEISSON SANTOS LOPES", "cpf": "089.336.355-30", "endereco": "Travessa do Balneario", "numero": "56-B", "bairro": "Amaralina", "cidade": "Salvador", "uf": "BA", "cep": "41900-275", "tel": ""}, {"placa": "TGZ2E99", "nome": "JOSE LUIS LOMANTO DEIRO", "cpf": "064.882.575-28", "endereco": "Cam 144", "numero": "14", "bairro": "Vida Nova", "cidade": "Lauro de Freitas", "uf": "BA", "cep": "42717-605", "tel": ""}, {"placa": "THD2I06", "nome": "WESLEY DOS ANJOS BATISTA", "cpf": "049.066.745-77", "endereco": "Av Vitorino, 1 Andar", "numero": "51", "bairro": "Barreiras", "cidade": "Salvador", "uf": "BA", "cep": "41197-065", "tel": ""}, {"placa": "THD3H74", "nome": "JEFERSON LUIS ANDRADE DE SANTANA", "cpf": "042.428.045-04", "endereco": "", "numero": "S/N", "bairro": "", "cidade": "", "uf": "", "cep": "", "tel": ""}, {"placa": "THD6E18", "nome": "RUAN JASIEL SOUZA LEITE", "cpf": "060.297.595-66", "endereco": "Rua Bahia de Sao Cristovao", "numero": "21", "bairro": "Sao Cristovao", "cidade": "Salvador", "uf": "BA", "cep": "41500-720", "tel": "(71) 99991-0198"}, {"placa": "THD7I10", "nome": "THIAGO ALVES DOS SANTOS", "cpf": "863.629.015-50", "endereco": "Rua Sobreira", "numero": "226", "bairro": "Parque Real Serra Verde", "cidade": "Camaçari", "uf": "BA", "cep": "42813-124", "tel": "71 98876-6350"}, {"placa": "THE7E32", "nome": "WELLINGTON BEZERRA DOS SANTOS", "cpf": "024.959.215-07", "endereco": "Residencial Genova - Estrada do Coco Km 11", "numero": "1", "bairro": "Abrantes", "cidade": "Camacari", "uf": "BA", "cep": "42840-000", "tel": ""}, {"placa": "THE8G47", "nome": "HELTON DA SILVA GUIMARAES", "cpf": "311.545.848-79", "endereco": "Avenida Santo Amaro de Ipitanga", "numero": "S/N", "bairro": "Vida Nova", "cidade": "Lauro de Freitas", "uf": "BA", "cep": "", "tel": ""}, {"placa": "THF5E73", "nome": "MARCOS VINICIUS MACEDO PITA", "cpf": "860.086.475-56", "endereco": "", "numero": "S/N", "bairro": "", "cidade": "Salvador", "uf": "BA", "cep": "", "tel": ""}, {"placa": "THG0B42", "nome": "PEDRO SAMERSON SANTOS DE SOUZA", "cpf": "035.417.725-73", "endereco": "Conj. Cajazeiras X, Cam 20, St 02", "numero": "7A", "bairro": "Cajazeiras X", "cidade": "Salvador", "uf": "BA", "cep": "41333-000", "tel": "71 99246-3447"}, {"placa": "THG0C35", "nome": "RAFAEL DE ALMEIDA PASSOS", "cpf": "028.570.685-30", "endereco": "Rua Belo Oriente", "numero": "13", "bairro": "Liberdade", "cidade": "Salvador", "uf": "BA", "cep": "40325-390", "tel": "(71) 99298-9055"}, {"placa": "THH7A33", "nome": "CRISTIANO DA SILVA LIMA PAZ", "cpf": "044.347.625-08", "endereco": "Rua Almeida Brandão", "numero": "329", "bairro": "Plataforma", "cidade": "Salvador", "uf": "BA", "cep": "40708-585", "tel": "71 98714-9107"}, {"placa": "TMK2G25", "nome": "ANDRE LUIZ DOS SANTOS PEREIRA", "cpf": "056.059.435-61", "endereco": "", "numero": "S/N", "bairro": "", "cidade": "", "uf": "", "cep": "", "tel": ""}, {"placa": "TML4J64", "nome": "BRUNO ARAUJO FERREIRA", "cpf": "862.081.735-31", "endereco": "Rua Rosa Vermelha", "numero": "249", "bairro": "Ilha Amarela", "cidade": "Salvador", "uf": "BA", "cep": "40715-010", "tel": ""}, {"placa": "TML8A86", "nome": "HENRIQUE SANTOS DE SOUSA", "cpf": "085.495.215-23", "endereco": "Rua Sudão", "numero": "13 E", "bairro": "Coutos", "cidade": "Salvador", "uf": "BA", "cep": "40750-570", "tel": "(71) 98463-9339"}, {"placa": "TMM0A57", "nome": "RICARDO SILVA NUNES DOS SANTOS", "cpf": "057.666.035-33", "endereco": "Rua Unidos Somos Fortes", "numero": "S/N", "bairro": "", "cidade": "Salvador", "uf": "BA", "cep": "41342-366", "tel": ""}, {"placa": "TMM0E41", "nome": "WEVERTON KAIQUE BONFIM COSTA", "cpf": "058.784.695-02", "endereco": "Av Cid 1", "numero": "S/N", "bairro": "Curuzu", "cidade": "Salvador", "uf": "BA", "cep": "40305-265", "tel": ""}, {"placa": "TMM0H64", "nome": "JOAO VITORIO CARNEIRO DE OLIVEIRA", "cpf": "863.392.215-05", "endereco": "Rua Nivalda Mendonca, QD A Lote 16", "numero": "S/N", "bairro": "Itinga", "cidade": "Lauro de Freitas", "uf": "BA", "cep": "42738-550", "tel": "71-99248-0105"}, {"placa": "TMM0H72", "nome": "MILENA CASTRO SANTOS", "cpf": "064.824.925-50", "endereco": "Rua Otaviano Pimenta", "numero": "55", "bairro": "Matatu", "cidade": "Salvador", "uf": "BA", "cep": "40255-380", "tel": "71 98764-9107"}, {"placa": "TMM0J30", "nome": "ELIVALDO SANTOS NASCIMENTO JUNIOR", "cpf": "079.578.765-01", "endereco": "Rua Duque de Caxias", "numero": "41", "bairro": "Bairro da Paz", "cidade": "Salvador", "uf": "BA", "cep": "40515-140", "tel": "71 98230-0956"}, {"placa": "TMM1D90", "nome": "ELIOENAI SANTANA DA SILVA", "cpf": "061.268.575-69", "endereco": "Travessa Jequitiba", "numero": "49", "bairro": "Uruguai", "cidade": "Salvador", "uf": "BA", "cep": "40450-480", "tel": "(71) 98339-3140"}, {"placa": "TMM1D91", "nome": "ALEXANDRE FERREIRA DE JESUS", "cpf": "051.942.975-30", "endereco": "Rua Marina Deiro Rocha", "numero": "545", "bairro": "Sussuarana", "cidade": "Salvador", "uf": "BA", "cep": "41213-270", "tel": "(71) 98640-5519"}, {"placa": "TMM1J88", "nome": "DOUGLAS PEREIRA DA SILVA", "cpf": "056.258.605-99", "endereco": "Rua Juracy Magalhaes", "numero": "36", "bairro": "Pau Miudo", "cidade": "Salvador", "uf": "BA", "cep": "40310-420", "tel": "71 98216-9011"}, {"placa": "TMM2A80", "nome": "DANILO FERREIRA DOS SANTOS", "cpf": "824.506.925-68", "endereco": "Travessa 13 de Maio", "numero": "27", "bairro": "Alto do Cabrito", "cidade": "Salvador", "uf": "BA", "cep": "40484-315", "tel": ""}, {"placa": "TMM2H99", "nome": "JANDERSON RUAN SILVA MENDES", "cpf": "068.602.405-20", "endereco": "", "numero": "S/N", "bairro": "", "cidade": "Salvador", "uf": "BA", "cep": "", "tel": ""}, {"placa": "TMM3J66", "nome": "LEANDRO SANTOS ARAUJO", "cpf": "059.676.295-05", "endereco": "Rua do Gravatá de Itapuã", "numero": "113", "bairro": "Alto do Coqueirinho", "cidade": "Salvador", "uf": "BA", "cep": "41615-390", "tel": ""}, {"placa": "TMM4A61", "nome": "RODRIGO DA SILVA BATISTA", "cpf": "027.425.315-13", "endereco": "2a Travessa Adelmario Pinheiro", "numero": "37 casa", "bairro": "Amaralina", "cidade": "Salvador", "uf": "BA", "cep": "41900-441", "tel": ""}, {"placa": "TMM4B46", "nome": "ALDRIN FREIRE RAMOS", "cpf": "063.897.855-69", "endereco": "Travessa 1 Nossa Senhora de Aparecida", "numero": "33", "bairro": "Itinga", "cidade": "Lauro de Freitas", "uf": "BA", "cep": "42739-200", "tel": ""}, {"placa": "TMM4F31", "nome": "MARCUS VINICIUS CORREIA DOS SANTOS", "cpf": "861.729.785-94", "endereco": "Travessa 3 Alto do Coqueiro", "numero": "239", "bairro": "Matatu", "cidade": "Salvador", "uf": "BA", "cep": "40260-192", "tel": ""}, {"placa": "TMM4J01", "nome": "GENILSON NASCIMENTO GUIMARAES", "cpf": "858.181.285-63", "endereco": "Rua Brandao", "numero": "294", "bairro": "Engenho Velho de Brotas", "cidade": "Salvador", "uf": "BA", "cep": "40240-200", "tel": ""}, {"placa": "TMM5A99", "nome": "DEIVIDE DE JESUS SANTANA", "cpf": "022.861.885-13", "endereco": "", "numero": "S/N", "bairro": "", "cidade": "", "uf": "", "cep": "", "tel": ""}, {"placa": "TMM5G18", "nome": "CARLOS ADONAY SILVA DE CARVALHO", "cpf": "060.945.835-31", "endereco": "Rua Euzébio de Queiroz", "numero": "130", "bairro": "Liberdade", "cidade": "Salvador", "uf": "BA", "cep": "40325-440", "tel": ""}, {"placa": "TMM5H73", "nome": "LEONEL BASTOS DOS SANTOS", "cpf": "049.843.215-71", "endereco": "Tv. Jose Bastos", "numero": "14", "bairro": "Luis Anselmo", "cidade": "Salvador", "uf": "BA", "cep": "40260-415", "tel": "(71) 99264-4883"}, {"placa": "TMM6A98", "nome": "LAERCIO SANTOS DE SOUZA", "cpf": "047.730.455-90", "endereco": "", "numero": "S/N", "bairro": "", "cidade": "", "uf": "", "cep": "", "tel": ""}, {"placa": "TMM6D65", "nome": "ANDRE CAUA BASTOS SANTANA DOS SANTOS", "cpf": "094.782.755-26", "endereco": "Travessa 2 São José", "numero": "6", "bairro": "Vila Praiana", "cidade": "Lauro de Freitas", "uf": "BA", "cep": "42704-020", "tel": ""}, {"placa": "TMM6E40", "nome": "ALEX SANTOS XAVIER", "cpf": "938.107.845-91", "endereco": "150A", "numero": "S/N", "bairro": "Uruguai", "cidade": "Salvador", "uf": "BA", "cep": "40450-710", "tel": ""}, {"placa": "TMM7A19", "nome": "PABLO VITOR REIS DE SANTANA", "cpf": "065.697.975-57", "endereco": "Travessa Xango", "numero": "casa 04", "bairro": "Itapuã", "cidade": "Salvador", "uf": "BA", "cep": "41630-570", "tel": ""}, {"placa": "TMM8H70", "nome": "DANILO NASCIMENTO SENA", "cpf": "070.399.905-20", "endereco": "1a Travessa Progresso", "numero": "13", "bairro": "Jambeiro", "cidade": "Lauro de Freitas", "uf": "BA", "cep": "42730-540", "tel": ""}, {"placa": "TMM9E48", "nome": "CARLOS HENRIQUE PEREIRA SANTOS", "cpf": "030.469.265-45", "endereco": "", "numero": "S/N", "bairro": "", "cidade": "", "uf": "", "cep": "", "tel": ""}, {"placa": "TMM9F10", "nome": "ANDRE LUIS DA CONCEICAO LIMA", "cpf": "074.076.835-22", "endereco": "", "numero": "S/N", "bairro": "", "cidade": "Salvador", "uf": "BA", "cep": "", "tel": ""}, {"placa": "TMM9F38", "nome": "JONAS FERREIRA GOMES", "cpf": "060.884.015-75", "endereco": "Rua Osorio Valente", "numero": "113 CS", "bairro": "Sete de Abril", "cidade": "Salvador", "uf": "BA", "cep": "41387-175", "tel": "71 98337-5510"}, {"placa": "TMM9I91", "nome": "WALEX SOUZA SANTOS CRUZ", "cpf": "034.738.615-61", "endereco": "Travessa Tupy", "numero": "10", "bairro": "", "cidade": "Salvador", "uf": "BA", "cep": "", "tel": ""}, {"placa": "TMP0F94", "nome": "RAPHAEL BARBOSA LIMA", "cpf": "077.188.185-19", "endereco": "Rua Alto da Bomba", "numero": "S/N", "bairro": "Federação", "cidade": "Salvador", "uf": "BA", "cep": "40231-120", "tel": "71 98807-4988"}, {"placa": "TMP4F88", "nome": "FABIANO ANDRADE", "cpf": "800.751.185-72", "endereco": "Rua Paulo Fernando da Costa", "numero": "S/N", "bairro": "Cassange", "cidade": "Salvador", "uf": "BA", "cep": "41505-555", "tel": "(71) 99662-5462"}, {"placa": "TMP5G81", "nome": "MAURICIO SANTOS BORJA", "cpf": "022.795.645-13", "endereco": "Rua Antônio Bala", "numero": "11E", "bairro": "Coutos", "cidade": "Salvador", "uf": "BA", "cep": "40750-244", "tel": ""}, {"placa": "TMP7D19", "nome": "ELIEL CALDEIRA DA SILVA", "cpf": "042.242.845-02", "endereco": "", "numero": "S/N", "bairro": "", "cidade": "", "uf": "", "cep": "", "tel": ""}, {"placa": "TMP8A45", "nome": "ARGEMIRO PINHO DOS SANTOS", "cpf": "011.618.175-30", "endereco": "Rua Nova Pernambués", "numero": "176", "bairro": "Pernambués", "cidade": "Salvador", "uf": "BA", "cep": "41130-620", "tel": "(71) 99611-0533"}, {"placa": "TMP8H67", "nome": "MARCOS ANTONIO ROCHA DOS SANTOS", "cpf": "040.815.905-75", "endereco": "Rua Campo Maior", "numero": "11", "bairro": "Massaranduba", "cidade": "Salvador", "uf": "BA", "cep": "40436-620", "tel": ""}, {"placa": "TMP9A31", "nome": "RIAN LUIS GOMES CARVALHO", "cpf": "085.895.895-36", "endereco": "", "numero": "S/N", "bairro": "", "cidade": "", "uf": "", "cep": "", "tel": ""}, {"placa": "TMS4B67", "nome": "RAFAEL BONFIM SANTOS LIMA", "cpf": "860.560.485-94", "endereco": "Rua Alameda Rubi", "numero": "21", "bairro": "Cajazeiras VII", "cidade": "Salvador", "uf": "BA", "cep": "41337-245", "tel": "(71) 99260-7993"}, {"placa": "TMS5C05", "nome": "CARLOS ANDRE JESUS DOS SANTOS", "cpf": "020.444.015-76", "endereco": "Travessa 2 São José", "numero": "6", "bairro": "Vila Praiana", "cidade": "Lauro de Freitas", "uf": "BA", "cep": "42704-020", "tel": "71 98182-2497"}, {"placa": "TMS6B37", "nome": "EMERSON SOUZA MOTA", "cpf": "039.091.165-82", "endereco": "Rua Pastoril", "numero": "408", "bairro": "São Gonçalo do Retiro", "cidade": "Salvador", "uf": "BA", "cep": "41151-080", "tel": ""}, {"placa": "TMS6C35", "nome": "SAMUEL DE JESUS SOARES", "cpf": "032.317.765-46", "endereco": "Av Jorge Amado, Res. Praia de Guarajuba BL-05", "numero": "99 AP-203", "bairro": "Ponto Certo", "cidade": "Camaçari", "uf": "BA", "cep": "42800-121", "tel": ""}, {"placa": "TMS6J19", "nome": "VITOR SOUSA BARRETO SARDINHA", "cpf": "076.631.915-60", "endereco": "Travessa Paulo Magalhaes Dantas", "numero": "1", "bairro": "Barreiras", "cidade": "Salvador", "uf": "BA", "cep": "41195-050", "tel": ""}, {"placa": "TMS7B01", "nome": "ALEXSANDRO ESTEVES DA CONCEICAO", "cpf": "074.644.035-92", "endereco": "Rua Ararendá, edf Angelo Lima", "numero": "02", "bairro": "Parque Bela Vista", "cidade": "Salvador", "uf": "BA", "cep": "40279-670", "tel": ""}, {"placa": "TMS7G83", "nome": "LEIVE ROGERIO NEVES DOS SANTOS", "cpf": "011.446.905-95", "endereco": "Rua São Patrício", "numero": "178", "bairro": "Chapada do Rio Vermelho", "cidade": "Salvador", "uf": "BA", "cep": "41920-590", "tel": "71 98853-3616"}, {"placa": "TMT1C32", "nome": "LUCAS FERREIRA OLIVEIRA", "cpf": "092.581.415-63", "endereco": "", "numero": "S/N", "bairro": "", "cidade": "Salvador", "uf": "BA", "cep": "", "tel": ""}, {"placa": "TMY3H68", "nome": "ARGEMIRO PINHO DOS SANTOS", "cpf": "011.618.175-30", "endereco": "Rua Thomaz Gonzaga", "numero": "180", "bairro": "Pernambués", "cidade": "Salvador", "uf": "BA", "cep": "41100-000", "tel": "(71) 99611-0533"}, {"placa": "TMY5B70", "nome": "EDER BORGES DOS SANTOS", "cpf": "809.903.555-00", "endereco": "Rua Dr. Caio Mario Pedreira Filho", "numero": "S/N", "bairro": "Massaranduba", "cidade": "Salvador", "uf": "BA", "cep": "", "tel": ""}];
-function importarCadastroAMS(){
-  let atualizados=0; const naoEncontradas=[];
-  const byPlaca={};
-  DB.motos.forEach(m=>{ if(m.placa) byPlaca[String(m.placa).toUpperCase().trim()]=m; });
-  DADOS_AMS_IMPORT.forEach(d=>{
-    const m=byPlaca[String(d.placa).toUpperCase().trim()];
-    if(!m){ naoEncontradas.push(d.placa); return; }
-    if(d.endereco) m.endereco=d.endereco;
-    if(d.numero) m.numero=d.numero;
-    if(d.bairro) m.bairro=d.bairro;
-    if(d.cidade) m.cidade=d.cidade;
-    if(d.uf) m.uf=d.uf;
-    if(d.cep) m.cep=d.cep;
-    if(d.cpf && !m.cpfLoc) m.cpfLoc=d.cpf;
-    if(d.tel && !m.tel) m.tel=d.tel;
-    atualizados++;
-  });
-  try{ sv('m'); }catch(e){ try{ sv('moto'); }catch(_){} }
-  try{ render(); }catch(_){}
-  try{ toast('📥 Cadastro AMS: '+atualizados+' locatarios atualizados'+(naoEncontradas.length?(' | '+naoEncontradas.length+' placas nao encontradas'):'')); }catch(_){}
-  console.log('[Import AMS] atualizados:',atualizados,'| nao encontradas:',naoEncontradas);
-  return {atualizados, naoEncontradas};
-}
-window.importarCadastroAMS = importarCadastroAMS; // da pra rodar de novo pelo console se precisar
-try{
-  if(!localStorage.getItem('amsImportEnderecosV1')){
-    setTimeout(function(){
-      try{ importarCadastroAMS(); localStorage.setItem('amsImportEnderecosV1','1'); }
-      catch(e){ console.warn('[Import AMS] falhou:', e); }
-    }, 2500);
-  }
-}catch(_){}
-// ===== Fim importacao automatica AMS =====
-
 </script>
 
 <!-- IA Assistente MotoGest -->
