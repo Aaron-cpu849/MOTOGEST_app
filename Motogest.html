@@ -177,6 +177,7 @@ const DB={
   histLoc: S.get('mg_histloc')||[],
   agenda: S.get('mg_agenda')||[],
   cobOleo: S.get('mg_cobOleo')||[],
+  boletos: S.get('mg_boletos')||[],
   pgOficina: S.get('mg_pgOficina')||[],
   negociacoes: S.get('mg_negoc')||[],
   sinistros: S.get('mg_sinistros')||[],
@@ -483,6 +484,7 @@ const TABS=[
   {id:'os',label:'🔩 OS'},
   {id:'oficina',label:'🛠️ Oficina'},
   {id:'pag',label:'💰 Pagamentos'},
+  {id:'oleo',label:'🛢️ Troca de Óleo'},
   {id:'mts',label:'🏍️ Motos'},
   {id:'loc',label:'👥 Locatários'},
   {id:'ind',label:'⚠️ Inadimplência'},
@@ -7809,6 +7811,14 @@ function vPortalHome(m){
     :'<div style="color:var(--sub);font-size:13px;text-align:center;padding:16px">Nenhum contrato cadastrado. Entre em contato com a AMS.</div>'}
   </div>
   <div class="card" style="margin-bottom:14px">
+    <div class="ch"><span class="ct">📄 CRLV do Veículo</span></div>
+    ${m.crlvArquivo?`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><div style="background:var(--sur);border-radius:8px;padding:10px 14px;flex:1;min-width:160px;font-size:12px">Placa: <b>${m.placa}</b>${m.validLic?' · Validade: <b>'+m.validLic+'</b>':''}</div><button class="btn bg" onclick="verArquivoCrlv('${m.id}')">📄 Ver CRLV</button></div>`:`<div style="color:var(--sub);font-size:13px;text-align:center;padding:16px">CRLV ainda não disponível. Solicite à AMS.</div>`}
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="ch"><span class="ct">🧾 Boletos</span></div>
+    ${(function(){var bs=(DB.boletos||[]).filter(function(b){return b.mId===m.id;}).sort(function(a,b){return (b.criado||'').localeCompare(a.criado||'');});return bs.length?bs.map(function(b){return '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--bor);padding:8px 0"><div style="flex:1;min-width:160px;font-size:12px">'+(b.venc?'Vencimento: <b>'+fD(b.venc)+'</b>':'')+' '+(b.valor?'· <b style=\'color:var(--acc)\'>'+fR(b.valor)+'</b>':'')+' '+(b.st==='pago'?'<span style=\'color:var(--grn)\'>✅ pago</span>':'')+'</div>'+((b.arquivo||b.pdfUrl)?'<button class="btn bg" onclick="verBoleto(\''+b.id+'\')">📄 Ver</button>':'')+(b.pixCopiaECola?'<button class="btn bx" onclick="copiarPixBoleto(\''+b.id+'\')">📋 Pix</button>':'')+'</div>';}).join(''):'<div style="color:var(--sub);font-size:13px;text-align:center;padding:16px">Nenhum boleto disponível no momento.</div>';})()}
+  </div>
+  <div class="card" style="margin-bottom:14px">
     <div class="ch"><span class="ct">🔧 Solicitar Manutenção</span></div>
     ${solicRows}
     <div style="display:flex;gap:8px;margin-top:${solics.length?'10px':'0'}">
@@ -8916,6 +8926,7 @@ function vLoc(){
 
 // ── CRLV-e ────────────────────────────────────────────────────────────────────
 async function parseCrlv(file,mId){
+  try{var _mc=DB.motos.find(function(x){return x.id===mId;});if(_mc&&file){var _rd=new FileReader();_rd.onload=function(ev){_mc.crlvArquivo=ev.target.result;sv('m');};_rd.readAsDataURL(file);}}catch(_e){}
   try{
     if(typeof pdfjsLib==='undefined'){alert('Biblioteca PDF não carregada. Verifique sua conexão.');return;}
     pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -10852,11 +10863,12 @@ async function gerarCobrancaInter(mId){
     // Sucesso: salva endereco editado de volta na moto
     m.endereco=endereco;m.numero=numero;m.bairro=bairro;m.cidade=cidade;m.uf=uf;m.cep=cep;
     if(cpf)m.cpfLoc=cpf;
-    sv('moto');
+    sv('m');
     // Exibe resultado defensivamente (formato pode variar)
     const cod=data.codigoSolicitacao||'';
     const linha=(data.cobranca&&data.cobranca.boleto&&data.cobranca.boleto.linhaDigitavel)||'';
     const pix=(data.cobranca&&data.cobranca.pix&&data.cobranca.pix.pixCopiaECola)||'';
+    try{if(!DB.boletos)DB.boletos=[];DB.boletos.push({id:uid(),mId:mId,valor:Number(valor),venc:vencimento,cod:cod,linhaDigitavel:linha,pixCopiaECola:pix,origem:'inter',st:'pendente',criado:tod(),pdfUrl:CFG_INTER.BACKEND_URL+'/cobrancas/'+cod+'/pdf'});sv('boletos');}catch(_e){}
     const res=g('ciResultado');
     if(res){
       let html='<div style="background:var(--grnbg);border-radius:8px;padding:12px;font-size:12px">';
@@ -11204,5 +11216,431 @@ try{
     <button id="iaEnvBtn" onclick="enviarComandoIA()" style="background:linear-gradient(135deg,#6366f1,#a855f7);border:none;color:#fff;border-radius:8px;padding:0 14px;font-size:16px;cursor:pointer;flex-shrink:0">➤</button>
   </div>
 
+
+<script>
+/* AMS PATCH */
+/* ========================================================================
+   AMS MOTOS — Módulo de melhorias (carregado após o sistema principal)
+   - Abatimento FIFO (semana mais antiga primeiro)
+   - Aba separada de Troca de Óleo
+   - Ferramenta de limpeza + lançamento de histórico
+   - CRLV e Boletos no Portal do Locatário
+   ======================================================================== */
+
+/* garante a coleção de boletos */
+if(typeof DB!=='undefined' && !DB.boletos){ try{ DB.boletos = (typeof S!=='undefined' && S.get('mg_boletos')) || []; }catch(e){ DB.boletos=[]; } }
+
+/* ---------- helpers de semana (alinhadas ao dia de pagamento da moto) ---------- */
+const _DIAJS_AMS={'DOM':0,'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6};
+function _refSemanaAtual(m){
+  const hoje=new Date();hoje.setHours(12,0,0,0);
+  const jsDay=(m&&m.dia&&_DIAJS_AMS.hasOwnProperty(m.dia))?_DIAJS_AMS[m.dia]:1;
+  let ref=new Date(hoje);
+  ref.setDate(ref.getDate()-((ref.getDay()-jsDay+7)%7));
+  return ref;
+}
+function _semanasRange(m, maxBack){
+  maxBack=maxBack||60;
+  const corte=(typeof getPgCorte==='function')?getPgCorte():null;
+  const semInicio=m.dataInicio?wS(m.dataInicio):null;
+  let ref=_refSemanaAtual(m);
+  const arr=[];
+  for(let i=0;i<maxBack;i++){
+    const semStr=wS(ref.toISOString().split('T')[0]);
+    if(semInicio && semStr<semInicio) break;
+    if(corte && semStr<corte) break;
+    arr.push(semStr);
+    ref.setDate(ref.getDate()-7);
+  }
+  return arr.reverse(); // mais antiga -> mais nova
+}
+function _pagoNaSemana(mId,sem){
+  return (DB.pg||[]).filter(p=>p.mId===mId&&p.sem===sem).reduce((a,p)=>a+Number(p.valor||0),0);
+}
+function _addOuSomaPg(mId,sem,valor,data,obs){
+  const ex=DB.pg.find(p=>p.mId===mId&&p.sem===sem);
+  if(ex){ ex.valor=Number(ex.valor||0)+Number(valor); if(data)ex.data=data; }
+  else { DB.pg.push({id:uid(),mId,sem,data:data||tod(),valor:Number(valor),obs:obs||''}); }
+}
+
+/* ---------- FIFO: abate sempre a semana mais antiga em aberto ---------- */
+function registrarPagamentoFIFO(mId, valor, dataPg, obs){
+  const m=DB.motos.find(x=>x.id===mId); if(!m) return {alocado:0,sobra:0,detalhe:[]};
+  const plano=Number(m.val)||0; if(plano<=0) return {alocado:0,sobra:Number(valor)||0,detalhe:[]};
+  let restante=Number(valor)||0;
+  const data=dataPg||tod();
+  const margem=(typeof CFG_COBRANCA!=='undefined'&&CFG_COBRANCA.MARGEM_QUITACAO)||5;
+  const detalhe=[];
+  const semanas=_semanasRange(m); // antiga -> nova (inclui a semana atual)
+  for(const sem of semanas){
+    if(restante<=0.001) break;
+    const falta=plano-_pagoNaSemana(mId,sem);
+    if(falta<=margem) continue; // já quitada
+    const aplica=Math.min(restante, falta);
+    _addOuSomaPg(mId,sem,aplica,data,obs||'Pagamento (FIFO)');
+    restante-=aplica; detalhe.push({sem,aplica});
+  }
+  // sobra vira pré-pagamento das próximas semanas
+  if(restante>0.001){
+    let ref=_refSemanaAtual(m); ref.setDate(ref.getDate()+7);
+    let guard=0;
+    while(restante>0.001 && guard<60){
+      const sem=wS(ref.toISOString().split('T')[0]);
+      const falta=plano-_pagoNaSemana(mId,sem);
+      if(falta>margem){
+        const aplica=Math.min(restante, falta);
+        _addOuSomaPg(mId,sem,aplica,data,obs||'Pré-pagamento (FIFO)');
+        restante-=aplica; detalhe.push({sem,aplica});
+      }
+      ref.setDate(ref.getDate()+7); guard++;
+    }
+  }
+  sv('pg');
+  return {alocado:(Number(valor)||0)-restante, sobra:restante, detalhe};
+}
+
+/* ---------- modal de pagamento (FIFO) ---------- */
+function openPgModal(mId, semIgnore){
+  const m=DB.motos.find(x=>x.id===mId); if(!m){alert('Moto não encontrada');return;}
+  const plano=Number(m.val)||0;
+  const margem=(typeof CFG_COBRANCA!=='undefined'&&CFG_COBRANCA.MARGEM_QUITACAO)||5;
+  const abertas=_semanasRange(m).map(sem=>({sem,pago:_pagoNaSemana(mId,sem)})).filter(x=>(plano-x.pago)>margem);
+  const totalAberto=abertas.reduce((a,x)=>a+(plano-x.pago),0);
+  const rows = abertas.length? abertas.map((x,idx)=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--bor)">
+      <span>${idx===0?'➡️ ':''}${fD(x.sem)} – ${fD(wE(x.sem))}</span>
+      <span style="color:var(--red)">falta ${fR(plano-x.pago)}${x.pago>0?` <small style="color:var(--sub)">(pago ${fR(x.pago)})</small>`:''}</span>
+    </div>`).join('') : '<div style="font-size:12px;color:var(--grn);padding:8px 0">✅ Nenhuma semana em aberto.</div>';
+  const sugestao = totalAberto>0? totalAberto : plano;
+  showM(mWrap('mPgM',`<div class="modal" style="max-width:440px">
+    <div class="mh"><span class="ct">💰 Registrar Pagamento — ${m.placa}</span><button class="btn bx" onclick="closeM('mPgM')">✕</button></div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:10px">${m.nome||'—'} · plano ${fR(plano)}/semana</div>
+    <div style="background:var(--accbg);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--acc);margin-bottom:10px">ℹ️ O valor recebido abate sempre a <b>semana mais antiga em aberto primeiro</b>.</div>
+    <div style="background:var(--sur);border-radius:8px;padding:8px 12px;margin-bottom:10px;max-height:170px;overflow:auto">
+      <div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:4px">SEMANAS EM ABERTO (${abertas.length}) · total ${fR(totalAberto)}</div>
+      ${rows}
+    </div>
+    <label style="font-size:11px;color:var(--sub)">VALOR RECEBIDO</label>
+    <input id="pgValInp" class="inp" type="number" step="0.01" value="${sugestao}" style="margin:4px 0 10px">
+    <label style="font-size:11px;color:var(--sub)">DATA DO PAGAMENTO</label>
+    <input id="pgDataInp" class="inp" type="date" value="${tod()}" style="margin:4px 0 10px">
+    <label style="font-size:11px;color:var(--sub)">OBSERVAÇÃO (opcional)</label>
+    <input id="pgObsInp" class="inp" placeholder="Ex: Pix, dinheiro..." style="margin:4px 0 14px">
+    <div class="row" style="gap:8px;justify-content:flex-end">
+      <button class="btn bx" onclick="closeM('mPgM')">Cancelar</button>
+      <button class="btn bg" onclick="savePgFromModal('${mId}')">✓ Registrar (FIFO)</button>
+    </div>
+  </div>`));
+}
+function savePgFromModal(mId){
+  const val=parseFloat(document.getElementById('pgValInp').value)||0;
+  const data=document.getElementById('pgDataInp')?document.getElementById('pgDataInp').value:tod();
+  const obs=(document.getElementById('pgObsInp')?document.getElementById('pgObsInp').value:'').trim();
+  if(val<=0){alert('Digite um valor válido.');return;}
+  const r=registrarPagamentoFIFO(mId,val,data||tod(),obs);
+  closeM('mPgM');render();
+  if(typeof toast==='function') toast('✅ '+fR(r.alocado)+' abatido'+(r.sobra>0.01?' · sobra '+fR(r.sobra):''),'grn');
+}
+
+/* ---------- recálculo de dívida: conta TODAS as semanas em aberto (sem parar em buracos) ---------- */
+function calcDebtCanonical(m, paidByMMap){
+  if(!m||!m.dia||!_DIAJS_AMS.hasOwnProperty(m.dia)||!m.val){return {semanas:[],total:0,comMulta:0,qtdSemanas:0};}
+  const plano=Number(m.val);
+  const margem=(typeof CFG_COBRANCA!=='undefined'&&CFG_COBRANCA.MARGEM_QUITACAO)||5;
+  const tol=(typeof CFG_COBRANCA!=='undefined'&&CFG_COBRANCA.TOLERANCIA_DIAS!=null)?CFG_COBRANCA.TOLERANCIA_DIAS:2;
+  const multaPct=(typeof CFG_COBRANCA!=='undefined'&&CFG_COBRANCA.MULTA_PCT)||0;
+  let pagamentos=DB.pg.filter(p=>p.mId===m.id).map(p=>({sem:p.sem,valor:Number(p.valor!=null?p.valor:plano)}));
+  if(paidByMMap && paidByMMap[m.id]){
+    const arr=paidByMMap[m.id];
+    if(arr.length && typeof arr[0]==='object'){ pagamentos=arr.map(p=>({sem:p.sem,valor:Number(p.valor!=null?p.valor:plano)})); }
+  }
+  const hoje=new Date();hoje.setHours(12,0,0,0);
+  const semInicio=m.dataInicio?wS(m.dataInicio):null;
+  const corte=(typeof getPgCorte==='function')?getPgCorte():null;
+  let ref=_refSemanaAtual(m);
+  const semanas=[];
+  for(let i=0;i<60;i++){
+    const semStr=wS(ref.toISOString().split('T')[0]);
+    if(semInicio && semStr<semInicio) break;
+    if(corte && semStr<corte) break;
+    const venc=new Date(ref); venc.setDate(venc.getDate()+tol);
+    if(hoje<=venc){ ref.setDate(ref.getDate()-7); continue; } // dentro da tolerância
+    const totalPago=pagamentos.filter(p=>p.sem===semStr).reduce((a,p)=>a+Number(p.valor||0),0);
+    if(totalPago < (plano-margem)){
+      const falta=plano-totalPago;
+      const diasAtraso=Math.floor((hoje-venc)/86400000);
+      const multa=diasAtraso>0?falta*multaPct:0;
+      semanas.push({semStr,falta,totalPago,plano,multa,diasAtraso:Math.max(0,diasAtraso)});
+    }
+    ref.setDate(ref.getDate()-7);
+  }
+  const total=semanas.reduce((a,s)=>a+s.falta,0);
+  const comMulta=semanas.reduce((a,s)=>a+s.falta+s.multa,0);
+  return {semanas,total,comMulta,qtdSemanas:semanas.length};
+}
+
+/* ---------- aba Pagamentos: barra de ferramentas + view original ---------- */
+function vPagWrap(){
+  const bar=`<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <span style="font-weight:800;font-size:13px">🛠️ Ferramentas:</span>
+    <button class="btn bg" onclick="abrirLancarHistorico('')">✏️ Lançar histórico / saldo</button>
+    <button class="btn bx" onclick="abrirGerenciarBoletos('')">🧾 Boletos</button>
+    <button class="btn br" onclick="limparTodosPagamentos()">🧹 Limpar TODOS os pagamentos</button>
+    <span style="font-size:11px;color:var(--sub)">Abatimento agora é sempre da semana mais antiga (FIFO).</span>
+  </div></div>`;
+  return bar + (typeof vPag==='function'?vPag():'');
+}
+
+/* ---------- limpar todos os pagamentos (com backup) ---------- */
+function limparTodosPagamentos(){
+  if(!confirm('⚠️ Isso vai APAGAR todos os pagamentos semanais (aba Pagamentos) de TODOS os clientes.\n\nUm backup será salvo automaticamente no navegador. Continuar?')) return;
+  if(!confirm('Confirme novamente: apagar TODOS os pagamentos registrados?')) return;
+  try{ localStorage.setItem('mg_pg_backup_'+Date.now(), JSON.stringify(DB.pg||[])); }catch(e){}
+  DB.pg=[]; sv('pg'); render();
+  if(typeof toast==='function') toast('🧹 Pagamentos limpos. Backup salvo.','grn'); else alert('Pagamentos limpos. Backup salvo no navegador.');
+}
+
+/* ---------- lançar histórico (semanas pagas OU saldo em R$) ---------- */
+let _lhMode='semanas';
+function abrirLancarHistorico(mId){
+  const ativ=DB.motos.filter(m=>m.on&&m.val>0&&m.nome&&m.nome.trim()).sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+  const opts=ativ.map(m=>`<option value="${m.id}" ${m.id===mId?'selected':''}>${m.placa} — ${m.nome}</option>`).join('');
+  showM(mWrap('mLH',`<div class="modal" style="max-width:560px">
+    <div class="mh"><span class="ct">✏️ Lançar histórico de pagamentos</span><button class="btn bx" onclick="closeM('mLH')">✕</button></div>
+    <label style="font-size:11px;color:var(--sub)">CLIENTE / MOTO</label>
+    <select id="lhMoto" class="inp" style="margin:4px 0 12px" onchange="_lhRender()"><option value="">— selecione —</option>${opts}</select>
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <button class="btn bg" id="lhTab1" onclick="_lhSetMode('semanas')">📅 Marcar semanas pagas</button>
+      <button class="btn bx" id="lhTab2" onclick="_lhSetMode('saldo')">💰 Informar saldo em R$</button>
+    </div>
+    <div id="lhBody"><div style="font-size:12px;color:var(--sub);padding:16px;text-align:center">Selecione um cliente acima.</div></div>
+  </div>`));
+  _lhMode='semanas';
+  if(mId){ const sel=document.getElementById('lhMoto'); if(sel){ sel.value=mId; _lhRender(); } }
+}
+function _lhSetMode(mode){
+  _lhMode=mode;
+  const t1=document.getElementById('lhTab1'), t2=document.getElementById('lhTab2');
+  if(t1)t1.className='btn '+(mode==='semanas'?'bg':'bx');
+  if(t2)t2.className='btn '+(mode==='saldo'?'bg':'bx');
+  _lhRender();
+}
+function _lhRender(){
+  const mId=document.getElementById('lhMoto').value;
+  const body=document.getElementById('lhBody');
+  if(!mId){body.innerHTML='<div style="font-size:12px;color:var(--sub);padding:16px;text-align:center">Selecione um cliente acima.</div>';return;}
+  const m=DB.motos.find(x=>x.id===mId);const plano=Number(m.val)||0;
+  if(_lhMode==='semanas'){
+    let ref=_refSemanaAtual(m); const linhas=[];
+    for(let i=0;i<20;i++){
+      const sem=wS(ref.toISOString().split('T')[0]);
+      const pago=_pagoNaSemana(mId,sem);
+      const quit=pago>=(plano-5);
+      linhas.push(`<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--bor)">
+        <input type="checkbox" class="lhChk" data-sem="${sem}" ${quit?'checked':''}>
+        <span style="flex:1">${fD(sem)} – ${fD(wE(sem))}</span>
+        <input type="date" class="inp lhData" data-sem="${sem}" value="${wE(sem)}" style="width:140px;font-size:11px;padding:2px 6px">
+        ${quit?'<span style="color:var(--grn)">✅</span>':'<span style="color:var(--red)">⚠️</span>'}
+      </div>`);
+      ref.setDate(ref.getDate()-7);
+    }
+    body.innerHTML=`<div style="font-size:11px;color:var(--sub);margin-bottom:6px">Marque as semanas JÁ PAGAS (valor ${fR(plano)} cada). As desmarcadas ficam em aberto.</div>
+      <div style="max-height:280px;overflow:auto;background:var(--sur);border-radius:8px;padding:8px 12px">${linhas.join('')}</div>
+      <div class="row" style="gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn bg" onclick="salvarHistSemanas('${mId}')">✓ Salvar semanas</button></div>`;
+  } else {
+    body.innerHTML=`<div style="font-size:11px;color:var(--sub);margin-bottom:8px">Informe quanto o cliente está devendo hoje e desde quando. O sistema deixa as semanas mais recentes em aberto e quita as anteriores.</div>
+      <label style="font-size:11px;color:var(--sub)">VALOR TOTAL EM ABERTO (R$)</label>
+      <input id="lhSaldo" class="inp" type="number" step="0.01" placeholder="Ex: ${plano*2}" style="margin:4px 0 10px" oninput="(function(){var v=parseFloat(document.getElementById('lhSaldo').value)||0;var p=${plano};document.getElementById('lhPrev').textContent=p>0?Math.round(v/p):0;})()">
+      <label style="font-size:11px;color:var(--sub)">DATA DE INÍCIO DA COBRANÇA</label>
+      <input id="lhInicio" class="inp" type="date" value="${m.dataInicio||''}" style="margin:4px 0 10px">
+      <div style="font-size:11px;color:var(--sub);margin-bottom:8px">Plano: ${fR(plano)}/semana → equivale a ~<b id="lhPrev">0</b> semana(s) em aberto.</div>
+      <div class="row" style="gap:8px;justify-content:flex-end"><button class="btn bg" onclick="salvarHistSaldo('${mId}')">✓ Salvar saldo</button></div>`;
+  }
+}
+function salvarHistSemanas(mId){
+  const m=DB.motos.find(x=>x.id===mId);const plano=Number(m.val)||0;
+  const chks=Array.prototype.slice.call(document.querySelectorAll('.lhChk'));
+  const datas={};Array.prototype.slice.call(document.querySelectorAll('.lhData')).forEach(d=>datas[d.dataset.sem]=d.value);
+  const sems=chks.map(c=>c.dataset.sem);
+  DB.pg=DB.pg.filter(p=>!(p.mId===mId&&sems.indexOf(p.sem)>=0));
+  chks.forEach(c=>{ if(c.checked){ const sem=c.dataset.sem; DB.pg.push({id:uid(),mId,sem,data:datas[sem]||wE(sem),valor:plano,obs:'Histórico (semana paga)'}); } });
+  sv('pg');closeM('mLH');render();
+  if(typeof toast==='function')toast('✅ Histórico salvo.','grn');
+}
+function salvarHistSaldo(mId){
+  const m=DB.motos.find(x=>x.id===mId);const plano=Number(m.val)||0;
+  const saldo=parseFloat(document.getElementById('lhSaldo').value)||0;
+  const inicio=document.getElementById('lhInicio').value;
+  if(saldo<0){alert('Valor inválido');return;}
+  if(inicio){ m.dataInicio=inicio; sv('m'); }
+  const nAberto=plano>0?Math.round(saldo/plano):0;
+  const semanas=_semanasRange(m,60); // antiga -> nova
+  DB.pg=DB.pg.filter(p=>!(p.mId===mId&&semanas.indexOf(p.sem)>=0));
+  const pagarAte=Math.max(0,semanas.length-nAberto);
+  for(let i=0;i<pagarAte;i++){ const sem=semanas[i]; DB.pg.push({id:uid(),mId,sem,data:wE(sem),valor:plano,obs:'Histórico (quitado)'}); }
+  sv('pg');closeM('mLH');render();
+  if(typeof toast==='function')toast('✅ Saldo lançado: '+nAberto+' semana(s) em aberto.','grn');
+}
+
+/* ====================== ABA TROCA DE ÓLEO ====================== */
+function vOleo(){
+  const cob=DB.cobOleo||[];
+  const pend=cob.filter(c=>c.st!=='pago');
+  const totPend=pend.reduce((a,c)=>a+Number(c.valor||0),0);
+  const pagos=cob.filter(c=>c.st==='pago');
+  const totPago=pagos.reduce((a,c)=>a+Number(c.valor||0),0);
+  const linhas=cob.slice().sort((a,b)=>(b.data||'').localeCompare(a.data||'')).slice(0,300).map(c=>{
+    const m=DB.motos.find(x=>x.id===c.mId)||{};
+    return `<tr>
+      <td>${c.data?fD(c.data):'—'}</td>
+      <td>${m.placa||'—'}</td>
+      <td>${m.nome||'—'}</td>
+      <td style="text-align:right">${fR(c.valor||0)}</td>
+      <td>${c.obs||''}</td>
+      <td>${c.st==='pago'?'<span style="color:var(--grn)">✅ pago</span>':'<span style="color:var(--red)">⚠️ pendente</span>'}</td>
+      <td style="white-space:nowrap">
+        ${c.st!=='pago'?`<button class="btn bg bxs" onclick="quitarOleo('${c.id}')">Quitar</button> `:''}
+        <button class="btn br bxs" onclick="excluirOleo('${c.id}')">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+  return `<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <span class="ct">🛢️ Troca de Óleo — controle separado do aluguel</span>
+      <button class="btn bg" onclick="abrirCobOleo('')">➕ Lançar troca de óleo</button>
+      <button class="btn bx" onclick="abrirConfigOilVal()">⚙️ Valores por moto</button>
+    </div>
+    <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;font-size:13px">
+      <div>Pendente: <b style="color:var(--red)">${fR(totPend)}</b> (${pend.length})</div>
+      <div>Recebido: <b style="color:var(--grn)">${fR(totPago)}</b> (${pagos.length})</div>
+      <div style="color:var(--sub);font-size:11px">Os valores de óleo NÃO entram no saldo de aluguel.</div>
+    </div></div>
+    <div class="card"><div class="ch"><span class="ct">Lançamentos de óleo</span></div>
+    <div style="overflow:auto"><table class="tbl"><thead><tr><th>Data</th><th>Placa</th><th>Cliente</th><th style="text-align:right">Valor</th><th>Obs</th><th>Status</th><th></th></tr></thead>
+    <tbody>${linhas||'<tr><td colspan="7" style="text-align:center;color:var(--sub);padding:16px">Nenhum lançamento de óleo ainda.</td></tr>'}</tbody></table></div></div>`;
+}
+function quitarOleo(id){const c=(DB.cobOleo||[]).find(x=>x.id===id);if(!c)return;c.st='pago';c.dataPg=tod();sv('cobOleo');render();if(typeof toast==='function')toast('✅ Óleo quitado','grn');}
+function excluirOleo(id){if(!confirm('Excluir este lançamento de óleo?'))return;DB.cobOleo=(DB.cobOleo||[]).filter(x=>x.id!==id);sv('cobOleo');render();}
+function abrirConfigOilVal(){
+  const ativ=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim()).sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+  const rows=ativ.map(m=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--bor)">
+    <span style="flex:1">${m.placa} — ${m.nome}</span>
+    <input type="number" step="1" class="inp oilValInp" data-id="${m.id}" value="${m.oilVal||30}" style="width:90px;padding:2px 6px">
+  </div>`).join('');
+  showM(mWrap('mOilCfg',`<div class="modal" style="max-width:520px">
+    <div class="mh"><span class="ct">⚙️ Valor da troca de óleo por moto</span><button class="btn bx" onclick="closeM('mOilCfg')">✕</button></div>
+    <div style="font-size:11px;color:var(--sub);margin-bottom:8px">Padrão R$30. Novos locatários geralmente R$35.</div>
+    <div style="max-height:340px;overflow:auto;background:var(--sur);border-radius:8px;padding:8px 12px">${rows}</div>
+    <div class="row" style="gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn bg" onclick="salvarOilVals()">✓ Salvar</button></div>
+  </div>`));
+}
+function salvarOilVals(){
+  Array.prototype.slice.call(document.querySelectorAll('.oilValInp')).forEach(i=>{const m=DB.motos.find(x=>x.id===i.dataset.id);if(m)m.oilVal=Number(i.value)||30;});
+  sv('m');closeM('mOilCfg');render();if(typeof toast==='function')toast('✅ Valores salvos','grn');
+}
+/* override do lançamento de óleo para usar valor por moto e padronizar status */
+function abrirCobOleo(mIdPresel){
+  const ativ=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim()).sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+  const opts=ativ.map(m=>`<option value="${m.id}" ${m.id===mIdPresel?'selected':''}>${m.placa} — ${m.nome}</option>`).join('');
+  const presel=ativ.find(m=>m.id===mIdPresel);
+  const defVal=presel?(presel.oilVal||30):30;
+  showM(mWrap('mCobOleo',`<div class="modal" style="max-width:420px">
+    <div class="mh"><span class="ct">🛢️ Lançar troca de óleo</span><button class="btn bx" onclick="closeM('mCobOleo')">✕</button></div>
+    <label style="font-size:11px;color:var(--sub)">MOTO / CLIENTE</label>
+    <select id="cobOleoMoto" class="inp" style="margin:4px 0 10px" onchange="(function(){var m=DB.motos.find(function(x){return x.id===document.getElementById('cobOleoMoto').value});if(m)document.getElementById('cobOleoVal').value=m.oilVal||30;})()"><option value="">— selecione —</option>${opts}</select>
+    <label style="font-size:11px;color:var(--sub)">VALOR (R$)</label>
+    <input id="cobOleoVal" class="inp" type="number" step="1" value="${defVal}" style="margin:4px 0 10px">
+    <label style="font-size:11px;color:var(--sub)">DATA</label>
+    <input id="cobOleoData" class="inp" type="date" value="${tod()}" style="margin:4px 0 10px">
+    <label style="font-size:11px;color:var(--sub)">OBSERVAÇÃO</label>
+    <input id="cobOleoObs" class="inp" value="Troca de óleo" style="margin:4px 0 14px">
+    <div class="row" style="gap:8px;justify-content:flex-end">
+      <button class="btn bx" onclick="closeM('mCobOleo')">Cancelar</button>
+      <button class="btn bg" onclick="salvarCobOleo()">✓ Lançar</button>
+    </div>
+  </div>`));
+}
+function salvarCobOleo(){
+  const mId=document.getElementById('cobOleoMoto').value;
+  const valor=Number(document.getElementById('cobOleoVal').value||30);
+  const data=document.getElementById('cobOleoData').value||tod();
+  const obs=document.getElementById('cobOleoObs').value||'Troca de óleo';
+  if(!mId){alert('Selecione a moto!');return;}
+  if(!DB.cobOleo)DB.cobOleo=[];
+  DB.cobOleo.push({id:uid(),mId,valor,data,obs,st:'pendente',criado:tod()});
+  sv('cobOleo');closeM('mCobOleo');render();
+  if(typeof toast==='function')toast('✅ Troca de óleo lançada','grn');
+}
+
+/* ====================== CRLV (admin + portal) ====================== */
+function verArquivoCrlv(mId){
+  const m=DB.motos.find(x=>x.id===mId);
+  if(!m||!m.crlvArquivo){alert('CRLV não disponível.');return;}
+  const w=window.open('','_blank');
+  if(String(m.crlvArquivo).startsWith('data:application/pdf'))w.document.write(`<iframe src="${m.crlvArquivo}" style="width:100%;height:100vh;border:none"></iframe>`);
+  else w.document.write(`<img src="${m.crlvArquivo}" style="max-width:100%">`);
+  w.document.close();
+}
+function verCrlv(mId){ return verArquivoCrlv(mId); }
+
+/* ====================== BOLETOS (armazenar + portal) ====================== */
+function verBoleto(id){
+  const b=(DB.boletos||[]).find(x=>x.id===id);if(!b){alert('Boleto não encontrado');return;}
+  if(b.arquivo){const w=window.open('','_blank');if(String(b.arquivo).startsWith('data:application/pdf'))w.document.write(`<iframe src="${b.arquivo}" style="width:100%;height:100vh;border:none"></iframe>`);else w.document.write(`<img src="${b.arquivo}" style="max-width:100%">`);w.document.close();return;}
+  if(b.pdfUrl){window.open(b.pdfUrl,'_blank');return;}
+  alert('Sem arquivo de boleto para exibir.');
+}
+function copiarPixBoleto(id){const b=(DB.boletos||[]).find(x=>x.id===id);if(!b||!b.pixCopiaECola)return;navigator.clipboard.writeText(b.pixCopiaECola).then(()=>{if(typeof toast==='function')toast('📋 Pix copiado','grn');});}
+function abrirGerenciarBoletos(mId){
+  const ativ=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim()).sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+  const opts=ativ.map(m=>`<option value="${m.id}" ${m.id===mId?'selected':''}>${m.placa} — ${m.nome}</option>`).join('');
+  showM(mWrap('mBol',`<div class="modal" style="max-width:560px">
+    <div class="mh"><span class="ct">🧾 Boletos do locatário</span><button class="btn bx" onclick="closeM('mBol')">✕</button></div>
+    <label style="font-size:11px;color:var(--sub)">CLIENTE / MOTO</label>
+    <select id="bolMoto" class="inp" style="margin:4px 0 12px" onchange="_bolRender()"><option value="">— selecione —</option>${opts}</select>
+    <div id="bolBody"><div style="font-size:12px;color:var(--sub);padding:16px;text-align:center">Selecione um cliente.</div></div>
+  </div>`));
+  if(mId){ const sel=document.getElementById('bolMoto'); if(sel){ sel.value=mId; _bolRender(); } }
+}
+function _bolRender(){
+  const mId=document.getElementById('bolMoto').value;const body=document.getElementById('bolBody');
+  if(!mId){body.innerHTML='<div style="font-size:12px;color:var(--sub);padding:16px;text-align:center">Selecione um cliente.</div>';return;}
+  const bs=(DB.boletos||[]).filter(b=>b.mId===mId).sort((a,b)=>(b.criado||'').localeCompare(a.criado||''));
+  const lista=bs.length?bs.map(b=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:6px 0;border-bottom:1px solid var(--bor)">
+    <span style="flex:1">${b.venc?fD(b.venc):'—'} ${b.valor?'· '+fR(b.valor):''} ${b.st==='pago'?'✅':''} <small style="color:var(--sub)">(${b.origem||'manual'})</small></span>
+    ${(b.arquivo||b.pdfUrl)?`<button class="btn bg bxs" onclick="verBoleto('${b.id}')">Ver</button>`:''}
+    <button class="btn br bxs" onclick="excluirBoleto('${b.id}')">🗑️</button>
+  </div>`).join(''):'<div style="font-size:12px;color:var(--sub);padding:8px">Nenhum boleto ainda.</div>';
+  body.innerHTML=`<div style="background:var(--sur);border-radius:8px;padding:8px 12px;margin-bottom:12px;max-height:200px;overflow:auto">${lista}</div>
+    <div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:6px">ANEXAR BOLETO (PDF/imagem)</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
+      <div><label style="font-size:10px;color:var(--sub)">Vencimento</label><input id="bolVenc" type="date" class="inp" style="width:140px"></div>
+      <div><label style="font-size:10px;color:var(--sub)">Valor</label><input id="bolVal" type="number" step="0.01" class="inp" style="width:110px"></div>
+      <label class="btn bx" style="cursor:pointer">📎 Arquivo<input id="bolFile" type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="_bolFilePick(this,'${mId}')"></label>
+      ${typeof abrirCobrancaInter==='function'?`<button class="btn bg" onclick="closeM('mBol');abrirCobrancaInter('${mId}')">⚡ Gerar via Inter</button>`:''}
+    </div>
+    <div id="bolMsg" style="font-size:11px;color:var(--sub);margin-top:8px"></div>`;
+}
+function _bolFilePick(inp,mId){
+  const f=inp.files[0];if(!f)return;
+  const venc=document.getElementById('bolVenc').value;const val=Number(document.getElementById('bolVal').value)||0;
+  const rd=new FileReader();
+  rd.onload=e=>{
+    if(!DB.boletos)DB.boletos=[];
+    DB.boletos.push({id:uid(),mId,arquivo:e.target.result,venc,valor:val,origem:'manual',st:'pendente',criado:tod()});
+    sv('boletos');_bolRender();render();
+    const msg=document.getElementById('bolMsg');if(msg)msg.textContent='✅ Boleto anexado: '+f.name;
+  };
+  rd.readAsDataURL(f);
+}
+function excluirBoleto(id){if(!confirm('Excluir este boleto?'))return;DB.boletos=(DB.boletos||[]).filter(x=>x.id!==id);sv('boletos');_bolRender();render();}
+
+/* ---------- override de render(): inclui aba Óleo e barra de pagamentos ---------- */
+function render(){
+  document.getElementById('tabs').innerHTML=TABS.map(t=>`<button class="tab${TAB===t.id?' active':''}" onclick="go('${t.id}')">${t.label}</button>`).join('');
+  const fn={dash:vDash,fin:vFin,odo:vOdo,mnt:vMnt,agenda:vAgendaTab,seg:vSeg,mul:vMul,est:vEst,os:vOs,oficina:vOficina,pag:vPagWrap,oleo:vOleo,rel:vRel,mts:vMts,loc:vLoc,ind:vInd,docs:vDocs,portal:vPortal,scoring:vScoring,regua:vRegua,sinistros:vSinistros,mecanico:vMecanico,mapa:vMapa};
+  const f=fn[TAB]||vDash;
+  document.getElementById('content').innerHTML=f();
+}
+
+</script>
 </body>
 </html>
