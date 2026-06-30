@@ -254,6 +254,24 @@ if(!localStorage.getItem('mg_mig_oil_20260311')){
   })();
 }
 
+// Migração IPVA/Licenciamento BA 2026 — roda apenas uma vez (calendário oficial por final de placa)
+if(!localStorage.getItem('mg_mig_docveic_20260630')){
+  (()=>{
+    // Calendário oficial Bahia 2026 (DETRAN-BA / SEFAZ-BA) por final de placa.
+    // A última cota do IPVA coincide com o prazo do licenciamento (mesma data-limite).
+    const calBA={'1':'2026-07-30','2':'2026-07-31','3':'2026-08-28','4':'2026-08-31','5':'2026-09-29','6':'2026-09-30','7':'2026-10-29','8':'2026-10-30','9':'2026-11-27','0':'2026-11-30'};
+    DB.motos.forEach(m=>{
+      const fin=(m.placa||'').trim().slice(-1);
+      const dt=calBA[fin];
+      if(!dt)return;
+      if(!m.licVenc)m.licVenc=dt;    // não sobrescreve datas preenchidas manualmente
+      if(!m.ipvaVenc)m.ipvaVenc=dt;
+    });
+    sv('m');localStorage.setItem('mg_mig_docveic_20260630','1');
+    console.log('Migracao IPVA/Licenciamento BA 2026 aplicada');
+  })();
+}
+
 function uid(){return Date.now()+'_'+Math.random().toString(36).slice(2,6)}
 
 // ── Status / Disponibilidade ──────────────────────────────────────────────────
@@ -1320,6 +1338,22 @@ function buildCentralAlertas(){
         btn:`onclick="vSubutilizacao()"`});
     }
   } catch(e) { console.warn('alerta subutilização:',e); }
+
+  // 12. IPVA / Licenciamento vencendo ou vencido (lembrete de pagamento)
+  (function(){
+    const _h=new Date();_h.setHours(12,0,0,0);
+    const _dias=d=>{if(!d)return null;const dt=new Date(d+'T12:00');return Math.ceil((dt-_h)/86400000);};
+    [['ipvaVenc','IPVA','🚗'],['licVenc','Licenciamento','📋']].forEach(([campo,nome,icon])=>{
+      const lista=ativ.filter(m=>{const d=_dias(m[campo]);return d!==null&&d<=30;});
+      if(!lista.length)return;
+      lista.sort((a,b)=>(a[campo]||'').localeCompare(b[campo]||''));
+      const temVenc=lista.some(m=>_dias(m[campo])<=0);
+      const det=lista.map(m=>{const d=_dias(m[campo]);return `${m.placa} (${d<=0?'VENCIDO':d+'d'})`;}).join(', ');
+      alertas.push({tipo:campo,cor:temVenc?'var(--red)':'var(--yel)',icon:icon,
+        msg:`${lista.length} moto(s) com ${nome} ${temVenc?'vencido / ':''}vencendo: ${det}`,
+        btn:`onclick="go('docs')"`});
+    });
+  })();
 
   if(!alertas.length) return`<div style="background:var(--grnbg);border:1px solid rgba(34,197,94,.3);border-radius:12px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
     <span style="font-size:20px">✅</span>
@@ -8098,6 +8132,46 @@ function salvarAcessoLoc(mId){
 }
 
 // ── DOCUMENTOS ────────────────────────────────────────────────────────────────
+function vencimentosDocVeic(){
+  const meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const hoje=new Date();hoje.setHours(12,0,0,0);
+  const mesAtual=hoje.getFullYear()*100+(hoje.getMonth()+1);
+  const grupos={};
+  DB.motos.filter(m=>m.on&&m.licVenc).forEach(m=>{
+    const d=new Date(m.licVenc+'T12:00');if(isNaN(d))return;
+    const key=d.getFullYear()*100+(d.getMonth()+1);
+    (grupos[key]=grupos[key]||[]).push(m);
+  });
+  const semData=DB.motos.filter(m=>m.on&&!m.licVenc).length;
+  const keys=Object.keys(grupos).map(Number).sort((a,b)=>a-b);
+  if(!keys.length && !semData) return '';
+  const totalMotos=keys.reduce((a,k)=>a+grupos[k].length,0);
+  const blocos=keys.map(k=>{
+    const ano=Math.floor(k/100), mesIdx=(k%100)-1;
+    const lista=grupos[k].sort((a,b)=>(a.licVenc||'').localeCompare(b.licVenc||'')||a.placa.localeCompare(b.placa));
+    const venceu=k<mesAtual, atual=k===mesAtual;
+    const cor=venceu?'var(--red)':atual?'var(--acc)':'var(--blu)';
+    const bg=venceu?'var(--redbg)':atual?'var(--accbg)':'var(--blubg)';
+    const chips=lista.map(m=>{
+      const dia=new Date(m.licVenc+'T12:00').getDate();
+      return `<div onclick="editM('${m.id}')" title="Editar ${m.placa}" style="cursor:pointer;background:rgba(0,0,0,.22);border:1px solid var(--bor);border-radius:8px;padding:6px 10px;display:flex;flex-direction:column;gap:1px;min-width:120px">
+        <span style="font-weight:700;font-size:12px">${m.placa}</span>
+        <span style="font-size:10px;color:var(--sub)">dia ${dia} · ${m.nome?m.nome.split(' ')[0]:'sem locatário'}</span>
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="background:${bg};color:${cor};font-weight:700;font-size:13px;padding:4px 12px;border-radius:8px">${meses[mesIdx]} ${ano}</span>
+        <span style="font-size:11px;color:var(--sub)">${lista.length} moto(s)${venceu?' · ⚠️ VENCIDO':atual?' · vence este mês':''}</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${chips}</div>
+    </div>`;
+  }).join('');
+  const aviso=semData?`<div style="font-size:11px;color:var(--sub);margin-top:4px">⚠️ ${semData} moto(s) sem data cadastrada — abra cada uma em ✏️ para preencher.</div>`:'';
+  return `<div class="card" style="margin-bottom:12px"><div class="ch" style="margin-bottom:10px">
+    <span class="ct">📆 Vencimentos IPVA + Licenciamento por mês (${totalMotos} motos)</span>
+  </div>${blocos}${aviso}</div>`;
+}
 function vDocs(){
   const ativ=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim());
   const hoje=new Date();hoje.setHours(12,0,0,0);
@@ -8157,6 +8231,7 @@ function vDocs(){
   }).join('');
   return`
   ${alertHtml?`<div class="card" style="margin-bottom:12px"><div class="ch" style="margin-bottom:8px"><span class="ct">🔔 Alertas de Documentos</span></div><div style="display:flex;flex-direction:column;gap:6px">${alertHtml}</div></div>`:''}
+  ${vencimentosDocVeic()}
   <div class="card"><div class="ch">
     <span class="ct">📋 Situação Documental</span>
     <div style="display:flex;gap:6px">
@@ -8566,6 +8641,14 @@ function editM(id){
     </select></div>
     <div class="fr"><div class="fg"><label>CPF do Locatário</label><input id="emCpf" value="${m.cpfLoc||''}" placeholder="000.000.000-00"></div>
     <div class="fg"><label>Validade CNH</label><input type="date" id="emCnh" value="${m.cnhValidade||''}"></div></div>
+    <div class="fg" style="background:var(--blubg);border-radius:8px;padding:10px">
+      <label style="display:flex;align-items:center;gap:6px;font-weight:600">🚗 Documentação do veículo <span style="font-size:10px;color:var(--sub);font-weight:400">(gera lembretes automáticos)</span></label>
+      <div class="fr" style="margin-top:8px">
+        <div class="fg" style="margin:0"><label>Vencimento IPVA</label><input type="date" id="emIpva" value="${m.ipvaVenc||''}"></div>
+        <div class="fg" style="margin:0"><label>Vencimento Licenciamento</label><input type="date" id="emLic" value="${m.licVenc||''}"></div>
+      </div>
+      <div style="font-size:11px;color:var(--sub);margin-top:3px">⚡ Alertas aparecem na Central de Alertas e na aba Documentos a partir de 30 dias antes do vencimento</div>
+    </div>
     <div class="fr"><div class="fg"><label>Endereço (rua)</label><input id="emEndereco" value="${m.endereco||''}" placeholder="Ex: Rua das Flores"></div>
     <div class="fg"><label>Número</label><input id="emNumero" value="${m.numero||''}" placeholder="Ex: 123"></div></div>
     <div class="fr"><div class="fg"><label>Bairro</label><input id="emBairro" value="${m.bairro||''}" placeholder="Ex: Centro"></div>
@@ -8649,6 +8732,9 @@ function svM(id){
   m.dia=document.getElementById('emDi').value;
   const cpf=document.getElementById('emCpf')?.value?.trim();if(cpf)m.cpfLoc=cpf;
   const cnh=document.getElementById('emCnh')?.value?.trim();if(cnh)m.cnhValidade=cnh;
+  // Documentação do veículo: IPVA e Licenciamento (lembretes automáticos)
+  const _ipva=document.getElementById('emIpva');if(_ipva){if(_ipva.value)m.ipvaVenc=_ipva.value;else delete m.ipvaVenc;}
+  const _lic=document.getElementById('emLic');if(_lic){if(_lic.value)m.licVenc=_lic.value;else delete m.licVenc;}
   // Campos de endereco do locatario (usados na emissao de boleto/Pix Banco Inter)
   const _ender=document.getElementById('emEndereco');if(_ender)m.endereco=_ender.value.trim();
   const _num=document.getElementById('emNumero');if(_num)m.numero=_num.value.trim();
