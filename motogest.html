@@ -109,6 +109,8 @@ label{display:block;font-size:11px;color:var(--sub);margin-bottom:3px;font-weigh
   <button id="fbSyncIndicator" onclick="syncFromFirebase(false)" title="GPS sincronizado automaticamente via Cloudflare Worker — clique para forçar sync agora" style="display:flex;align-items:center;gap:4px;background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-right:4px">🛰️ GPS</button>
   <button id="saveBtn" onclick="saveAll()" style="display:flex;align-items:center;gap:6px;background:#22c55e;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-left:auto;margin-right:8px">💾 Salvar</button>
   <button onclick="exportBackup()" title="Exportar backup" style="display:flex;align-items:center;gap:5px;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">📥 Backup</button>
+  <button id="cloudBkpBtn" onclick="backupNuvem(false)" title="Salvar backup na nuvem (Firebase)" style="display:flex;align-items:center;gap:5px;background:#0284c7;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:2px">☁️ Nuvem</button>
+  <button onclick="restaurarNuvem()" title="Restaurar da nuvem (puxa o último backup salvo)" style="display:flex;align-items:center;gap:4px;background:#075985;color:#fff;border:none;border-radius:8px;padding:6px 9px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">↺</button>
   <button onclick="verAutoBackups()" title="Restaurar de um backup automático recente (5 últimos salvamentos)" style="display:flex;align-items:center;gap:5px;background:#0891b2;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">🕒 Auto</button>
   <button onclick="gerarRelatorioSemanal()" title="Gerar relatório semanal em PDF" style="display:flex;align-items:center;gap:5px;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">📊 Relatório</button>
   <label title="Importar backup" style="display:flex;align-items:center;gap:5px;background:#7c3aed;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:8px">📤 Restaurar<input type="file" accept=".json" onchange="importBackup(event)" style="display:none"></label>
@@ -659,6 +661,7 @@ function uc(u){return u==='ov'?'var(--red)':u==='cr'?'var(--acc)':u==='wa'?'var(
 // ── Router ──────────────────────────────────────────────────────────────────
 const TABS=[
   {id:'dash',label:'📊 Dashboard'},
+  {id:'plantao',label:'🆘 Modo Plantão'},
   {id:'fin',label:'💹 Financeiro'},
   {id:'odo',label:'📏 Odômetro'},
   {id:'mnt',label:'🔧 Manutenção'},
@@ -1443,6 +1446,14 @@ function buildCentralAlertas(){
     msg:`${gpsSumido24h.length} moto(s) com GPS sem sinal há +24h: ${gpsSumido24h.slice(0,5).map(m=>m.placa).join(', ')}${gpsSumido24h.length>5?'…':''}`,
     btn:`onclick="go('odo')"`});
 
+  // 9b. Avisos de óleo pendentes — motos perto do KM de troca ainda não avisadas
+  try{
+    const oleoPend=filaAvisosOleo().filter(x=>!x.avisado);
+    if(oleoPend.length) alertas.push({tipo:'oleoaviso',cor:'var(--acc)',icon:'🛢️',
+      msg:`${oleoPend.length} moto(s) perto/vencidas de óleo p/ avisar: ${oleoPend.slice(0,5).map(x=>x.m.placa).join(', ')}${oleoPend.length>5?'…':''}`,
+      btn:`onclick="painelAvisosOleo()"`});
+  }catch(e){}
+
   // 10. Moto parada misteriosamente — GPS conectado mas KM não muda há 3+ dias
   // (locatário não está usando — perda de receita potencial / risco de devolução)
   const paradaMisteriosa=ativ.filter(m=>{
@@ -1515,6 +1526,123 @@ function buildCentralAlertas(){
   </div>`;
 }
 
+// ── MODO PLANTÃO ────────────────────────────────────────────────────────────
+// Tela pensada para quem NÃO conhece a operação (ex.: Priscila) tocar tudo
+// sozinha. Traduz cada pendência em "o que fazer agora", explica termos, e
+// mostra as anotações/acordos deixados pelo titular.
+function _acaoPorAtraso(diasAtraso, jaAvisos){
+  // Régua de decisão traduzida em ação humana clara
+  if(diasAtraso<=0) return {txt:'Vence hoje ou em breve — mande um lembrete gentil.',urg:'baixa'};
+  if(diasAtraso<=3) return {txt:'Atrasado poucos dias — envie o 1º aviso pelo WhatsApp.',urg:'media'};
+  if(diasAtraso<=7) return {txt:'1 semana de atraso — reforce a cobrança. Combine uma data de pagamento.',urg:'media'};
+  if(diasAtraso<=14) return {txt:'2 semanas — ligue além do WhatsApp. Se prometer pagar, ANOTE o acordo abaixo.',urg:'alta'};
+  if(diasAtraso<=21) return {txt:'3 semanas — situação séria. Avise que a moto pode ser bloqueada. Fale com o Ams se puder.',urg:'alta'};
+  return {txt:'Mais de 3 semanas — NÃO bloqueie sozinha sem falar com o Ams. Registre tudo e priorize contato.',urg:'critica'};
+}
+function getNotaMoto(mId){try{return JSON.parse(localStorage.getItem('mg_notas_plantao')||'{}')[mId]||'';}catch{return'';}}
+function salvarNotaPlantao(mId){
+  const el=document.getElementById('nota_'+mId);if(!el)return;
+  let all={};try{all=JSON.parse(localStorage.getItem('mg_notas_plantao')||'{}');}catch{}
+  all[mId]={txt:el.value,data:new Date().toLocaleString('pt-BR')};
+  localStorage.setItem('mg_notas_plantao',JSON.stringify(all));
+  toast('📝 Anotação salva.','grn');
+}
+function getNotaObj(mId){try{return JSON.parse(localStorage.getItem('mg_notas_plantao')||'{}')[mId]||null;}catch{return null;}}
+function vPlantao(){
+  const ativ=DB.motos.filter(m=>m.on&&m.nome&&m.val&&m.dia);
+  const paidByM={};
+  DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push({sem:p.sem,valor:Number(p.valor||p.val||0),data:p.data||p.sem});});
+
+  const pend=ativ.map(m=>{
+    const debt=calcDebtCanonical(m,paidByM);
+    if(debt.qtdSemanas===0) return null;
+    const diasAtraso=debt.semanas[0]?.diasAtraso||0;
+    return {m,debt,diasAtraso,acao:_acaoPorAtraso(diasAtraso)};
+  }).filter(Boolean).sort((a,b)=>b.diasAtraso-a.diasAtraso);
+
+  const totalDevido=pend.reduce((a,x)=>a+x.debt.comMulta,0);
+
+  // Manutenção urgente (óleo/revisão vencidos) — pra quem cobre saber o que é físico
+  const mntVenc=DB.motos.filter(m=>m.on&&(ms(m).u==='ov')).length;
+
+  const urgCor={baixa:'var(--sub)',media:'var(--yel)',alta:'var(--acc)',critica:'var(--red)'};
+  const urgBg={baixa:'var(--sur)',media:'var(--yelbg)',alta:'var(--accbg)',critica:'var(--redbg)'};
+
+  const cards=pend.map(({m,debt,diasAtraso,acao})=>{
+    const phone=(m.fone||'').replace(/\D/g,'');
+    const template=gerarMsgCobranca(m,debt,diasAtraso<=7?'leve':diasAtraso<=21?'moderado':'grave');
+    const waUrl=phone?`https://wa.me/55${phone}?text=${encodeURIComponent(template)}`:null;
+    const nota=getNotaObj(m.id);
+    return`<div class="card" style="margin-bottom:10px;border-left:4px solid ${urgCor[acao.urg]}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:15px;font-weight:800">${m.nome.split(' ').slice(0,2).join(' ')} <span style="font-size:12px;color:var(--sub);font-weight:400">· ${m.placa}</span></div>
+          <div style="font-size:12px;color:var(--sub);margin-top:2px">Deve <b style="color:var(--red)">${fR(debt.comMulta)}</b> · ${debt.qtdSemanas} semana(s) · atrasado <b>${diasAtraso} dia(s)</b></div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:10px;color:var(--sub)">Paga toda <b>${({SEG:'segunda',TER:'terça',QUA:'quarta',QUI:'quinta',SEX:'sexta',SAB:'sábado',DOM:'domingo'})[m.dia]||m.dia}</b></div>
+        </div>
+      </div>
+      <div style="background:${urgBg[acao.urg]};border-radius:8px;padding:10px 12px;margin-top:10px">
+        <div style="font-size:10px;color:${urgCor[acao.urg]};font-weight:800;text-transform:uppercase;margin-bottom:3px">👉 O que fazer agora</div>
+        <div style="font-size:13px;line-height:1.5">${acao.txt}</div>
+      </div>
+      <div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap">
+        ${waUrl?`<a href="${waUrl}" target="_blank" class="btn bxs" style="background:#25D366;color:#fff;border:none;text-decoration:none;font-size:12px">📱 Enviar cobrança no WhatsApp</a>`:'<span style="font-size:11px;color:var(--red)">⚠️ Sem telefone cadastrado</span>'}
+        <button class="btn bg bxs" style="font-size:12px" onclick="registrarPagamentoRapido('${m.id}')">✓ Recebi o pagamento</button>
+      </div>
+      <div style="margin-top:10px">
+        <div style="font-size:10px;color:var(--sub);font-weight:700;margin-bottom:3px">📝 Anotações e acordos ${nota?`<span style="color:var(--sub);font-weight:400">(última: ${nota.data})</span>`:''}</div>
+        <textarea id="nota_${m.id}" placeholder="Ex: Prometeu pagar sexta. / Ams já perdoou esta semana." style="width:100%;min-height:44px;font-size:12px;padding:6px 8px;background:var(--sur);border:1px solid var(--bor);border-radius:6px;color:var(--txt);resize:vertical">${nota?nota.txt:''}</textarea>
+        <button class="btn bx bxs" style="font-size:10px;margin-top:4px" onclick="salvarNotaPlantao('${m.id}')">💾 Salvar anotação</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  return`
+  <div class="card" style="margin-bottom:14px;border-color:rgba(59,130,246,.4);background:var(--blubg)">
+    <div style="font-size:16px;font-weight:800;margin-bottom:6px">🆘 Modo Plantão — guia rápido</div>
+    <div style="font-size:13px;color:var(--sub);line-height:1.7">
+      Esta tela mostra <b>tudo que precisa de atenção hoje</b> e o que fazer em cada caso. Você não precisa conhecer o resto do sistema.<br>
+      • <b>Cobrar alguém:</b> clique em "📱 Enviar cobrança" — a mensagem já vem pronta, é só enviar.<br>
+      • <b>Alguém pagou:</b> clique em "✓ Recebi o pagamento" e confirme o valor.<br>
+      • <b>Fez um acordo:</b> escreva em "Anotações" pra não esquecer e pra o Ams ver depois.<br>
+      • <b style="color:var(--red)">Não bloqueie motos sozinha</b> em casos graves sem falar com o Ams.
+    </div>
+  </div>
+
+  <div class="g4" style="margin-bottom:14px">
+    <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase">A receber (atraso)</div><div class="num" style="color:var(--red)">${fR(totalDevido)}</div></div>
+    <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase">Pessoas devendo</div><div class="num">${pend.length}</div></div>
+    <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase">Motos p/ manutenção</div><div class="num" style="color:${mntVenc?'var(--acc)':'var(--grn)'}">${mntVenc}</div></div>
+    <div class="card" style="padding:14px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase">Frota ativa</div><div class="num">${ativ.length}</div></div>
+  </div>
+
+  <div style="font-size:14px;font-weight:800;margin-bottom:10px">📋 Pendências de pagamento — da mais urgente para a menos</div>
+  ${cards||'<div class="card"><div class="empty" style="padding:30px;text-align:center">✅ Ninguém em atraso agora. Tudo em dia!</div></div>'}
+
+  ${mntVenc?`<div class="card" style="margin-top:14px;border-color:rgba(249,115,22,.3)">
+    <div style="font-size:13px;font-weight:700;color:var(--acc);margin-bottom:4px">🔧 ${mntVenc} moto(s) precisam de manutenção (óleo/revisão vencidos)</div>
+    <div style="font-size:12px;color:var(--sub)">Veja a aba <b>🔧 Manutenção</b> para detalhes. Se um locatário reclamar de barulho ou a moto passou do KM, encaminhe para a oficina.</div>
+  </div>`:''}
+  `;
+}
+
+function registrarPagamentoRapido(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const paidByM={};
+  DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push({sem:p.sem,valor:Number(p.valor||p.val||0),data:p.data||p.sem});});
+  const debt=calcDebtCanonical(m,paidByM);
+  const semAberta=debt.semanas[0]?.sem||wS(tod());
+  const sugerido=Number(m.val)||0;
+  const valStr=prompt(`Registrar pagamento de ${m.nome.split(' ')[0]} (${m.placa})\n\nValor da semana: ${fR(m.val)}\nSemana em aberto mais antiga: ${fD(semAberta)}\n\nDigite o valor recebido (R$):`, sugerido.toFixed(2).replace('.',','));
+  if(valStr===null) return;
+  const val=parseFloat(String(valStr).replace(/\./g,'').replace(',','.'))||0;
+  if(val<=0){alert('Valor inválido.');return;}
+  DB.pg.push({id:uid(),mId,sem:semAberta,data:tod(),val,valor:val,obs:'Plantão'});
+  sv('pg');render();
+  toast(`✅ ${m.placa}: ${fR(val)} registrado na semana ${fD(semAberta)}.`,'grn');
+}
 function vDash(){
   const gDes=Object.entries(GPS).filter(([,g])=>g.e==='Desconectado').map(([p])=>p);
   const gCon=Object.values(GPS).filter(g=>g.e==='Conectado').length;
@@ -1883,6 +2011,7 @@ function vMnt(){
     <div style="font-size:11px;color:var(--sub);margin-top:8px">Nenhuma revisão agendada. Use "Agendar revisão" para marcar data/observação.</div>
   </div>`;
   return blocoRevs+`<div style="display:flex;justify-content:flex-end;margin-bottom:8px;gap:6px">
+    <button class="btn bx bs" onclick="painelAvisosOleo()" title="Fila automática de avisos de óleo (motos perto do KM de troca)" style="background:rgba(249,115,22,.15);color:var(--acc)">🛢️ Avisos de Óleo</button>
     <button class="btn bx bs" onclick="configIntervalos()" title="Configurar km de troca de óleo, revisão, correia e pneu">⚙️ Intervalos</button>
     <button class="btn bx bs" onclick="abrirImportacaoLote()" title="Importar várias manutenções de uma vez via texto">📋 Importação em Lote</button>
     <button class="btn bx bs" onclick="sincronizarKmManutencao(false)" title="Recalcula loilKm/lrevKm de cada moto baseado no histórico de manutenção">🔄 Sincronizar KM de Manutenção</button>
@@ -6704,7 +6833,7 @@ function vInd(){
         .join('\n');
       return`<tr>
         <td><b>${m.placa}</b></td>
-        <td style="max-width:130px;font-size:12px">${m.nome}</td>
+        <td style="max-width:130px;font-size:12px">${m.nome}${(()=>{const n=getNotaObj(m.id);return n&&n.txt?`<br><span style="font-size:10px;color:var(--yel)" title="Anotação do Plantão (${n.data})">📝 ${n.txt.slice(0,40)}${n.txt.length>40?'…':''}</span>`:'';})()}</td>
         <td>${fR(m.val)}</td>
         <td><span class="badge" style="background:${corBg};color:${cor};font-weight:700">${w} sem${w>1?'anas':'ana'}</span></td>
         <td style="color:${cor};font-weight:700">${fR(debt.total)}</td>
@@ -7141,6 +7270,88 @@ function sPgHoje(mId){openPgModal(mId,wS(tod()))}
 
 // ── WhatsApp de Cobrança ──────────────────────────────────────────────────────
 
+// ── FILA AUTOMÁTICA DE AVISOS DE ÓLEO ───────────────────────────────────────
+// O sistema detecta sozinho quem está chegando perto do KM de troca e monta a
+// fila de avisos. Guarda quem já foi avisado (por moto + KM da última troca),
+// pra não repetir o mesmo aviso e não esquecer ninguém.
+// LIMITE_AVISO_KM: começa a avisar quando faltam <= X km para vencer.
+const LIMITE_AVISO_KM=200;
+function getAvisosOleo(){try{return JSON.parse(localStorage.getItem('mg_avisos_oleo')||'{}');}catch{return{};}}
+function marcarAvisoOleo(mId,loilKm){
+  const a=getAvisosOleo();
+  a[mId]={loilKm,ts:Date.now()}; // chaveado pelo KM da última troca: nova troca zera o aviso
+  localStorage.setItem('mg_avisos_oleo',JSON.stringify(a));
+}
+function jaAvisadoOleo(m){
+  const a=getAvisosOleo()[m.id];
+  // Só conta como "já avisado" se foi no ciclo atual (mesma última troca de óleo)
+  return a && a.loilKm===(m.loilKm||0);
+}
+// Retorna as motos que precisam de aviso de óleo, classificadas
+function filaAvisosOleo(){
+  const I=(m)=>mntFor(m).OIL; // intervalo de óleo por modelo
+  return DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim()&&m.odo>0).map(m=>{
+    const oil=I(m);
+    const kmDesde=m.odo-(m.loilKm||0);
+    const restante=oil-kmDesde; // negativo = vencido
+    return {m,restante,kmDesde,oil,avisado:jaAvisadoOleo(m)};
+  }).filter(x=>x.restante<=LIMITE_AVISO_KM) // perto de vencer ou já vencido
+    .sort((a,b)=>a.restante-b.restante); // mais urgentes primeiro
+}
+// Painel da fila
+function painelAvisosOleo(){
+  const fila=filaAvisosOleo();
+  const pend=fila.filter(x=>!x.avisado);
+  const feitos=fila.filter(x=>x.avisado);
+  const linha=x=>{
+    const {m,restante}=x;
+    const vencido=restante<=0;
+    const cor=vencido?'var(--red)':restante<=100?'var(--acc)':'var(--yel)';
+    const st=vencido?`VENCIDO ${fN(Math.abs(restante))} km`:`faltam ${fN(restante)} km`;
+    return`<tr id="aviso_row_${m.id}">
+      <td><b>${m.placa}</b></td>
+      <td style="font-size:12px;max-width:140px">${m.nome.split(' ').slice(0,2).join(' ')}</td>
+      <td style="color:${cor};font-weight:700;font-size:12px">${st}</td>
+      <td class="row" style="gap:4px">
+        <button class="btn bxs" style="background:#25d366;color:#fff;border:none;font-size:11px" onclick="enviarAvisoOleo('${m.id}')" title="Abrir WhatsApp e marcar como avisado">📱 Avisar</button>
+        ${x.avisado?'<span style="font-size:10px;color:var(--grn)">✓ avisado</span>':''}
+      </td>
+    </tr>`;
+  };
+  showM(mWrap('mFilaOleo',`<div class="modal" style="max-width:600px">
+    <div class="mh"><span class="ct">🛢️ Avisos de Óleo — fila automática</span><button class="btn bx" onclick="closeM('mFilaOleo')">✕</button></div>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:12px">Motos chegando no KM de troca (≤ ${LIMITE_AVISO_KM} km) ou já vencidas. O sistema marca quem você já avisou — quando a troca é registrada, o aviso zera sozinho.</p>
+    <div class="row" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="background:var(--redbg);border-radius:8px;padding:8px 14px;font-size:12px;color:var(--red);flex:1;text-align:center"><b>${pend.length}</b> a avisar</div>
+      <div style="background:var(--grnbg);border-radius:8px;padding:8px 14px;font-size:12px;color:var(--grn);flex:1;text-align:center"><b>${feitos.length}</b> já avisados</div>
+    </div>
+    ${!fila.length?`<div class="empty" style="padding:30px;text-align:center">✅ Nenhuma moto perto do KM de troca.</div>`:`
+    <div style="overflow-x:auto;max-height:50vh;overflow-y:auto"><table class="tbl">
+      <thead><tr><th>Placa</th><th>Locatário</th><th>Situação</th><th>Ação</th></tr></thead>
+      <tbody>${[...pend,...feitos].map(linha).join('')}</tbody>
+    </table></div>`}
+  </div>`));
+}
+function enviarAvisoOleo(mId){
+  const m=DB.motos.find(x=>x.id===mId);if(!m)return;
+  const oil=mntFor(m).OIL;
+  const kmDesde=Math.max(0,m.odo-(m.loilKm||0));
+  const atrasado=kmDesde>=oil?kmDesde-oil:0;
+  const pN=m.nome.split(' ')[0];
+  let msg='🛢️ Olá, *'+pN+'*!\n\nA moto *'+m.placa+'* está com troca de óleo ';
+  if(atrasado>0) msg+='*VENCIDA há '+fN(atrasado)+' km*. ⚠️\n\nPasse na *AMS Motos* o quanto antes para evitar danos ao motor. 🙏';
+  else msg+='*próxima — faltam '+fN(oil-kmDesde)+' km*.\n\nJá agende sua passagem na *AMS Motos* pra não rodar vencido. 🔧';
+  msg+='\n\n_AMS Motos 🏍️_';
+  // Marca como avisado ANTES de abrir (o clique já é a ação humana exigida pelo WhatsApp)
+  marcarAvisoOleo(m.id, m.loilKm||0);
+  const pasta=DB.locPastas.find(p=>p.mId===mId);
+  const tel=(pasta?.telefone||'').replace(/\D/g,'');
+  window.open('https://wa.me/'+(tel?'55'+tel:'')+'?text='+encodeURIComponent(msg),'_blank');
+  // Atualiza a linha na fila sem fechar
+  const row=document.getElementById('aviso_row_'+m.id);
+  if(row) row.style.opacity='.5';
+  toast('📱 '+m.placa+': aviso aberto e marcado.','grn');
+}
 function waOleo(mId){
   const m=DB.motos.find(x=>x.id===mId);if(!m)return;
   const kmDesde=Math.max(0,m.odo-(m.loilKm||0));
@@ -9856,6 +10067,8 @@ function saveAll(){
   const btn=document.getElementById('saveBtn');
   if(btn){btn.textContent='✅ Salvo!';btn.style.background='#16a34a';
     setTimeout(()=>{btn.textContent='💾 Salvar';btn.style.background='#22c55e';},2000);}
+  // Backup automático na nuvem (no máx. 1x a cada 10 min, se Firebase conectado)
+  try{ autoBackupNuvem(); }catch(e){}
 }
 
 // Auto-save periódico: salva a cada 5 minutos se houve mudança
@@ -10021,10 +10234,26 @@ function gerarRelatorioSemanal(){
   setTimeout(()=>w.print(),500);
 }
 
+// Snapshot COMPLETO do DB — todas as tabelas (usado por backup local e nuvem)
+function snapshotDB(){
+  const snap={version:2,date:new Date().toLocaleString('pt-BR'),ts:Date.now()};
+  Object.keys(DB).forEach(k=>{ snap[k]=DB[k]; });
+  return snap;
+}
+// Restaura um snapshot para o DB e persiste no localStorage
+function restaurarSnapshot(data){
+  if(!data||!data.motos) return false;
+  // Mapa prop→chave curta, igual ao usado na carga do DB (const DB={...})
+  const chave={motos:'m',leit:'l',seg:'s',multas:'mu',est:'e',mov:'mv',os:'os',pg:'pg',extras:'extras',mhist:'mhist',contratos:'ct',caucoes:'cau',fotos:'fts',chats:'chats',solics:'solics',intervencoes:'intv',histLoc:'histloc',agenda:'agenda',cobOleo:'cobOleo',boletos:'boletos',pgOficina:'pgOficina',negociacoes:'negoc',sinistros:'sinistros',wamensagens:'wamsg',locPastas:'locpastas',odoHist:'odohist',iaLog:'ialog'};
+  Object.keys(DB).forEach(prop=>{
+    if(data[prop]!==undefined) DB[prop]=data[prop];
+    const short=chave[prop]||prop;
+    S.set('mg_'+short, DB[prop]);
+  });
+  return true;
+}
 function exportBackup(){
-  const data={version:1,date:new Date().toLocaleString('pt-BR'),
-    motos:DB.motos,leit:DB.leit,seg:DB.seg,multas:DB.multas,
-    est:DB.est,mov:DB.mov,os:DB.os,pg:DB.pg,mhist:DB.mhist};
+  const data=snapshotDB();
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
@@ -10032,6 +10261,62 @@ function exportBackup(){
   const stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   a.href=url;a.download='motogest_backup_'+stamp+'.json';a.click();
   URL.revokeObjectURL(url);
+}
+// ── BACKUP NA NUVEM (Firebase — reusa a conexão do GPS) ─────────────────────
+async function backupNuvem(silencioso){
+  if(!window._fbRef){
+    if(!silencioso) alert('⚠️ Firebase não conectado. Abra 🔥 Sync e conecte primeiro (mesma conexão do GPS).');
+    return false;
+  }
+  try{
+    const snap=snapshotDB();
+    const d=new Date();
+    const stamp=d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+'_'+String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0');
+    await window._fbRef.child('backup_latest').set(snap);
+    await window._fbRef.child('backups').child(stamp).set({date:snap.date,ts:snap.ts,motos:(snap.motos||[]).length,pg:(snap.pg||[]).length});
+    localStorage.setItem('mg_cloud_bkp_ts',Date.now().toString());
+    _cloudBkpLast=Date.now();
+    const ind=document.getElementById('cloudBkpBtn');
+    if(ind){const hh=d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});ind.title='Último backup na nuvem: '+hh;}
+    if(!silencioso) toast('☁️ Backup na nuvem salvo! ('+((JSON.stringify(snap).length/1024)|0)+' KB)','grn');
+    return true;
+  }catch(e){
+    if(!silencioso) alert('❌ Erro no backup na nuvem:\n'+e.message);
+    console.error('[Backup nuvem]',e);
+    return false;
+  }
+}
+async function restaurarNuvem(){
+  if(!window._fbRef){alert('⚠️ Firebase não conectado. Abra 🔥 Sync primeiro.');return;}
+  try{
+    const s=await window._fbRef.child('backup_latest').once('value');
+    const data=s.val();
+    if(!data||!data.motos){alert('⚠️ Nenhum backup na nuvem encontrado ainda. Faça um backup primeiro.');return;}
+    const cmp=[
+      ['motos',DB.motos.length,(data.motos||[]).length],
+      ['pagamentos',DB.pg.length,(data.pg||[]).length],
+      ['contratos',DB.contratos.length,(data.contratos||[]).length],
+      ['manutenções',DB.mhist.length,(data.mhist||[]).length]
+    ];
+    const perdas=cmp.filter(([,a,b])=>a>b);
+    const msg='☁️ RESTAURAR DA NUVEM\n\nBackup de: '+(data.date||'?')+'\n\n'+
+      cmp.map(([k,a,b])=>'  '+k+': '+a+' → '+b+(a>b?' ⚠️':a<b?' (+'+(b-a)+')':' =')).join('\n')+
+      (perdas.length?'\n\n🚨 O backup da nuvem tem MENOS dados em: '+perdas.map(p=>p[0]).join(', ')+'.\nVocê pode perder dados recentes.':'')+
+      '\n\nProsseguir?';
+    if(!confirm(msg))return;
+    if(perdas.length){const c=prompt('Para confirmar, digite RESTAURAR:');if(c!=='RESTAURAR'){alert('❌ Cancelado.');return;}}
+    S.set('mg_bkp_pre_restore_nuvem',snapshotDB());
+    restaurarSnapshot(data);
+    alert('✅ Dados restaurados da nuvem! A tela vai recarregar.');
+    location.reload();
+  }catch(e){alert('❌ Erro ao restaurar da nuvem:\n'+e.message);}
+}
+let _cloudBkpLast=Number(localStorage.getItem('mg_cloud_bkp_ts')||0);
+function autoBackupNuvem(){
+  if(!window._fbRef) return;
+  const agora=Date.now();
+  if(agora-_cloudBkpLast < 10*60*1000) return;
+  backupNuvem(true);
 }
 function importBackup(evt){
   const file=evt.target.files[0];if(!file)return;
@@ -12396,7 +12681,7 @@ function excluirBoleto(id){if(!confirm('Excluir este boleto?'))return;DB.boletos
 /* ---------- override de render(): inclui aba Óleo e barra de pagamentos ---------- */
 function render(){
   document.getElementById('tabs').innerHTML=TABS.map(t=>`<button class="tab${TAB===t.id?' active':''}" onclick="go('${t.id}')">${t.label}</button>`).join('');
-  const fn={dash:vDash,fin:vFin,odo:vOdo,mnt:vMnt,agenda:vAgendaTab,seg:vSeg,mul:vMul,est:vEst,os:vOs,oficina:vOficina,pag:vPagWrap,oleo:vOleo,rel:vRel,mts:vMts,loc:vLoc,conf:vConf,ind:vInd,docs:vDocs,portal:vPortal,scoring:vScoring,regua:vRegua,sinistros:vSinistros,mecanico:vMecanico,mapa:vMapa};
+  const fn={dash:vDash,plantao:vPlantao,fin:vFin,odo:vOdo,mnt:vMnt,agenda:vAgendaTab,seg:vSeg,mul:vMul,est:vEst,os:vOs,oficina:vOficina,pag:vPagWrap,oleo:vOleo,rel:vRel,mts:vMts,loc:vLoc,conf:vConf,ind:vInd,docs:vDocs,portal:vPortal,scoring:vScoring,regua:vRegua,sinistros:vSinistros,mecanico:vMecanico,mapa:vMapa};
   const f=fn[TAB]||vDash;
   document.getElementById('content').innerHTML=f();
 }
