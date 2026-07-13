@@ -11665,15 +11665,42 @@ function vMecanico(){
 let _mapaFiltro='todas';
 let _mapaInstance=null;
 
+// Reavalia o status GPS considerando a IDADE do dado (não confia no rótulo congelado).
+// O campo GPS[placa].e é gravado na sincronização e nunca mais muda sozinho — então
+// uma moto pode ficar "Conectado" por semanas com dado velho. Esta função corrige isso.
+// Retorna: 'Conectado' (dado fresco + online), 'Desconectado' (offline confirmado),
+//          'Velho' (dado antigo — status real desconhecido, sync provavelmente parada).
+function statusGpsReal(placa){
+  const g=GPS[placa];
+  if(!g) return {st:'SemDado',label:'sem dado',cor:'var(--sub)'};
+  // Idade da última leitura
+  let mins=null;
+  if(g.u){
+    const t=new Date(g.u).getTime();
+    if(!isNaN(t)) mins=Math.floor((Date.now()-t)/60000);
+  }
+  // Dado com mais de 2h é considerado velho — não dá pra afirmar conectado nem desconectado
+  if(mins!=null && mins>120){
+    const idade=mins>=1440?Math.floor(mins/1440)+'d':mins>=60?Math.floor(mins/60)+'h':mins+'min';
+    return {st:'Velho',label:'dado de '+idade+' atrás',cor:'var(--yel)',mins};
+  }
+  // Dado recente: confia no rótulo gravado
+  if(g.e==='Conectado') return {st:'Conectado',label:'conectado',cor:'var(--grn)',mins};
+  if(g.e==='Desconectado') return {st:'Desconectado',label:'desconectado',cor:'var(--red)',mins};
+  return {st:'Desconhecido',label:'desconhecido',cor:'var(--yel)',mins};
+}
 function vMapa(){
   // Conta motos com coordenadas GPS
   const motosComGps=DB.motos.filter(m=>{
     const g=GPS[m.placa];
     return g&&g.lat&&g.lng&&Number(g.lat)!==0&&Number(g.lng)!==0;
   });
-  const motosConectadas=motosComGps.filter(m=>GPS[m.placa]?.e==='Conectado');
-  const motosDesc=motosComGps.filter(m=>GPS[m.placa]?.e==='Desconectado');
+  const motosConectadas=motosComGps.filter(m=>statusGpsReal(m.placa).st==='Conectado');
+  const motosDesc=motosComGps.filter(m=>statusGpsReal(m.placa).st==='Desconectado');
+  const motosVelhas=motosComGps.filter(m=>statusGpsReal(m.placa).st==='Velho');
   const motosSemGps=DB.motos.filter(m=>m.on&&!motosComGps.find(x=>x.placa===m.placa));
+  // Alerta se a maioria das motos está com dado velho → sincronização parada
+  const syncParada=motosVelhas.length > motosComGps.length*0.3;
 
   // Motos com apenas endereço (sem lat/lng)
   const motosEndOnly=DB.motos.filter(m=>{
@@ -11687,8 +11714,17 @@ function vMapa(){
     <div class="card" style="padding:12px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:4px">Com GPS</div><div class="num" style="color:var(--acc)">${motosComGps.length}</div></div>
     <div class="card" style="padding:12px;border-color:rgba(34,197,94,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:4px">🟢 Conectadas</div><div class="num" style="color:var(--grn)">${motosConectadas.length}</div></div>
     <div class="card" style="padding:12px;border-color:rgba(239,68,68,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:4px">🔴 Desconectadas</div><div class="num" style="color:var(--red)">${motosDesc.length}</div></div>
-    <div class="card" style="padding:12px"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:4px">Sem GPS</div><div class="num" style="color:var(--sub)">${motosSemGps.length}</div></div>
+    <div class="card" style="padding:12px;border-color:rgba(234,179,8,.3)"><div style="font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;margin-bottom:4px">🟡 Dado Velho</div><div class="num" style="color:var(--yel)">${motosVelhas.length}</div></div>
   </div>
+
+  ${syncParada?`<div class="card" style="margin-bottom:12px;border:2px solid var(--yel);background:var(--yelbg)">
+    <div style="font-size:14px;font-weight:800;color:var(--yel);margin-bottom:6px">⚠️ Sincronização provavelmente parada — ${motosVelhas.length} motos com dado antigo</div>
+    <div style="font-size:13px;color:var(--txt);line-height:1.6;margin-bottom:10px">A maioria das motos está com leitura de GPS antiga (mais de 2h). Isso quase sempre significa que a <b>sincronização parou</b>, não que as motos desligaram. No rastreador elas continuam ativas.</div>
+    <div class="row" style="gap:8px;flex-wrap:wrap">
+      <button class="btn br" style="background:var(--yel);color:#000;border:none" onclick="syncGps(true)">🔄 Sincronizar agora</button>
+      <button class="btn bx" onclick="openGpsSettings()">⚙️ Configurar rastreador</button>
+    </div>
+  </div>`:''}
 
   <div class="card" style="margin-bottom:12px"><div class="ch">
     <span class="ct">🗺️ Mapa da Frota — Salvador, BA</span>
@@ -11719,12 +11755,14 @@ function vMapa(){
         return ea==='Conectado'&&eb!=='Conectado'?-1:eb==='Conectado'&&ea!=='Conectado'?1:0;
       }).map(m=>{
         const g=GPS[m.placa];
-        const cor=g.e==='Conectado'?'var(--grn)':g.e==='Desconectado'?'var(--red)':'var(--yel)';
-        const dot=g.e==='Conectado'?'🟢':g.e==='Desconectado'?'🔴':'🟡';
+        const sr=statusGpsReal(m.placa);
+        const cor=sr.cor;
+        const dot=sr.st==='Conectado'?'🟢':sr.st==='Desconectado'?'🔴':'🟡';
+        const stTxt=sr.st==='Velho'?'Dado velho':sr.st==='Conectado'?'Conectado':sr.st==='Desconectado'?'Desconectado':'Desconhecido';
         return`<tr>
           <td><b>${m.placa}</b></td>
           <td style="font-size:11px">${m.nome?(m.nome.split(' ').slice(0,2).join(' ')):'Disponível'}</td>
-          <td><span style="color:${cor};font-size:11px;font-weight:700">${dot} ${g.e}</span></td>
+          <td><span style="color:${cor};font-size:11px;font-weight:700" title="${sr.label}">${dot} ${stTxt}</span></td>
           <td style="font-size:11px;color:var(--sub)">${g.u||'—'}</td>
           <td style="font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--sub)">${g.end||'—'}</td>
           <td style="font-size:11px;color:var(--sub)">${m.odo?fN(m.odo)+' km':'—'}</td>
