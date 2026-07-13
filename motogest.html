@@ -976,31 +976,52 @@ function processarDadosGps(data){
 }
 
 // Interpreta status do Rastrear System (Traccar) corretamente
+// Faz parse de data em vários formatos: ISO, timestamp ms, e BR (dd/mm/yyyy hh:mm)
+function _parseDataGps(val){
+  if(!val) return null;
+  if(typeof val==='number') return val>1e12?val:val*1000; // timestamp ms ou s
+  const s=String(val).trim();
+  // Formato brasileiro: dd/mm/yyyy hh:mm(:ss) — JS não parseia isso nativamente
+  const br=s.match(/^(\d{2})\/(\d{2})\/(\d{4})[,\s]+(\d{2}):(\d{2})(?::(\d{2}))?/);
+  if(br){
+    const [,d,mo,y,h,mi,se]=br;
+    return new Date(+y,+mo-1,+d,+h,+mi,+(se||0)).getTime();
+  }
+  // ISO ou outros formatos que o JS entende
+  const t=new Date(s).getTime();
+  return isNaN(t)?null:t;
+}
 function calcularStatusGps(item){
-  const st=(item.status||'').toLowerCase();
-  if(st==='online') return 'Conectado';
-  if(st==='offline'){
-    // Confirma offline pelo tempo — só marca Desconectado após 24h sem sinal
-    const lu=item.lastUpdate||item.fixTime||'';
-    if(lu){
-      try{
-        const mins=Math.floor((Date.now()-new Date(lu).getTime())/60000);
-        if(mins<=15) return 'Conectado';
-        if(mins<=1440) return 'Desconhecido'; // até 24h = amarelo
-        return 'Desconectado';                // acima de 24h = vermelho
-      }catch{}
+  const st=(item.status||'').toLowerCase().trim();
+  // Aceita variações de "online" em inglês e português
+  if(st==='online'||st==='conectado'||st==='ativo'||st==='moving'||st==='stopped'||st==='idle') {
+    // Mesmo "online", valida pela idade do dado (não confia cegamente)
+    const t0=_parseDataGps(item.lastUpdate||item.fixTime||item.u||'');
+    if(t0){
+      const mins=Math.floor((Date.now()-t0)/60000);
+      if(mins<=120) return 'Conectado';       // fresco (até 2h)
+      if(mins<=1440) return 'Desconhecido';    // até 24h
+      return 'Desconectado';
+    }
+    return 'Conectado'; // status online sem data — assume conectado
+  }
+  if(st==='offline'||st==='desconectado'||st==='inativo'){
+    const t0=_parseDataGps(item.lastUpdate||item.fixTime||item.u||'');
+    if(t0){
+      const mins=Math.floor((Date.now()-t0)/60000);
+      if(mins<=15) return 'Conectado';
+      if(mins<=1440) return 'Desconhecido';
+      return 'Desconectado';
     }
     return 'Desconhecido';
   }
-  // Sem status da API — calcula só pelo tempo
-  const lu=item.lastUpdate||item.fixTime||'';
-  if(lu){
-    try{
-      const mins=Math.floor((Date.now()-new Date(lu).getTime())/60000);
-      if(mins<=15)   return 'Conectado';
-      if(mins<=1440) return 'Desconhecido'; // até 24h = amarelo
-      return 'Desconectado';                // acima de 24h = vermelho
-    }catch{}
+  // Sem status reconhecível — decide só pela idade do dado
+  const t0=_parseDataGps(item.lastUpdate||item.fixTime||item.u||'');
+  if(t0){
+    const mins=Math.floor((Date.now()-t0)/60000);
+    if(mins<=120)  return 'Conectado';
+    if(mins<=1440) return 'Desconhecido';
+    return 'Desconectado';
   }
   return 'Desconhecido';
 }
@@ -11673,11 +11694,11 @@ let _mapaInstance=null;
 function statusGpsReal(placa){
   const g=GPS[placa];
   if(!g) return {st:'SemDado',label:'sem dado',cor:'var(--sub)'};
-  // Idade da última leitura
+  // Idade da última leitura (usa parser robusto a formato BR/ISO)
   let mins=null;
   if(g.u){
-    const t=new Date(g.u).getTime();
-    if(!isNaN(t)) mins=Math.floor((Date.now()-t)/60000);
+    const t=_parseDataGps(g.u);
+    if(t) mins=Math.floor((Date.now()-t)/60000);
   }
   // Dado com mais de 2h é considerado velho — não dá pra afirmar conectado nem desconectado
   if(mins!=null && mins>120){
