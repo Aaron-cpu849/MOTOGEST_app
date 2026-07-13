@@ -1213,7 +1213,19 @@ let _gpsAutoSyncInterval=null;
 function startGpsAutoSync(){
   if(_gpsAutoSyncInterval) return;
   if(!GPS_CFG.user||!GPS_CFG.pass) return;
-  _gpsAutoSyncInterval=setInterval(async()=>{try{await syncGps(false);}catch(e){}},5*60*1000);
+  _gpsAutoSyncInterval=setInterval(async()=>{
+    try{
+      await syncGps(false);
+      window._gpsSyncOk=Date.now();
+      localStorage.setItem('mg_gps_sync_ok', String(Date.now()));
+      localStorage.removeItem('mg_gps_sync_err');
+    }catch(e){
+      // NÃO engole mais: registra o erro para o painel de diagnóstico mostrar
+      window._gpsSyncErr={msg:e.message||String(e),ts:Date.now()};
+      localStorage.setItem('mg_gps_sync_err', JSON.stringify(window._gpsSyncErr));
+      console.error('[MotoGest] Auto-sync GPS FALHOU:', e);
+    }
+  },5*60*1000);
   console.log('[MotoGest] GPS auto-sync iniciado (5 min)');
 }
 function stopGpsAutoSync(){if(_gpsAutoSyncInterval){clearInterval(_gpsAutoSyncInterval);_gpsAutoSyncInterval=null;}}
@@ -1837,6 +1849,34 @@ function vDash(){
 
 // ── Odômetro ─────────────────────────────────────────────────────────────────
 let oDate=tod(),oBusca='',oV={};
+// Banner de saúde da sincronização GPS — distingue "sync parada" de "moto sem sinal"
+function bannerSyncGps(){
+  const tsSync=Number(localStorage.getItem('mg_gps_ts')||0);
+  const minsDesdeSync=tsSync?Math.floor((Date.now()-tsSync)/60000):null;
+  let err=null;try{err=JSON.parse(localStorage.getItem('mg_gps_sync_err')||'null');}catch{}
+  const semCred=!GPS_CFG.user||!GPS_CFG.pass;
+
+  // Caso 1: sincronização nunca rodou ou está velha (>30 min) → o problema é a SYNC, não as motos
+  if(!tsSync || minsDesdeSync>30){
+    const quando=tsSync?`há ${minsDesdeSync>=60?Math.floor(minsDesdeSync/60)+'h':minsDesdeSync+' min'}`:'nunca';
+    return `<div class="card" style="margin-bottom:12px;border:2px solid var(--red);background:var(--redbg)">
+      <div style="font-size:14px;font-weight:800;color:var(--red);margin-bottom:6px">⚠️ A sincronização do GPS parou — as motos NÃO estão realmente desconectadas</div>
+      <div style="font-size:13px;color:var(--txt);line-height:1.6;margin-bottom:10px">
+        A última atualização do GPS foi <b>${quando}</b>. Como o sistema não recebe dados novos, ele marca as motos como "desconectadas" só porque a informação está velha — mas no rastreador elas continuam ativas.
+        ${err?`<br><br><b style="color:var(--red)">Erro registrado:</b> <span style="font-size:11px;font-family:monospace">${err.msg}</span>`:''}
+        ${err&&/CORS|Failed to fetch|NetworkError|blocked/i.test(err.msg||'')?`<br><br>💡 Esse erro costuma acontecer quando o navegador bloqueia o acesso direto ao rastreador (política de segurança do servidor). Isso é comum ao abrir o sistema de outro computador. A sincronização pelo <b>Firebase</b> (via Cloudflare Worker) não sofre esse bloqueio.`:''}
+      </div>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        ${!semCred?`<button class="btn br" style="background:var(--red);color:#fff;border:none" onclick="syncGps(true)">🔄 Tentar sincronizar agora</button>`:''}
+        <button class="btn bx" onclick="openGpsSettings()">⚙️ Configurar acesso ao rastreador</button>
+        <button class="btn bx" onclick="diagGps()">🔍 Ver diagnóstico</button>
+      </div>
+    </div>`;
+  }
+
+  // Caso 2: sync recente e ok — mostra confirmação discreta
+  return `<div style="font-size:11px;color:var(--grn);margin-bottom:8px">✅ GPS sincronizado há ${minsDesdeSync} min. Motos marcadas como desconectadas estão realmente sem sinal no rastreador.</div>`;
+}
 function vOdo(){
   const ativ=DB.motos.filter(m=>m.on);
   const ld=DB.leit.filter(l=>l.data===oDate);
@@ -1870,7 +1910,7 @@ function vOdo(){
       <div class="bar-bg"><div class="bar-fill" style="width:${Math.min(100,pct)}%;background:${uc(u)}"></div></div>
     </div>`;
   }).join('');
-  return`<div class="card" style="margin-bottom:12px">
+  return `${bannerSyncGps()}<div class="card" style="margin-bottom:12px">
     <div class="ch">
       <span class="ct">Odômetro</span>
       <div class="row">
