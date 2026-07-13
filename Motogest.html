@@ -4874,6 +4874,11 @@ function openFirebaseConfig(){
     <div class="fg"><label>Database URL</label><input id="fbDbUrl" value="${cfg.databaseURL||''}" placeholder="https://seu-projeto.firebaseio.com"></div>
     <div class="fg"><label>Project ID</label><input id="fbProjId" value="${cfg.projectId||''}" placeholder="seu-projeto"></div>
     <div class="fg"><label>App ID</label><input id="fbAppId" value="${cfg.appId||''}" placeholder="1:123:web:abc..."></div>
+    <div class="fg" style="border-top:1px solid var(--bor);padding-top:12px;margin-top:4px">
+      <label>📍 Nome deste computador (para sincronização)</label>
+      <input id="fbDeviceNome" value="${localStorage.getItem('mg_device_nome')||''}" placeholder="Ex: PC do Ams, Notebook Priscila">
+      <div style="font-size:10px;color:var(--sub);margin-top:3px">Ajuda a saber quem mexeu por último quando você acessa de outro lugar.</div>
+    </div>
     <div id="fbTestResult" style="min-height:20px;font-size:12px;margin-bottom:8px"></div>
     <div class="row" style="gap:8px;justify-content:flex-end">
       ${cfg.apiKey?`<button class="btn br bxs" onclick="limparFbConfig()">🗑️ Remover</button>`:''}
@@ -4886,6 +4891,8 @@ function openFirebaseConfig(){
 function salvarFbConfig(){
   const cfg={apiKey:document.getElementById('fbApiKey').value.trim(),databaseURL:document.getElementById('fbDbUrl').value.trim(),projectId:document.getElementById('fbProjId').value.trim(),appId:document.getElementById('fbAppId').value.trim(),authDomain:(document.getElementById('fbProjId').value.trim())+'.firebaseapp.com',storageBucket:(document.getElementById('fbProjId').value.trim())+'.appspot.com',messagingSenderId:'0'};
   if(!cfg.apiKey||!cfg.databaseURL){alert('Preencha API Key e Database URL!');return;}
+  const devNome=document.getElementById('fbDeviceNome')?.value.trim();
+  if(devNome){localStorage.setItem('mg_device_nome',devNome);localStorage.setItem('mg_device_id',devNome);}
   saveFbConfig(cfg);
   initFirebase(cfg);
   closeM('mFbCfg');
@@ -5010,10 +5017,62 @@ function publicarMotosFirebase(){
   }));
   window._fbRef.child('motos_lista').set(lista).catch(e=>console.warn('Erro ao publicar motos:',e));
 }
+// ── SINCRONIZAÇÃO ENTRE DISPOSITIVOS ────────────────────────────────────────
+// Cenário: você + Priscila, raramente ao mesmo tempo, tudo no PC.
+// Regra conservadora: ao abrir, se a nuvem tiver versão MAIS NOVA que a última
+// que ESTE dispositivo sincronizou, avisa e oferece puxar — NUNCA sobrescreve
+// sem você confirmar. Ao salvar, sobe (já configurado via autoBackupNuvem).
+function getDeviceId(){
+  let id=localStorage.getItem('mg_device_id');
+  if(!id){
+    id=(localStorage.getItem('mg_device_nome')||'')||('PC-'+Math.random().toString(36).slice(2,6).toUpperCase());
+    localStorage.setItem('mg_device_id',id);
+  }
+  return id;
+}
+async function checarSyncAoAbrir(){
+  if(!window._fbRef) return;
+  try{
+    const s=await window._fbRef.child('sync_meta').once('value');
+    const meta=s.val();
+    if(!meta||!meta.ts) return; // nunca houve backup na nuvem
+    const ultimoLocal=Number(localStorage.getItem('mg_last_sync_ts')||0);
+    // Nuvem é mais nova que a última sincronização deste dispositivo?
+    if(meta.ts > ultimoLocal + 5000){ // 5s de folga pra evitar falso positivo do próprio save
+      const qdo=meta.date||new Date(meta.ts).toLocaleString('pt-BR');
+      const outroDisp=meta.device && meta.device!==getDeviceId();
+      const quem=outroDisp?`outro dispositivo (${meta.device})`:'este sistema';
+      mostrarAvisoSync(qdo, quem, meta);
+    }
+  }catch(e){console.warn('[Sync] checagem falhou',e);}
+}
+function mostrarAvisoSync(quando, quem, meta){
+  showM(mWrap('mSyncAviso',`<div class="modal" style="max-width:480px">
+    <div class="mh"><span class="ct">☁️ Há uma versão mais recente na nuvem</span></div>
+    <div style="background:var(--blubg);border-radius:10px;padding:14px;font-size:13px;line-height:1.7;margin-bottom:14px">
+      A nuvem tem um backup mais novo que o deste computador:<br>
+      • Feito em: <b>${quando}</b><br>
+      • Por: <b>${quem}</b><br>
+      • Contém: <b>${meta.motos||'?'}</b> motos, <b>${meta.pg||'?'}</b> pagamentos<br><br>
+      Provavelmente foi mexido de outro lugar. Você quer <b>puxar esses dados</b> para cá?
+    </div>
+    <div style="background:var(--yelbg);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--yel);margin-bottom:14px">
+      ⚠️ Puxar vai substituir o que está neste computador pela versão da nuvem. Se você mexeu aqui sem salvar na nuvem, esse trabalho local será perdido. Na dúvida, faça o Backup local (📥) antes.
+    </div>
+    <div class="row" style="gap:8px;justify-content:flex-end">
+      <button class="btn bx" onclick="closeM('mSyncAviso')">Agora não (continuar com dados locais)</button>
+      <button class="btn bg" onclick="closeM('mSyncAviso');restaurarNuvem()">☁️ Puxar da nuvem</button>
+    </div>
+  </div>`));
+}
 // Inicia Firebase automaticamente se configurado
 (function(){
   const cfg=getFbConfig();
-  if(cfg&&cfg.apiKey) setTimeout(()=>initFirebase(cfg),2000);
+  if(cfg&&cfg.apiKey) setTimeout(()=>{
+    initFirebase(cfg);
+    // Após conectar, verifica se a nuvem tem versão mais recente (outro dispositivo)
+    setTimeout(checarSyncAoAbrir, 3000);
+  },2000);
 })();
 
 // ── Pagamentos ───────────────────────────────────────────────────────────────
@@ -10274,6 +10333,9 @@ async function backupNuvem(silencioso){
     const stamp=d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+'_'+String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0');
     await window._fbRef.child('backup_latest').set(snap);
     await window._fbRef.child('backups').child(stamp).set({date:snap.date,ts:snap.ts,motos:(snap.motos||[]).length,pg:(snap.pg||[]).length});
+    // Metadado de sessão: identifica quem/quando fez o último backup (controle de conflito)
+    await window._fbRef.child('sync_meta').set({ts:snap.ts,date:snap.date,device:getDeviceId(),motos:(snap.motos||[]).length,pg:(snap.pg||[]).length});
+    localStorage.setItem('mg_last_sync_ts',String(snap.ts));
     localStorage.setItem('mg_cloud_bkp_ts',Date.now().toString());
     _cloudBkpLast=Date.now();
     const ind=document.getElementById('cloudBkpBtn');
@@ -10307,6 +10369,7 @@ async function restaurarNuvem(){
     if(perdas.length){const c=prompt('Para confirmar, digite RESTAURAR:');if(c!=='RESTAURAR'){alert('❌ Cancelado.');return;}}
     S.set('mg_bkp_pre_restore_nuvem',snapshotDB());
     restaurarSnapshot(data);
+    if(data.ts) localStorage.setItem('mg_last_sync_ts',String(data.ts));
     alert('✅ Dados restaurados da nuvem! A tela vai recarregar.');
     location.reload();
   }catch(e){alert('❌ Erro ao restaurar da nuvem:\n'+e.message);}
