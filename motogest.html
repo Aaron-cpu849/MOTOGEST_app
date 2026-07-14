@@ -107,6 +107,7 @@ label{display:block;font-size:11px;color:var(--sub);margin-bottom:3px;font-weigh
   <button onclick="openGlobalSearch()" title="Busca global" style="display:flex;align-items:center;gap:5px;background:#1e293b;color:#94a3b8;border:1px solid #23232e;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">🔍 Buscar</button>
   <button id="fbBtn" onclick="openFirebaseConfig()" title="Sincronização Firebase" style="display:flex;align-items:center;gap:5px;background:#ff6b00;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px" id="fbBtn">🔥 Sync</button>
   <button id="fbSyncIndicator" onclick="syncFromFirebase(false)" title="GPS sincronizado automaticamente via Cloudflare Worker — clique para forçar sync agora" style="display:flex;align-items:center;gap:4px;background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-right:4px">🛰️ GPS</button>
+  <button onclick="diagGpsCru()" title="Ver dado GPS cru do Firebase (diagnóstico)" style="display:flex;align-items:center;gap:4px;background:#6366f1;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-right:4px">🔬</button>
   <button id="saveBtn" onclick="saveAll()" style="display:flex;align-items:center;gap:6px;background:#22c55e;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-left:auto;margin-right:8px">💾 Salvar</button>
   <button onclick="exportBackup()" title="Exportar backup" style="display:flex;align-items:center;gap:5px;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">📥 Backup</button>
   <button id="cloudBkpBtn" onclick="backupNuvem(false)" title="Salvar backup na nuvem (Firebase)" style="display:flex;align-items:center;gap:5px;background:#0284c7;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-right:2px">☁️ Nuvem</button>
@@ -11866,8 +11867,9 @@ function _renderMapaFrota(forceReinit){
       if(!m.on)return false;
       const g=GPS[m.placa];
       if(!g||!g.lat||!g.lng||Number(g.lat)===0||Number(g.lng)===0)return false;
-      if(filtro==='conectadas'&&g.e!=='Conectado')return false;
-      if(filtro==='desconectadas'&&g.e!=='Desconectado')return false;
+      const sr=statusGpsReal(m.placa);
+      if(filtro==='conectadas'&&sr.st!=='Conectado')return false;
+      if(filtro==='desconectadas'&&sr.st!=='Desconectado')return false;
       return true;
     }).forEach(m=>{
       const g=GPS[m.placa];
@@ -11875,7 +11877,9 @@ function _renderMapaFrota(forceReinit){
       const lng=Number(g.lng);
       if(isNaN(lat)||isNaN(lng))return;
 
-      const cor=g.e==='Conectado'?'#22c55e':g.e==='Desconectado'?'#ef4444':'#eab308';
+      const sr=statusGpsReal(m.placa);
+      const cor=sr.st==='Conectado'?'#22c55e':sr.st==='Desconectado'?'#ef4444':'#eab308';
+      const stTxt=sr.st==='Velho'?'Dado velho ('+sr.label+')':sr.st;
       const paidByM={};
       DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push({sem:p.sem,valor:Number(p.valor||p.val||0),data:p.data||p.sem});});
       const divida=calcDebtCanonical(m,paidByM);
@@ -11901,7 +11905,7 @@ function _renderMapaFrota(forceReinit){
         <div style="font-weight:800;font-size:14px;margin-bottom:4px">🏍️ ${m.placa}</div>
         <div style="font-size:12px;color:#666;margin-bottom:6px">${m.nome||'Disponível'}</div>
         <div style="font-size:11px;line-height:1.7">
-          <div><b>GPS:</b> <span style="color:${cor.replace('#','#')}">${g.e}</span></div>
+          <div><b>GPS:</b> <span style="color:${cor}">${stTxt}</span></div>
           <div><b>Última att.:</b> ${g.u||'—'}</div>
           <div><b>Odômetro:</b> ${m.odo?fN(m.odo)+' km':'—'}</div>
           <div><b>Plano:</b> ${m.val?fR(Number(m.val))+'/sem':'—'}</div>
