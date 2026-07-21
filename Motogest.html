@@ -6889,6 +6889,43 @@ function vInd(){
   const totalSemanas=devedores.reduce((a,x)=>a+x.debt.semanas.length,0);
   const totalMulta=devedores.reduce((a,x)=>a+x.debt.semanas.reduce((b,s)=>b+s.multa,0),0);
   const totalOleo=oleoPend.reduce((a,c)=>a+Number(c.valor||30),0);
+  // ── Etapa 2: Aging de recebíveis + KPIs ──────────────────────────────────
+  const _buckets=[
+    {lbl:'0–7 dias',v:0,n:0,cor:'var(--yel)'},
+    {lbl:'8–14 dias',v:0,n:0,cor:'var(--acc)'},
+    {lbl:'15–30 dias',v:0,n:0,cor:'#fb7185'},
+    {lbl:'30+ dias',v:0,n:0,cor:'var(--red)'}
+  ];
+  devedores.forEach(x=>x.debt.semanas.forEach(sm=>{
+    const dias=sm.diasAtraso||0; const val=Number(sm.falta||0)+Number(sm.multa||0);
+    const b=dias<=7?_buckets[0]:dias<=14?_buckets[1]:dias<=30?_buckets[2]:_buckets[3];
+    b.v+=val; b.n++;
+  }));
+  const _totBuckets=_buckets.reduce((a,b)=>a+b.v,0)||0;
+  const _kpiAging=`<div class="card" style="margin-bottom:12px"><div class="ch" style="margin-bottom:8px"><span class="ct">📊 Aging de recebíveis (por tempo de atraso)</span></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+      ${_buckets.map(b=>`<div style="background:var(--sur);border-left:3px solid ${b.cor};border-radius:0 8px 8px 0;padding:10px 12px">
+        <div style="font-size:10px;color:var(--sub);text-transform:uppercase">${b.lbl}</div>
+        <div style="font-size:16px;font-weight:800;color:${b.cor}">${fR(b.v)}</div>
+        <div style="font-size:10px;color:var(--sub)">${b.n} semana(s) · ${_totBuckets>0?Math.round(b.v/_totBuckets*100):0}%</div>
+      </div>`).join('')}
+    </div>
+    <div style="margin-top:8px;height:8px;border-radius:4px;overflow:hidden;display:flex;background:var(--sur)">
+      ${_buckets.map(b=>`<div style="width:${_totBuckets>0?(b.v/_totBuckets*100):0}%;background:${b.cor}"></div>`).join('')}
+    </div></div>`;
+  // KPIs de gestão
+  const _totFrota=DB.motos.filter(m=>m.on).length;
+  const _alugadas=DB.motos.filter(m=>m.on&&m.nome&&m.nome.trim()).length;
+  const _ocup=_totFrota>0?Math.round(_alugadas/_totFrota*100):0;
+  const _paradas=DB.motos.filter(m=>m.on&&(m.status==='oficina'||m.status==='acidente'||m.status==='sinistro'));
+  let _prejParado=0; _paradas.forEach(m=>{ if(m.dataStatusAlt){const d=Math.max(0,Math.floor((hoje-new Date(m.dataStatusAlt+'T12:00'))/86400000)); _prejParado+=Math.floor(d/7)*Number(m.val||0);} });
+  const _taxaInad=ativ.length>0?Math.round(devedores.length/ativ.length*100):0;
+  const _kpiCard=(lbl,val,sub,cor)=>`<div class="card" style="padding:12px"><div style="font-size:10px;color:var(--sub);text-transform:uppercase;margin-bottom:2px">${lbl}</div><div style="font-size:18px;font-weight:800;color:${cor}">${val}</div><div style="font-size:10px;color:var(--sub)">${sub}</div></div>`;
+  const _kpiRow=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+    ${_kpiCard('Ocupação da frota',_ocup+'%',_alugadas+' de '+_totFrota+' motos alugadas',_ocup>=80?'var(--grn)':_ocup>=50?'var(--yel)':'var(--red)')}
+    ${_kpiCard('Motos paradas',_paradas.length,'prejuízo acumulado '+fR(_prejParado),_paradas.length?'var(--acc)':'var(--grn)')}
+    ${_kpiCard('Taxa de inadimplência',_taxaInad+'%',devedores.length+' de '+ativ.length+' locatários',_taxaInad<=15?'var(--grn)':_taxaInad<=30?'var(--yel)':'var(--red)')}
+  </div>`;
 
   // Grupos por dia
   const groups={};
@@ -6903,6 +6940,8 @@ function vInd(){
     📅 Contando semanas a partir de: <b style="color:var(--txt)">${fD(getPgCorte())}</b>
     <a href="#" style="font-size:11px;color:var(--blu)" onclick="event.preventDefault();openCorteModal()">Alterar</a>
   </div>`:``}
+  ${_kpiRow}
+  ${_kpiAging}
   <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px">
     <div class="card" style="padding:12px;border-color:rgba(239,68,68,.3)">
       <div style="font-size:10px;color:var(--sub);margin-bottom:2px">INADIMPLENTES</div>
