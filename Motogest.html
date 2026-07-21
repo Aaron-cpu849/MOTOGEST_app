@@ -282,6 +282,9 @@ function mStatus(m){return m.status||(m.nome&&m.nome.trim()?'alugada':'disponive
 function mStatusBadge(s){
   if(s==='alugada') return '<span class="badge" style="background:var(--grnbg);color:var(--grn)">🟢 ALUGADA</span>';
   if(s==='inativa') return '<span class="badge" style="background:var(--redbg);color:var(--red)">🔴 INATIVA</span>';
+  if(s==='oficina') return '<span class="badge" style="background:var(--yelbg);color:var(--yel)">🔧 OFICINA</span>';
+  if(s==='acidente') return '<span class="badge" style="background:var(--accbg);color:var(--acc)">⚠️ ACIDENTE</span>';
+  if(s==='sinistro') return '<span class="badge" style="background:var(--redbg);color:var(--red)">🚨 SINISTRO</span>';
   return '<span class="badge" style="background:var(--blubg);color:var(--blu)">🔵 DISPONÍVEL</span>';
 }
 
@@ -9451,6 +9454,7 @@ function verFotos(mId){
 function removerFoto(id){if(!confirm('Remover foto?'))return;DB.fotos=DB.fotos.filter(f=>f.id!==id);sv('fts');render();document.getElementById('mFotos')?.remove();}
 let mBusca='';
 let mSortCol='';let mSortDir=1;
+let mView='tabela';
 function sortMts(col){if(mSortCol===col)mSortDir*=-1;else{mSortCol=col;mSortDir=1;}render();}
 // ── Documentos do veículo (CNH, CRLV, Comprovante de residência) ─────────────
 const DOC_TIPOS_MOTO=[['cnh','🪪 CNH do condutor'],['crlv','🚗 CRLV do veículo'],['comprovante','🏠 Comp. de residência'],['condutor','👤 Outro doc. do condutor']];
@@ -9546,6 +9550,7 @@ function vMts(){
       <td><button class="btn bx bxs" onclick="verDocsMoto('${m.id}')" title="CNH, CRLV e comprovante de residência">📁 ${nDoc}/3</button></td>
       <td><span title="${g?g.e+' – '+g.u+(g.end?' – '+g.end:''):'Sem GPS'}">${mStatusBadge(mStatus(m))} <span style="color:${gc};font-size:11px">${gi}</span></span>${m.ocorrencia?`<br><span style="font-size:9px;color:var(--yel);max-width:120px;display:block;white-space:normal">${m.ocorrencia}</span>`:''}</td>
       <td class="row" style="gap:4px">
+        <button class="btn bx bxs" onclick="fichaLocatario('${m.id}')" title="Ficha 360°">🪪</button>
         <button class="btn bx bxs" onclick="editM('${m.id}')" title="Editar">✏️</button>
         <button class="btn bx bxs" onclick="verOdoHist('${m.id}')" title="Histórico de KM">📍</button>
         <button class="btn bx bxs" onclick="verHistLocatario('${m.placa}')" title="Histórico de locatários"${histLoc.length?'':' style="opacity:.4"'}>👥${histLoc.length?` <span style="background:var(--acc);color:#000;border-radius:8px;padding:0 4px;font-size:9px">${histLoc.length}</span>`:''}</button>
@@ -9555,16 +9560,81 @@ function vMts(){
       </td>
     </tr>`;
   }).join('');
+  const KCOLS=[['alugada','🟢 Alugada','var(--grn)'],['disponivel','🔵 Disponível','var(--blu)'],['oficina','🔧 Oficina','var(--yel)'],['acidente','⚠️ Acidente','var(--acc)'],['sinistro','🚨 Sinistro','var(--red)'],['inativa','⚫ Inativa','var(--mut)']];
+  const kanbanHtml=`<div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:8px">${KCOLS.map(([st,lbl,cor])=>{
+    const col=lista.filter(m=>mStatus(m)===st);
+    const cards=col.map(m=>{
+      const temPlano=m.nome&&m.nome.trim()&&Number(m.val)>0&&m.dia;
+      const atr=temPlano?wLateCalc(m,paidByM):null;
+      const pg=atr===null?'':atr===0?'<span class="badge" style="background:var(--grnbg);color:var(--grn);font-size:9px">em dia</span>':`<span class="badge" style="background:var(--redbg);color:var(--red);font-size:9px">${atr}s</span>`;
+      return `<div onclick="fichaLocatario('${m.id}')" style="background:var(--card);border:1px solid var(--bor);border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer">
+        <div style="font-weight:700;font-size:12px">${m.placa} ${pg}</div>
+        <div style="font-size:11px;color:var(--sub)">${m.nome||'—'}</div>
+        <div style="font-size:10px;color:var(--mut)">${m.planoTipo?m.planoTipo+' · ':''}${m.val?fR(m.val):'—'}</div>
+      </div>`;
+    }).join('')||'<div style="font-size:11px;color:var(--mut);padding:6px">—</div>';
+    return `<div style="min-width:180px;flex:1"><div style="font-size:12px;font-weight:700;color:${cor};padding:6px 4px;border-bottom:2px solid ${cor};margin-bottom:8px">${lbl} (${col.length})</div>${cards}</div>`;
+  }).join('')}</div>`;
+  const corpo = mView==='kanban' ? kanbanHtml
+    : `<div style="overflow-x:auto"><table class="tbl">
+      <thead><tr>${thS('placa','Placa')}${thS('nome','Locatário')}${thS('val','Plano')}${thS('odo','KM')}<th>Pgto</th><th>Revisão</th><th>Docs</th><th>Status</th><th>Ações</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
   return`<div class="card"><div class="ch">
     <span class="ct">Motos Cadastradas (${DB.motos.length})</span>
     <div class="row">
       <input placeholder="🔍 Buscar" style="width:180px" value="${mBusca}" oninput="mBusca=this.value;render()">
+      <button class="btn bx" onclick="mView=mView==='kanban'?'tabela':'kanban';render()" title="Alternar visualização">${mView==='kanban'?'📋 Tabela':'🗂️ Kanban'}</button>
       <button class="btn ba" onclick="showAM()">+ Nova Moto</button>
     </div></div>
-    <div style="overflow-x:auto"><table class="tbl">
-      <thead><tr>${thS('placa','Placa')}${thS('nome','Locatário')}${thS('val','Plano')}${thS('odo','KM')}<th>Pgto</th><th>Revisão</th><th>Docs</th><th>Status</th><th>Ações</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div></div>`;
+    ${corpo}</div>`;
+}
+
+function fichaLocatario(mId){
+  const m=DB.motos.find(x=>x.id===mId); if(!m) return;
+  const paidByM={}; DB.pg.forEach(p=>{if(!paidByM[p.mId])paidByM[p.mId]=[];paidByM[p.mId].push({sem:p.sem,valor:Number(p.valor||p.val||0),data:p.data||p.sem});});
+  const debt=calcDebtCanonical(m,paidByM);
+  const saldo=(typeof calcSaldo==='function')?calcSaldo(m.id):0;
+  const multas=(DB.multas||[]).filter(x=>x.mId===m.id&&x.st==='p');
+  const totMultas=multas.reduce((a,x)=>a+Number(x.val||0),0);
+  const cau=(DB.caucoes||[]).find(c=>c.mId===m.id);
+  const ct=(DB.contratos||[]).filter(c=>c.mId===m.id).sort((a,b)=>(b.venc||'').localeCompare(a.venc||''))[0];
+  const docsOk=['cnh','crlv','comprovante'].filter(t=>(DB.fotos||[]).some(f=>f.mId===m.id&&f.tipo===t));
+  const rl=m.odo>0?ms(m).rl:null;
+  const revTxt=rl===null?'—':rl<=0?'<span style="color:var(--red)">Vencida</span>':rl<=1000?`<span style="color:var(--yel)">${fN(rl)}km</span>`:'<span style="color:var(--grn)">Em dia</span>';
+  const ultPg=(DB.pg||[]).filter(p=>p.mId===m.id).sort((a,b)=>(b.data||b.sem||'').localeCompare(a.data||a.sem||''))[0];
+  const kpi=(lbl,val,cor)=>`<div style="background:var(--sur);border-radius:8px;padding:8px 10px"><div style="font-size:9px;color:var(--sub);text-transform:uppercase">${lbl}</div><div style="font-size:14px;font-weight:800;color:${cor||'var(--txt)'}">${val}</div></div>`;
+  showM(mWrap('mFicha',`<div class="modal" style="max-width:680px">
+    <div class="mh"><span class="ct">🪪 Ficha — ${m.placa} · ${m.nome||'sem locatário'}</span><button class="btn bx" onclick="closeM('mFicha')">✕</button></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${mStatusBadge(mStatus(m))}${m.planoTipo?`<span class="badge" style="background:var(--sur);color:var(--sub)">${m.planoTipo}</span>`:''}</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+      ${kpi('Plano', m.val?fR(m.val):'—')}
+      ${kpi('Saldo devedor', fR(saldo), saldo>0?'var(--red)':'var(--grn)')}
+      ${kpi('Atraso', debt.qtdSemanas+' sem', debt.qtdSemanas>0?'var(--red)':'var(--grn)')}
+      ${kpi('Dívida c/ multa', fR(debt.comMulta), debt.comMulta>0?'var(--red)':'var(--grn)')}
+      ${kpi('KM', fN(m.odo))}
+      ${kpi('Revisão', revTxt)}
+      ${kpi('Multas pend.', multas.length+' · '+fR(totMultas), multas.length?'var(--acc)':'var(--grn)')}
+      ${kpi('Caução', cau?fR(cau.val):'—')}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div style="background:var(--sur);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;margin-bottom:6px">📄 Contrato & datas</div>
+        <div style="font-size:11px;color:var(--sub);line-height:1.8">Retirada: <b>${m.dataInicio?fD(m.dataInicio):'—'}</b><br>Dia pagto: <b>${m.dia||'—'}</b><br>Vencto contrato: <b>${ct&&ct.venc?fD(ct.venc):'—'}</b><br>Últ. pagamento: <b>${ultPg?fD(ultPg.data||ultPg.sem):'—'}</b></div>
+      </div>
+      <div style="background:var(--sur);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;margin-bottom:6px">📁 Documentos (${docsOk.length}/3)</div>
+        <div style="font-size:11px;color:var(--sub);line-height:1.8">CNH: ${docsOk.includes('cnh')?'✅':'❌'}<br>CRLV: ${docsOk.includes('crlv')?'✅':'❌'}<br>Comprovante: ${docsOk.includes('comprovante')?'✅':'❌'}</div>
+        <button class="btn bx bxs" style="margin-top:6px;font-size:10px" onclick="closeM('mFicha');verDocsMoto('${m.id}')">Abrir documentos</button>
+      </div>
+    </div>
+    <div class="row" style="gap:6px;justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn bg" onclick="closeM('mFicha');openPgModal('${m.id}','')">💰 Registrar pagamento</button>
+      <button class="btn bx" onclick="closeM('mFicha');editM('${m.id}')">✏️ Editar</button>
+      ${ct?`<button class="btn bx" onclick="closeM('mFicha');verContrato('${m.id}')">📄 Contrato</button>`:''}
+      <button class="btn bx" onclick="closeM('mFicha')">Fechar</button>
+    </div>
+  </div>`));
 }
 
 function showAM(){
